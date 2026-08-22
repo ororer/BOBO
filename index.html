@@ -11,7 +11,6 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="בובו">
   
-  <!-- חיבור לפונט עברי מודרני מבית Google Fonts (Heebo) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800;900&display=swap" rel="stylesheet">
@@ -22,9 +21,7 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   
-  <!-- הזרקת PWA (Manifest & Service Worker) ישירות מהדפדפן -->
   <script>
-    // 1. יצירת Manifest שמתאר את האפליקציה לאנדרואיד
     const manifest = {
       "name": "בובו - מעקב תינוקות",
       "short_name": "בובו",
@@ -32,7 +29,7 @@
       "display": "standalone",
       "background_color": "#ffffff",
       "theme_color": "#fb7185",
-      "description": "אפליקציה משפחתית למעקב אחרי ארוחות, חיתולים וגדילה",
+      "description": "אפליקציה משפחתית למעקב אחרי ארוחות, חיתולים, טעימות וגדילה",
       "icons": [
         {
           "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23fb7185'/%3E%3Ctext x='50' y='65' font-size='50' text-anchor='middle' fill='white'%3E%F0%9F%91%B6%3C/text%3E%3C/svg%3E",
@@ -51,11 +48,14 @@
     const manifestUrl = URL.createObjectURL(manifestBlob);
     document.write(`<link rel="manifest" href="${manifestUrl}">`);
 
-    // 2. יצירת Service Worker בסיסי כדי לאפשר התקנה
     const swCode = `
       self.addEventListener('install', (e) => { self.skipWaiting(); });
       self.addEventListener('activate', (e) => { e.waitUntil(clients.claim()); });
-      self.addEventListener('fetch', (e) => { /* רשת בלבד ללא קאש בשלב זה */ });
+      self.addEventListener('fetch', (e) => {
+        e.respondWith(
+          fetch(e.request).catch(() => caches.match(e.request))
+        );
+      });
     `;
     const swBlob = new Blob([swCode], { type: 'text/javascript' });
     const swUrl = URL.createObjectURL(swBlob);
@@ -70,10 +70,7 @@
   </script>
   
   <style>
-    /* החלת הפונט החדש על כל האפליקציה */
     body { font-family: 'Heebo', sans-serif !important; }
-
-    /* פתרון מצב לילה OLED - שחור מוחלט לחיסכון בסוללה ואלגנטיות */
     html.dark body { background-image: none !important; background-color: #000000 !important; color: #f3f4f6 !important; }
     
     html.dark .bg-white, html.dark .bg-white\/80, html.dark .bg-white\/90, html.dark .bg-white\/95, html.dark .bg-gray-800, html.dark .bg-gray-800\/95 {
@@ -90,11 +87,9 @@
     html.dark .text-gray-600, html.dark .text-gray-500 { color: #a1a1aa !important; }
     html.dark header, html.dark nav { border-color: #27272a !important; }
     
-    /* הסתרת פס הגלילה בתפריט הטאבים */
     .hide-scrollbar::-webkit-scrollbar { display: none; }
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-    /* מיקרו-אינטראקציות */
     @keyframes successPop {
       0% { transform: scale(0.95); opacity: 0.8; }
       50% { transform: scale(1.05); }
@@ -102,7 +97,6 @@
     }
     .animate-success { animation: successPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
 
-    /* הגדרות חכמות להדפסה ולשמירת PDF */
     @media print {
       body * { visibility: hidden; }
       .no-print { display: none !important; }
@@ -130,8 +124,8 @@
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
-    const supabaseUrl = "https://zyejobjucmjpumdiczbt.supabase.co";
-    const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5ZWpvYmp1Y21qcHVtZGljemJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MjYyMDYsImV4cCI6MjA5OTAwMjIwNn0.MYlkEAjcr4nzF7SzNjen9Jjux-FnCksj-BdrjB4F3pA";
+    const supabaseUrl = "https://zebyzpsffpvdaoqrhonq.supabase.co";
+    const supabaseAnonKey = "sb_publishable_OlWdt_VLHdB20MKNtUYO6w_MxdZXRs4";
     const supabaseClient = supabase.createClient(supabaseUrl, supabaseAnonKey);
 
     function App() {
@@ -141,11 +135,15 @@
       const [password, setPassword] = useState('');
       const [authError, setAuthError] = useState('');
 
+      const [isOnline, setIsOnline] = useState(navigator.onLine);
+      const [pendingSyncCount, setPendingSyncCount] = useState(0);
+
       const [activeTab, setActiveTab] = useState('home');
       const [activeSection, setActiveSection] = useState(null); 
       
       const [feedings, setFeedings] = useState([]);
       const [diapers, setDiapers] = useState([]);
+      const [solids, setSolids] = useState([]);
       const [growthMetrics, setGrowthMetrics] = useState([]);
       const [timeline, setTimeline] = useState([]);
       const [dataLoading, setDataLoading] = useState(false);
@@ -181,6 +179,11 @@
       const [diaperNotes, setDiaperNotes] = useState('');
       const [diaperSaveStatus, setDiaperSaveStatus] = useState('idle');
 
+      const [solidFood, setSolidFood] = useState('');
+      const [solidReaction, setSolidReaction] = useState('liked');
+      const [solidNotes, setSolidNotes] = useState('');
+      const [solidSaveStatus, setSolidSaveStatus] = useState('idle');
+
       const [growthType, setGrowthType] = useState('weight');
       const [growthValue, setGrowthValue] = useState('');
       const [growthNotes, setGrowthNotes] = useState('');
@@ -203,14 +206,67 @@
       const [timelineFilter, setTimelineFilter] = useState('all');
       
       const [showReportModal, setShowReportModal] = useState(false);
-      // מזהה אם צריך להציג כפתור התקנה (רק למשתמשים שטרם התקינו את ה-PWA)
       const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
+
+      const getOfflineQueue = () => JSON.parse(localStorage.getItem('bobo_offline_queue') || '[]');
+      const setOfflineQueue = (q) => {
+        localStorage.setItem('bobo_offline_queue', JSON.stringify(q));
+        setPendingSyncCount(q.length);
+      };
+
+      const syncOfflineData = async () => {
+        const queue = getOfflineQueue();
+        if (queue.length === 0 || !navigator.onLine || !user) return;
+
+        const remaining = [];
+        for (const item of queue) {
+          try {
+            const { error } = await supabaseClient.from(item.table).insert(item.payload);
+            if (error) remaining.push(item);
+          } catch (e) {
+            remaining.push(item);
+          }
+        }
+        setOfflineQueue(remaining);
+        if (remaining.length === 0) {
+          loadAllDataRef.current();
+        }
+      };
+
+      useEffect(() => {
+        const handleOnline = () => { setIsOnline(true); syncOfflineData(); };
+        const handleOffline = () => setIsOnline(false);
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        setPendingSyncCount(getOfflineQueue().length);
+        return () => {
+          window.removeEventListener('online', handleOnline);
+          window.removeEventListener('offline', handleOffline);
+        };
+      }, [user]);
+
+      const performInsert = async (table, payload) => {
+        if (!navigator.onLine) {
+          const queue = getOfflineQueue();
+          queue.push({ table, payload, client_id: Date.now() });
+          setOfflineQueue(queue);
+          return { offline: true };
+        }
+        try {
+          const res = await supabaseClient.from(table).insert(payload);
+          if (res.error) throw res.error;
+          return { success: true };
+        } catch (e) {
+          const queue = getOfflineQueue();
+          queue.push({ table, payload, client_id: Date.now() });
+          setOfflineQueue(queue);
+          return { offline: true };
+        }
+      };
 
       useEffect(() => {
         const handleBeforeInstallPrompt = (e) => {
-          // מונעים מהדפדפן להקפיץ את ההודעה מיד
           e.preventDefault();
-          // שומרים את האירוע כדי שנוכל להפעיל אותו כשנרצה
           setDeferredInstallPrompt(e);
         };
         window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -221,9 +277,7 @@
         if (deferredInstallPrompt) {
           deferredInstallPrompt.prompt();
           const { outcome } = await deferredInstallPrompt.userChoice;
-          if (outcome === 'accepted') {
-            setDeferredInstallPrompt(null);
-          }
+          if (outcome === 'accepted') setDeferredInstallPrompt(null);
         }
       };
 
@@ -243,6 +297,7 @@
           return item.type === 'breastfeeding' ? 'text-rose-700 bg-rose-100 dark:text-rose-200 dark:bg-rose-900/50' : 'text-cyan-700 bg-cyan-100 dark:text-cyan-200 dark:bg-cyan-900/50';
         }
         if (item.logType === 'diaper') return 'text-amber-700 bg-amber-100 dark:text-amber-200 dark:bg-amber-900/50';
+        if (item.logType === 'solid') return 'text-emerald-700 bg-emerald-100 dark:text-emerald-200 dark:bg-emerald-900/50';
         if (item.logType === 'growth') return 'text-teal-700 bg-teal-100 dark:text-teal-200 dark:bg-teal-900/50';
         return 'text-gray-600 bg-gray-50 dark:text-gray-300 dark:bg-gray-800';
       };
@@ -254,6 +309,7 @@
           return item.type === 'breastfeeding' ? 'border-r-[6px] border-r-rose-400 dark:border-r-rose-500' : 'border-r-[6px] border-r-cyan-400 dark:border-r-cyan-500';
         }
         if (item.logType === 'diaper') return 'border-r-[6px] border-r-amber-400 dark:border-r-amber-500';
+        if (item.logType === 'solid') return 'border-r-[6px] border-r-emerald-400 dark:border-r-emerald-500';
         if (item.logType === 'growth') return 'border-r-[6px] border-r-teal-400 dark:border-r-teal-500';
         return 'border-r-[6px] border-r-gray-300 dark:border-r-gray-600';
       };
@@ -272,25 +328,26 @@
 
       useEffect(() => {
         supabaseClient.auth.getSession().then(({ data: { session } }) => {
-          setUser(session?.user || null);
+          setUser(session?.user || { id: 'temp-user', email: 'family@bobo.app' });
           setAuthLoading(false);
         });
         const { data: { subscription } } = supabaseClient.auth.onAuthStateChange((_event, session) => {
-          setUser(session?.user || null);
+          setUser(session?.user || { id: 'temp-user', email: 'family@bobo.app' });
         });
         return () => subscription.unsubscribe();
       }, []);
 
       const loadAllData = async () => {
-        if (!user) return;
         setDataLoading(true);
         try {
           const { data: fData } = await supabaseClient.from('feedings').select('*').order('created_at', { ascending: false });
           const { data: dData } = await supabaseClient.from('diapers').select('*').order('created_at', { ascending: false });
+          const { data: sData } = await supabaseClient.from('solids').select('*').order('created_at', { ascending: false });
           const { data: gData } = await supabaseClient.from('growth_metrics').select('*').order('measured_at', { ascending: false });
 
           setFeedings(fData || []);
           setDiapers(dData || []);
+          setSolids(sData || []);
           setGrowthMetrics(gData || []);
 
           const combined = [
@@ -298,10 +355,10 @@
               let logType = 'feeding';
               if (f.notes?.includes('ויטמין D')) logType = 'vitamin_d';
               else if (f.type === 'pumping' || f.notes?.includes('[שאיבת_חלב]')) logType = 'pumping';
-              
               return { ...f, logType, timestamp: f.created_at };
             }),
             ...(dData || []).map(d => ({ ...d, logType: 'diaper', timestamp: d.created_at })),
+            ...(sData || []).map(s => ({ ...s, logType: 'solid', timestamp: s.created_at })),
             ...(gData || []).map(g => ({ ...g, logType: 'growth', timestamp: g.measured_at }))
           ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
@@ -313,12 +370,12 @@
       useEffect(() => { loadAllDataRef.current = loadAllData; });
 
       useEffect(() => {
-        if (!user) return;
         loadAllDataRef.current();
         const channel = supabaseClient
           .channel('family-realtime-channel')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'feedings' }, () => { loadAllDataRef.current(); })
           .on('postgres_changes', { event: '*', schema: 'public', table: 'diapers' }, () => { loadAllDataRef.current(); })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'solids' }, () => { loadAllDataRef.current(); })
           .on('postgres_changes', { event: '*', schema: 'public', table: 'growth_metrics' }, () => { loadAllDataRef.current(); })
           .subscribe();
         return () => { supabaseClient.removeChannel(channel); };
@@ -367,17 +424,9 @@
         return () => { if (timerRef.current) clearInterval(timerRef.current); };
       }, [isTimerActive]);
 
-      const handleLogin = async (e) => {
-        e.preventDefault();
-        setAuthError('');
-        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-        if (error) setAuthError('פרטי התחברות שגויים, אנא נסה שנית.');
-      };
-
       const saveFeeding = async (customType) => {
         setFeedSaveStatus('saving');
         const currentType = customType || feedType;
-        
         let finalType = currentType;
         let finalNotes = feedNotes;
         
@@ -388,68 +437,66 @@
           finalNotes = `[שאיבת_חלב] ${feedNotes}`.trim();
         }
 
-        const { error } = await supabaseClient.from('feedings').insert({
+        await performInsert('feedings', {
           type: finalType, side: feedSide, duration_minutes: currentType === 'breastfeeding' ? duration : null, amount_ml: (currentType === 'bottle' || currentType === 'pumping') ? amount : null, notes: finalNotes || null
         });
 
-        if (error) {
-          setFeedSaveStatus('idle');
-          alert("שגיאה בשמירה: " + error.message);
-        } else {
-          setFeedSaveStatus('success');
-          setTimeout(() => {
-            setFeedNotes(''); setTimerTime(0); setIsTimerActive(false); setActiveSection(null); setFeedSide('both'); setFeedSaveStatus('idle');
-            loadAllDataRef.current();
-          }, 800);
-        }
+        setFeedSaveStatus('success');
+        setTimeout(() => {
+          setFeedNotes(''); setTimerTime(0); setIsTimerActive(false); setActiveSection(null); setFeedSide('both'); setFeedSaveStatus('idle');
+          loadAllDataRef.current();
+        }, 800);
       };
 
       const saveDiaper = async () => {
         setDiaperSaveStatus('saving');
-        const { error } = await supabaseClient.from('diapers').insert({ type: diaperType, notes: diaperNotes || null });
-        if (!error) { 
-          setDiaperSaveStatus('success');
-          setTimeout(() => {
-            setDiaperNotes(''); setActiveSection(null); setDiaperSaveStatus('idle'); loadAllDataRef.current(); 
-          }, 800);
-        } else {
-          setDiaperSaveStatus('idle');
-        }
+        await performInsert('diapers', { type: diaperType, notes: diaperNotes || null });
+        setDiaperSaveStatus('success');
+        setTimeout(() => {
+          setDiaperNotes(''); setActiveSection(null); setDiaperSaveStatus('idle'); loadAllDataRef.current(); 
+        }, 800);
       };
 
-     const logVitaminD = async () => {
+      const saveSolid = async () => {
+        if (!solidFood.trim()) return;
+        setSolidSaveStatus('saving');
+        await performInsert('solids', { food_name: solidFood.trim(), reaction: solidReaction, notes: solidNotes.trim() || null });
+        setSolidSaveStatus('success');
+        setTimeout(() => {
+          setSolidFood(''); setSolidNotes(''); setSolidReaction('liked'); setActiveSection(null); setSolidSaveStatus('idle'); loadAllDataRef.current();
+        }, 800);
+      };
+
+      const logVitaminD = async () => {
         const alreadyGivenToday = feedings.some(f => f.notes?.includes('ויטמין D') && isToday(f.created_at));
         if (alreadyGivenToday) {
           alert('💊 שימו לב: כבר ניתן ויטמין D היום! אין צורך במנה נוספת.');
           return;
         }
 
-        const { error } = await supabaseClient.from('feedings').insert({
+        await performInsert('feedings', {
           type: 'bottle', side: 'both', amount_ml: null, duration_minutes: null, notes: '💊 ויטמין D - 2 טיפות'
         });
-        if (!error) {
-          setVitDSuccess(true); setTimeout(() => setVitDSuccess(false), 1500);
-          loadAllDataRef.current();
-        }
+        setVitDSuccess(true); setTimeout(() => setVitDSuccess(false), 1500);
+        loadAllDataRef.current();
       };
 
       const saveGrowth = async () => {
         const num = parseFloat(growthValue); if (isNaN(num) || num <= 0) return;
         setGrowthSaveStatus('saving');
         const payload = { metric_type: growthType, value: num, unit: growthType === 'weight' ? 'kg' : 'cm', notes: growthNotes || null };
-        const { error } = editingGrowthId 
-          ? await supabaseClient.from('growth_metrics').update(payload).eq('id', editingGrowthId)
-          : await supabaseClient.from('growth_metrics').insert(payload);
-
-        if (!error) {
-          setGrowthSaveStatus('success');
-          setTimeout(() => {
-            setGrowthValue(''); setGrowthNotes(''); setEditingGrowthId(null); setGrowthSaveStatus('idle');
-            loadAllDataRef.current();
-          }, 800);
+        
+        if (editingGrowthId) {
+          await supabaseClient.from('growth_metrics').update(payload).eq('id', editingGrowthId);
         } else {
-          setGrowthSaveStatus('idle');
+          await performInsert('growth_metrics', payload);
         }
+
+        setGrowthSaveStatus('success');
+        setTimeout(() => {
+          setGrowthValue(''); setGrowthNotes(''); setEditingGrowthId(null); setGrowthSaveStatus('idle');
+          loadAllDataRef.current();
+        }, 800);
       };
 
       const deleteGrowth = async (id) => {
@@ -483,6 +530,7 @@
             setEditSelect2('formula'); 
           }
         } else if (item.logType === 'diaper') { setEditSelect1(item.type); } 
+        else if (item.logType === 'solid') { setEditValue1(item.food_name); setEditSelect1(item.reaction); }
         else if (item.logType === 'growth') { setEditValue1(item.value); }
       };
 
@@ -503,6 +551,8 @@
             await supabaseClient.from('feedings').update({ notes: editNotes || '💊 ויטמין D - 2 טיפות', created_at: isoTimestamp }).eq('id', editingItem.id);
           } else if (editingItem.logType === 'diaper') {
             await supabaseClient.from('diapers').update({ type: editSelect1, notes: editNotes || null, created_at: isoTimestamp }).eq('id', editingItem.id);
+          } else if (editingItem.logType === 'solid') {
+            await supabaseClient.from('solids').update({ food_name: editValue1, reaction: editSelect1, notes: editNotes || null, created_at: isoTimestamp }).eq('id', editingItem.id);
           } else if (editingItem.logType === 'growth') {
             await supabaseClient.from('growth_metrics').update({ value: parseFloat(editValue1 || 0), notes: editNotes || null, measured_at: isoTimestamp }).eq('id', editingItem.id);
           }
@@ -515,7 +565,7 @@
 
       const deleteTimelineItem = async (item) => {
         if (!confirm('האם למחוק פעולה זו מהיומן לחלוטין?')) return;
-        const table = (item.logType === 'feeding' || item.logType === 'vitamin_d' || item.logType === 'pumping') ? 'feedings' : item.logType === 'diaper' ? 'diapers' : 'growth_metrics';
+        const table = (item.logType === 'feeding' || item.logType === 'vitamin_d' || item.logType === 'pumping') ? 'feedings' : item.logType === 'diaper' ? 'diapers' : item.logType === 'solid' ? 'solids' : 'growth_metrics';
         await supabaseClient.from(table).delete().eq('id', item.id);
         loadAllDataRef.current();
       };
@@ -540,9 +590,9 @@
         if (timeline.length === 0) return alert("אין נתונים לייצוא");
         let csvContent = "\uFEFFסוג פעולה,פירוט,כמות/משך,צד/החזקה,תאריך,שעה,הערות\n";
         timeline.forEach(item => {
-          const type = item.logType === 'vitamin_d' ? 'ויטמין D' : item.logType === 'pumping' ? 'שאיבה' : item.logType === 'feeding' ? (item.type === 'breastfeeding' ? 'הנקה' : 'בקבוק') : item.logType === 'diaper' ? 'חיתול' : 'גדילה';
-          const subType = item.logType === 'vitamin_d' ? 'תוסף תזונה' : item.logType === 'pumping' ? 'שאיבת חלב' : item.logType === 'feeding' ? (item.type === 'breastfeeding' ? 'הנקה' : 'האכלה') : item.logType === 'diaper' ? (item.type === 'wet' ? 'פיפי' : item.type === 'dirty' ? 'קקי' : 'שניהם') : (item.metric_type === 'weight' ? 'משקל' : 'גובה');
-          const value = item.logType === 'vitamin_d' ? '2 טיפות' : item.logType === 'pumping' ? `${item.amount_ml} מ"ל` : item.logType === 'feeding' ? (item.duration_minutes ? `${item.duration_minutes} דקות` : `${item.amount_ml} מ"ל`) : item.logType === 'diaper' ? '' : `${item.value} ${item.unit === 'kg' ? 'ק"ג' : 'ס"מ'}`;
+          const type = item.logType === 'vitamin_d' ? 'ויטמין D' : item.logType === 'pumping' ? 'שאיבה' : item.logType === 'feeding' ? (item.type === 'breastfeeding' ? 'הנקה' : 'בקבוק') : item.logType === 'diaper' ? 'חיתול' : item.logType === 'solid' ? 'טעימות מוצקים' : 'גדילה';
+          const subType = item.logType === 'vitamin_d' ? 'תוסף תזונה' : item.logType === 'pumping' ? 'שאיבת חלב' : item.logType === 'feeding' ? (item.type === 'breastfeeding' ? 'הנקה' : 'האכלה') : item.logType === 'diaper' ? (item.type === 'wet' ? 'פיפי' : item.type === 'dirty' ? 'קקי' : 'שניהם') : item.logType === 'solid' ? item.food_name : (item.metric_type === 'weight' ? 'משקל' : 'גובה');
+          const value = item.logType === 'vitamin_d' ? '2 טיפות' : item.logType === 'pumping' ? `${item.amount_ml} מ"ל` : item.logType === 'feeding' ? (item.duration_minutes ? `${item.duration_minutes} דקות` : `${item.amount_ml} מ"ל`) : item.logType === 'diaper' ? '' : item.logType === 'solid' ? (item.reaction === 'liked' ? 'אהב' : item.reaction === 'neutral' ? 'נייטרלי' : item.reaction === 'disliked' ? 'לא אהב' : 'חשש לאלרגיה') : `${item.value} ${item.unit === 'kg' ? 'ק"ג' : 'ס"מ'}`;
           const side = item.side === 'left' ? 'שמאל' : item.side === 'right' ? 'ימין' : item.side === 'both' && item.logType !== 'vitamin_d' ? 'שניהם' : '';
           csvContent += `${type},${subType},${value},${side},${new Date(item.timestamp).toLocaleDateString('he-IL')},${new Date(item.timestamp).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'})},${item.notes ? item.notes.replace(/,/g, " ") : ""}\n`;
         });
@@ -635,24 +685,6 @@
 
       if (authLoading) return <div className="flex items-center justify-center h-screen font-bold text-gray-400 bg-gray-50 dark:bg-black">בובו מתעורר...</div>;
 
-      if (!user) {
-        return (
-          <div className="max-w-md mx-auto mt-20 p-6 bg-white dark:bg-gray-800 rounded-3xl shadow-xl border border-rose-100 dark:border-gray-700">
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-gradient-to-tr from-rose-400 to-orange-300 text-white rounded-full flex items-center justify-center mx-auto text-3xl shadow-md shadow-rose-200/50 mb-3">👶</div>
-              <h2 className="text-2xl font-bold text-gray-800 dark:text-white">בובו - סנכרון הורים</h2>
-              <p className="text-xs text-gray-500 mt-1">התחבר פעם אחת לסנכרון מלא בין המכשירים</p>
-            </div>
-            {authError && <div className="mb-4 bg-red-50 text-red-600 text-xs p-3 rounded-xl text-center font-bold">{authError}</div>}
-            <form onSubmit={handleLogin} className="space-y-4">
-              <input type="email" placeholder="אימייל משפחתי" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 dark:text-white rounded-xl border border-gray-200 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-rose-400 font-medium" required />
-              <input type="password" placeholder="סיסמה" value={password} onChange={e => setPassword(e.target.value)} className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 dark:text-white rounded-xl border border-gray-200 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-rose-400 font-medium" required />
-              <button type="submit" className="w-full bg-gradient-to-r from-rose-400 via-orange-400 to-amber-400 text-white font-bold py-3.5 rounded-xl shadow-md shadow-rose-200/50 cursor-pointer transition active:scale-95">התחל עכשיו</button>
-            </form>
-          </div>
-        );
-      }
-
       const actualBabyFeedings = feedings.filter(f => !f.notes?.includes('ויטמין D') && !f.notes?.includes('[שאיבת_חלב]') && f.type !== 'pumping');
       const actualFeedingsToday = actualBabyFeedings.filter(f => isToday(f.created_at));
       const todaysDiapers = diapers.filter(d => isToday(d.created_at));
@@ -667,6 +699,7 @@
         if (timelineFilter === 'bottle') return item.logType === 'feeding' && item.type === 'bottle';
         if (timelineFilter === 'pumping') return item.logType === 'pumping';
         if (timelineFilter === 'diaper') return item.logType === 'diaper';
+        if (timelineFilter === 'solid') return item.logType === 'solid';
         if (timelineFilter === 'vitamin_d') return item.logType === 'vitamin_d';
         return true;
       });
@@ -690,13 +723,18 @@
                   <h1 className="font-bold text-gray-800 dark:text-white text-base">{babyName}</h1>
                   <span className="text-[10px] bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 font-bold px-2 py-0.5 rounded-full">{getBabyAge()}</span>
                 </div>
-                <p className="text-[10px] text-teal-500 font-bold flex items-center gap-1">● סנכרון פעיל בזמן אמת</p>
+                <p className="text-[10px] font-bold flex items-center gap-1">
+                  {isOnline ? (
+                    <span className="text-teal-500">● סנכרון פעיל בזמן אמת</span>
+                  ) : (
+                    <span className="text-amber-500">○ מצב אופליין (שומר מקומית)</span>
+                  )}
+                  {pendingSyncCount > 0 && <span className="bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-200 px-1.5 py-0.2 rounded-full text-[9px] font-bold">{pendingSyncCount} בהמתנה</span>}
+                </p>
               </div>
             </div>
-            <button onClick={() => supabaseClient.auth.signOut()} className="text-xs font-bold text-red-500 bg-red-50 dark:bg-red-950/40 px-3 py-1.5 rounded-xl transition hover:bg-red-100 dark:hover:bg-red-900/60">התנתק</button>
           </header>
 
-          {/* כפתור התקנה של PWA אם הדפדפן תומך ועדיין לא הותקן */}
           {deferredInstallPrompt && (
             <div className="bg-rose-100 dark:bg-rose-900/50 text-rose-800 dark:text-rose-200 px-4 py-3 flex justify-between items-center no-print border-b border-rose-200 dark:border-rose-800/50">
               <span className="text-xs font-bold">התקן את בובו כאפליקציה למסך הבית! 🚀</span>
@@ -762,6 +800,7 @@
                   <button onClick={() => { setActiveSection(activeSection === 'bottle' ? null : 'bottle'); setFeedType('bottle'); }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 ${activeSection === 'bottle' ? 'bg-cyan-400 text-white shadow-md shadow-cyan-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-cyan-500 shadow-sm border border-cyan-100 dark:border-gray-700'}`}>🍼 בקבוק</button>
                   <button onClick={() => { setActiveSection(activeSection === 'pumping' ? null : 'pumping'); setFeedType('pumping'); }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 ${activeSection === 'pumping' ? 'bg-purple-400 text-white shadow-md shadow-purple-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-purple-500 shadow-sm border border-purple-100 dark:border-gray-700'}`}>🥛 שאיבה</button>
                   <button onClick={() => setActiveSection(activeSection === 'diaper' ? null : 'diaper')} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 ${activeSection === 'diaper' ? 'bg-amber-400 text-white shadow-md shadow-amber-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-amber-500 shadow-sm border border-amber-100 dark:border-gray-700'}`}>🚼 חיתול</button>
+                  <button onClick={() => setActiveSection(activeSection === 'solid' ? null : 'solid')} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 col-span-2 ${activeSection === 'solid' ? 'bg-emerald-500 text-white shadow-md shadow-emerald-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-emerald-600 shadow-sm border border-emerald-100 dark:border-gray-700'}`}>🥑 טעימות מוצקים</button>
                   {showVitaminDButton && <button onClick={logVitaminD} className={`p-3 rounded-3xl text-center flex flex-row items-center justify-center gap-2 font-bold text-sm transition-all duration-200 col-span-2 ${vitDSuccess ? 'bg-teal-400 text-white shadow-md shadow-teal-200/50 animate-success' : 'bg-white dark:bg-gray-800 text-violet-500 shadow-sm border border-violet-100 dark:border-gray-700'}`}>💊 ויטמין D (2 טיפות)</button>}
                 </div>
 
@@ -865,6 +904,38 @@
                   </div>
                 )}
 
+                {activeSection === 'solid' && (
+                  <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl shadow-lg shadow-emerald-100/40 dark:shadow-none border border-emerald-50 dark:border-gray-700 space-y-4 animate-in fade-in duration-200">
+                    <div className="flex justify-between items-center"><h3 className="font-bold text-emerald-600 text-sm">🥑 עדכון טעימות</h3><button onClick={()=>setActiveSection(null)} className="text-sm font-bold text-gray-400">✕</button></div>
+                    <div>
+                      <label className="text-xs font-bold text-gray-500 dark:text-gray-400 block mb-1">סוג המזון (למשל: בטטה, קישוא, טחינה):</label>
+                      <input type="text" value={solidFood} onChange={e => setSolidFood(e.target.value)} placeholder="שם המאכל..." className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 font-bold focus:outline-none dark:text-white" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-gray-500 dark:text-gray-400 block mb-1.5">תגובת התינוק/ת:</span>
+                      <div className="grid grid-cols-4 gap-1.5 text-xs">
+                        {[
+                          { id: 'liked', label: '😋 אהב' },
+                          { id: 'neutral', label: '😐 נייטרלי' },
+                          { id: 'disliked', label: '😖 לא אהב' },
+                          { id: 'allergic', label: '⚠️ אלרגיה' }
+                        ].map(r => (
+                          <button key={r.id} type="button" onClick={() => setSolidReaction(r.id)} className={`py-2 rounded-xl font-bold border transition ${solidReaction === r.id ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-600'}`}>{r.label}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <input type="text" value={solidNotes} onChange={e => setSolidNotes(e.target.value)} placeholder="הערות נוספות (כמות, מרקם וכו')..." className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 text-xs focus:outline-none dark:text-white" />
+                    </div>
+                    <button onClick={saveSolid} disabled={!solidFood.trim() || solidSaveStatus !== 'idle'} 
+                      className={`w-full font-bold py-3.5 rounded-xl shadow-md transition-all duration-300 flex items-center justify-center gap-2 ${
+                        solidSaveStatus === 'success' ? 'bg-green-500 text-white shadow-green-200/50 animate-success' : 'bg-emerald-500 text-white shadow-emerald-200/50 active:scale-95'
+                      }`}>
+                      {solidSaveStatus === 'saving' ? '⏳ שומר...' : solidSaveStatus === 'success' ? '✅ נשמר בהצלחה!' : 'שמור טעימה'}
+                    </button>
+                  </div>
+                )}
+
                 <div className="space-y-2.5 pt-2">
                   <div className="flex justify-between items-center px-1">
                     <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400">פעולות מהיום ({todaysTimeline.length})</h3>
@@ -881,15 +952,16 @@
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
                               <span className="text-base font-bold text-gray-900 dark:text-white">
-                                {item.logType === 'vitamin_d' ? '💊 ויטמין D' : item.logType === 'pumping' ? '🥛 שאיבה' : item.logType === 'feeding' ? (item.type === 'breastfeeding' ? '🤱 הנקה' : '🍼 בקבוק') : item.logType === 'diaper' ? '🚼 חיתול' : '📈 גדילה'}
+                                {item.logType === 'vitamin_d' ? '💊 ויטמין D' : item.logType === 'pumping' ? '🥛 שאיבה' : item.logType === 'feeding' ? (item.type === 'breastfeeding' ? '🤱 הנקה' : '🍼 בקבוק') : item.logType === 'solid' ? '🥑 טעימה' : item.logType === 'diaper' ? '🚼 חיתול' : '📈 גדילה'}
                               </span>
                               <span className={`text-xs px-2.5 py-0.5 rounded-md font-bold ${getTagColor(item)}`}>
-                                {item.logType === 'vitamin_d' ? '2 טיפות' : item.logType === 'pumping' ? `${item.amount_ml} מ"ל` : item.logType === 'feeding' ? (item.duration_minutes ? `${item.duration_minutes} דק'` : `${item.amount_ml} מ"ל`) : item.logType === 'diaper' ? (item.type === 'wet' ? 'פיפי' : item.type === 'dirty' ? 'קקי' : 'שניהם') : `${item.value} ${item.unit === 'kg' ? 'ק"ג' : 'ס"מ'}`}
+                                {item.logType === 'vitamin_d' ? '2 טיפות' : item.logType === 'pumping' ? `${item.amount_ml} מ"ל` : item.logType === 'feeding' ? (item.duration_minutes ? `${item.duration_minutes} דק'` : `${item.amount_ml} מ"ל`) : item.logType === 'solid' ? `${item.food_name}` : item.logType === 'diaper' ? (item.type === 'wet' ? 'פיפי' : item.type === 'dirty' ? 'קקי' : 'שניהם') : `${item.value} ${item.unit === 'kg' ? 'ק"ג' : 'ס"מ'}`}
                               </span>
                             </div>
                             <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mt-1">
                               בשעה <strong className="text-base text-gray-800 dark:text-gray-200">{new Date(item.timestamp).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'})}</strong> 
                               {item.side && item.logType !== 'vitamin_d' && ` | צד: ${item.side === 'left' ? 'שמאל' : item.side === 'right' ? 'ימין' : 'שניהם'}`}
+                              {item.logType === 'solid' && ` | תגובה: ${item.reaction === 'liked' ? 'אהב' : item.reaction === 'neutral' ? 'נייטרלי' : item.reaction === 'disliked' ? 'לא אהב' : 'חשש לאלרגיה'}`}
                             </p>
                             {item.notes && item.notes !== '💊 ויטמין D - 2 טיפות' && <p className="text-sm bg-gray-50 dark:bg-gray-700 p-2.5 rounded-xl text-gray-800 dark:text-gray-200 mt-2 font-medium border border-gray-100 dark:border-gray-600">{item.notes}</p>}
                           </div>
@@ -918,6 +990,7 @@
                     { id: 'bottle', label: 'בקבוק', icon: '🍼' },
                     { id: 'pumping', label: 'שאיבה', icon: '🥛' },
                     { id: 'diaper', label: 'חיתול', icon: '🚼' },
+                    { id: 'solid', label: 'טעימות', icon: '🥑' },
                     { id: 'vitamin_d', label: 'ויטמין D', icon: '💊' }
                   ].map(f => (
                     <button 
@@ -945,15 +1018,16 @@
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <span className="text-base font-bold text-gray-900 dark:text-white">
-                              {item.logType === 'vitamin_d' ? '💊 ויטמין D' : item.logType === 'pumping' ? '🥛 שאיבה' : item.logType === 'feeding' ? (item.type === 'breastfeeding' ? '🤱 הנקה' : '🍼 בקבוק') : '🚼 חיתול'}
+                              {item.logType === 'vitamin_d' ? '💊 ויטמין D' : item.logType === 'pumping' ? '🥛 שאיבה' : item.logType === 'feeding' ? (item.type === 'breastfeeding' ? '🤱 הנקה' : '🍼 בקבוק') : item.logType === 'solid' ? '🥑 טעימה' : '🚼 חיתול'}
                             </span>
                             <span className={`text-xs px-2.5 py-0.5 rounded-md font-bold ${getTagColor(item)}`}>
-                              {item.logType === 'vitamin_d' ? '2 טיפות' : item.logType === 'pumping' ? `${item.amount_ml} מ"ל` : item.logType === 'feeding' ? (item.duration_minutes ? `${item.duration_minutes} דק'` : `${item.amount_ml} מ"ל`) : (item.type === 'wet' ? 'פיפי' : item.type === 'dirty' ? 'קקי' : 'שניהם')}
+                              {item.logType === 'vitamin_d' ? '2 טיפות' : item.logType === 'pumping' ? `${item.amount_ml} מ"ל` : item.logType === 'feeding' ? (item.duration_minutes ? `${item.duration_minutes} דק'` : `${item.amount_ml} מ"ל`) : item.logType === 'solid' ? `${item.food_name}` : (item.type === 'wet' ? 'פיפי' : item.type === 'dirty' ? 'קקי' : 'שניהם')}
                             </span>
                           </div>
                           <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mt-1">
                             {new Date(item.timestamp).toLocaleDateString('he-IL')} בשעה <strong className="text-base text-gray-800 dark:text-gray-200">{new Date(item.timestamp).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'})}</strong> 
                             {item.side && item.logType !== 'vitamin_d' && ` | צד: ${item.side === 'left' ? 'שמאל' : item.side === 'right' ? 'ימין' : 'שניהם'}`}
+                            {item.logType === 'solid' && ` | תגובה: ${item.reaction === 'liked' ? 'אהב' : item.reaction === 'neutral' ? 'נייטרלי' : item.reaction === 'disliked' ? 'לא אהב' : 'חשש לאלרגיה'}`}
                           </p>
                           {item.notes && item.notes !== '💊 ויטמין D - 2 טיפות' && <p className="text-sm bg-gray-50 dark:bg-gray-700 p-2.5 rounded-xl text-gray-800 dark:text-gray-200 mt-2 font-medium border border-gray-100 dark:border-gray-600">{item.notes}</p>}
                         </div>
@@ -1089,7 +1163,6 @@
 
             {activeTab === 'growth' && (
               <div className="space-y-4 animate-in fade-in duration-200">
-                {/* --- כפתור הפקת דוח --- */}
                 <div 
                   onClick={() => setShowReportModal(true)}
                   className="flex justify-between items-center bg-gradient-to-r from-teal-400 to-emerald-400 p-4 rounded-3xl text-white shadow-md cursor-pointer transition-all active:scale-95"
@@ -1251,7 +1324,6 @@
 
           </main>
 
-          {/* --- מודאל עריכת פעולה קיימת --- */}
           {editingItem && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200 no-print">
               <div className="bg-white dark:bg-gray-800 w-full max-w-sm rounded-3xl p-5 shadow-2xl space-y-4 border border-gray-100 dark:border-gray-700 text-gray-800 dark:text-white">
@@ -1316,6 +1388,24 @@
                   </div>
                 )}
 
+                {editingItem.logType === 'solid' && (
+                  <div className="space-y-3 text-xs">
+                    <div>
+                      <label className="font-bold block mb-1.5">שם המאכל:</label>
+                      <input type="text" value={editValue1} onChange={e => setEditValue1(e.target.value)} className="w-full p-2.5 bg-gray-50 dark:bg-gray-700 font-bold border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none dark:text-white" />
+                    </div>
+                    <div>
+                      <label className="font-bold block mb-1.5">תגובת התינוק/ת:</label>
+                      <select value={editSelect1} onChange={e => setEditSelect1(e.target.value)} className="w-full p-2.5 bg-gray-50 dark:bg-gray-700 font-bold border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none dark:text-white">
+                        <option value="liked">😋 אהב</option>
+                        <option value="neutral">😐 נייטרלי</option>
+                        <option value="disliked">😖 לא אהב</option>
+                        <option value="allergic">⚠️ חשש לאלרגיה</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+
                 {editingItem.logType === 'growth' && (
                   <div className="space-y-3 text-xs">
                     <div>
@@ -1348,7 +1438,6 @@
             </div>
           )}
 
-          {/* --- מודאל דוח רפואי (Printable) --- */}
           {showReportModal && (() => {
             const weeklyData = getWeeklyMedicalSummary();
             return (
@@ -1358,7 +1447,6 @@
                   <button onClick={() => setShowReportModal(false)} className="bg-gray-800 text-white p-2 rounded-full hover:bg-gray-700">✕</button>
                 </div>
                 
-                {/* Printable Canvas */}
                 <div id="printable-report" className="w-full max-w-2xl mx-auto bg-white rounded-2xl p-6 md:p-8 shadow-2xl relative print-bg text-gray-900" dir="rtl">
                   
                   <div className="text-center mb-8 border-b-2 border-teal-100 pb-6">
