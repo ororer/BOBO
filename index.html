@@ -131,6 +131,10 @@
       const [password, setPassword] = useState('');
       const [authError, setAuthError] = useState('');
 
+      const [isOnline, setIsOnline] = useState(navigator.onLine);
+      const [pendingSyncCount, setPendingSyncCount] = useState(0);
+      const [notificationsEnabled, setNotificationsEnabled] = useState(() => Notification?.permission === 'granted');
+
       const [activeTab, setActiveTab] = useState('home');
       const [activeSection, setActiveSection] = useState(null); 
       
@@ -196,11 +200,80 @@
 
       const [lastFeedTime, setLastFeedTime] = useState(null);
       const [timeToNextFeed, setTimeToNextFeed] = useState(null);
+      const notifiedRef = useRef(false);
       
       const [timelineFilter, setTimelineFilter] = useState('all');
       const [selectedTimelineDate, setSelectedTimelineDate] = useState('');
 
       const [showReportModal, setShowReportModal] = useState(false);
+
+      const quickSolids = ['בטטה', 'גזר', 'קישוא', 'דלעת', 'בננה', 'אבוקדו', 'טחינה', 'תפוח'];
+
+      const getOfflineQueue = () => JSON.parse(localStorage.getItem('bobo_offline_queue') || '[]');
+      const setOfflineQueue = (q) => {
+        localStorage.setItem('bobo_offline_queue', JSON.stringify(q));
+        setPendingSyncCount(q.length);
+      };
+
+      const requestNotificationPermission = async () => {
+        if ('Notification' in window) {
+          const perm = await Notification.requestPermission();
+          setNotificationsEnabled(perm === 'granted');
+          if (perm === 'granted') {
+            new Notification(`בובו - התראות פעילות! 👶`, { body: 'תקבל תזכורת כשיגיע מועד ההאכלה הבא.' });
+          }
+        }
+      };
+
+      const syncOfflineData = async () => {
+        const queue = getOfflineQueue();
+        if (queue.length === 0 || !navigator.onLine || !user) return;
+
+        const remaining = [];
+        for (const item of queue) {
+          try {
+            const { error } = await supabaseClient.from(item.table).insert(item.payload);
+            if (error) remaining.push(item);
+          } catch (e) {
+            remaining.push(item);
+          }
+        }
+        setOfflineQueue(remaining);
+        if (remaining.length === 0) {
+          loadAllDataRef.current();
+        }
+      };
+
+      useEffect(() => {
+        const handleOnline = () => { setIsOnline(true); syncOfflineData(); };
+        const handleOffline = () => setIsOnline(false);
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        setPendingSyncCount(getOfflineQueue().length);
+        return () => {
+          window.removeEventListener('online', handleOnline);
+          window.removeEventListener('offline', handleOffline);
+        };
+      }, [user]);
+
+      const performInsert = async (table, payload) => {
+        if (!navigator.onLine) {
+          const queue = getOfflineQueue();
+          queue.push({ table, payload, client_id: Date.now() });
+          setOfflineQueue(queue);
+          return { offline: true };
+        }
+        try {
+          const res = await supabaseClient.from(table).insert(payload);
+          if (res.error) throw res.error;
+          return { success: true };
+        } catch (e) {
+          const queue = getOfflineQueue();
+          queue.push({ table, payload, client_id: Date.now() });
+          setOfflineQueue(queue);
+          return { offline: true };
+        }
+      };
 
       const isToday = (timestamp) => {
         if (!timestamp) return false;
@@ -278,6 +351,18 @@
           setSolids(sData);
           setGrowthMetrics(gData || []);
 
+          // חיבור רשומות רשת + רשומות אופליין שממתינות לסנכרון (Optimistic UI)
+          const offlineQueue = getOfflineQueue();
+          const offlineItems = offlineQueue.map(item => {
+            return {
+              ...item.payload,
+              id: item.client_id,
+              isOfflinePending: true,
+              logType: item.table === 'feedings' ? (item.payload.notes?.includes('ויטמין D') ? 'vitamin_d' : item.payload.notes?.includes('[שאיבת_חלב]') ? 'pumping' : 'feeding') : item.table === 'diapers' ? 'diaper' : item.table === 'solids' ? 'solid' : 'growth',
+              timestamp: item.payload.created_at || item.payload.measured_at || new Date().toISOString()
+            };
+          });
+
           const combined = [
             ...(fData || []).map(f => {
               let logType = 'feeding';
@@ -287,7 +372,8 @@
             }),
             ...(dData || []).map(d => ({ ...d, logType: 'diaper', timestamp: d.created_at })),
             ...sData.map(s => ({ ...s, logType: 'solid', timestamp: s.created_at })),
-            ...(gData || []).map(g => ({ ...g, logType: 'growth', timestamp: g.measured_at }))
+            ...(gData || []).map(g => ({ ...g, logType: 'growth', timestamp: g.measured_at })),
+            ...offlineItems
           ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
           setTimeline(combined);
@@ -319,6 +405,7 @@
 
         if (significantFeedings.length > 0) {
           setLastFeedTime(new Date(significantFeedings[0].created_at).getTime());
+          notifiedRef.current = false;
         } else {
           setLastFeedTime(null);
         }
@@ -332,12 +419,24 @@
         const updateCountdown = () => {
           const now = new Date().getTime();
           const nextFeed = lastFeedTime + (feedIntervalHours * 60 * 60 * 1000);
-          setTimeToNextFeed(nextFeed - now);
+          const diff = nextFeed - now;
+          setTimeToNextFeed(diff);
+
+          // הפעלת התראת פוש מקומית ברגע שהזמן מגיע
+          if (diff <= 0 && !notifiedRef.current && notificationsEnabled) {
+            notifiedRef.current = true;
+            if ('Notification' in window && Notification.permission === 'granted') {
+              new Notification(`🍼 זמן האכלה של ${babyName}!`, {
+                body: `עברו ${feedIntervalHours} שעות מהארוחה האחרונה.`,
+                icon: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ctext y=".9em" font-size="90"%3E🍼%3C/text%3E%3C/svg%3E'
+              });
+            }
+          }
         };
         updateCountdown();
         const interval = setInterval(updateCountdown, 1000);
         return () => clearInterval(interval);
-      }, [lastFeedTime, feedIntervalHours]);
+      }, [lastFeedTime, feedIntervalHours, notificationsEnabled, babyName]);
 
       useEffect(() => {
         if (isTimerActive) {
@@ -372,48 +471,34 @@
           finalNotes = `[שאיבת_חלב] ${feedNotes}`.trim();
         }
 
-        const { error } = await supabaseClient.from('feedings').insert({
-          type: finalType, side: feedSide, duration_minutes: currentType === 'breastfeeding' ? duration : null, amount_ml: (currentType === 'bottle' || currentType === 'pumping') ? amount : null, notes: finalNotes || null
+        await performInsert('feedings', {
+          type: finalType, side: feedSide, duration_minutes: currentType === 'breastfeeding' ? duration : null, amount_ml: (currentType === 'bottle' || currentType === 'pumping') ? amount : null, notes: finalNotes || null, created_at: new Date().toISOString()
         });
 
-        if (error) {
-          setFeedSaveStatus('idle');
-          alert("שגיאה בשמירה: " + error.message);
-        } else {
-          setFeedSaveStatus('success');
-          setTimeout(() => {
-            setFeedNotes(''); setTimerTime(0); setIsTimerActive(false); setActiveSection(null); setFeedSide('both'); setFeedSaveStatus('idle');
-            loadAllDataRef.current();
-          }, 800);
-        }
+        setFeedSaveStatus('success');
+        setTimeout(() => {
+          setFeedNotes(''); setTimerTime(0); setIsTimerActive(false); setActiveSection(null); setFeedSide('both'); setFeedSaveStatus('idle');
+          loadAllDataRef.current();
+        }, 800);
       };
 
       const saveDiaper = async () => {
         setDiaperSaveStatus('saving');
-        const { error } = await supabaseClient.from('diapers').insert({ type: diaperType, notes: diaperNotes || null });
-        if (!error) { 
-          setDiaperSaveStatus('success');
-          setTimeout(() => {
-            setDiaperNotes(''); setActiveSection(null); setDiaperSaveStatus('idle'); loadAllDataRef.current(); 
-          }, 800);
-        } else {
-          setDiaperSaveStatus('idle');
-        }
+        await performInsert('diapers', { type: diaperType, notes: diaperNotes || null, created_at: new Date().toISOString() });
+        setDiaperSaveStatus('success');
+        setTimeout(() => {
+          setDiaperNotes(''); setActiveSection(null); setDiaperSaveStatus('idle'); loadAllDataRef.current(); 
+        }, 800);
       };
 
       const saveSolid = async () => {
         if (!solidFood.trim()) return;
         setSolidSaveStatus('saving');
-        const { error } = await supabaseClient.from('solids').insert({ food_name: solidFood.trim(), reaction: solidReaction, notes: solidNotes.trim() || null });
-        if (!error) {
-          setSolidSaveStatus('success');
-          setTimeout(() => {
-            setSolidFood(''); setSolidNotes(''); setSolidReaction('liked'); setActiveSection(null); setSolidSaveStatus('idle'); loadAllDataRef.current();
-          }, 800);
-        } else {
-          setSolidSaveStatus('idle');
-          alert("שגיאה בשמירה (ודא שטבלת solids קיימת ב-Supabase): " + error.message);
-        }
+        await performInsert('solids', { food_name: solidFood.trim(), reaction: solidReaction, notes: solidNotes.trim() || null, created_at: new Date().toISOString() });
+        setSolidSaveStatus('success');
+        setTimeout(() => {
+          setSolidFood(''); setSolidNotes(''); setSolidReaction('liked'); setActiveSection(null); setSolidSaveStatus('idle'); loadAllDataRef.current();
+        }, 800);
       };
 
       const logVitaminD = async () => {
@@ -423,32 +508,29 @@
           return;
         }
 
-        const { error } = await supabaseClient.from('feedings').insert({
-          type: 'bottle', side: 'both', amount_ml: null, duration_minutes: null, notes: '💊 ויטמין D - 2 טיפות'
+        await performInsert('feedings', {
+          type: 'bottle', side: 'both', amount_ml: null, duration_minutes: null, notes: '💊 ויטמין D - 2 טיפות', created_at: new Date().toISOString()
         });
-        if (!error) {
-          setVitDSuccess(true); setTimeout(() => setVitDSuccess(false), 1500);
-          loadAllDataRef.current();
-        }
+        setVitDSuccess(true); setTimeout(() => setVitDSuccess(false), 1500);
+        loadAllDataRef.current();
       };
 
       const saveGrowth = async () => {
         const num = parseFloat(growthValue); if (isNaN(num) || num <= 0) return;
         setGrowthSaveStatus('saving');
-        const payload = { metric_type: growthType, value: num, unit: growthType === 'weight' ? 'kg' : 'cm', notes: growthNotes || null };
-        const { error } = editingGrowthId 
-          ? await supabaseClient.from('growth_metrics').update(payload).eq('id', editingGrowthId)
-          : await supabaseClient.from('growth_metrics').insert(payload);
-
-        if (!error) {
-          setGrowthSaveStatus('success');
-          setTimeout(() => {
-            setGrowthValue(''); setGrowthNotes(''); setEditingGrowthId(null); setGrowthSaveStatus('idle');
-            loadAllDataRef.current();
-          }, 800);
+        const payload = { metric_type: growthType, value: num, unit: growthType === 'weight' ? 'kg' : 'cm', notes: growthNotes || null, measured_at: new Date().toISOString() };
+        
+        if (editingGrowthId) {
+          await supabaseClient.from('growth_metrics').update(payload).eq('id', editingGrowthId);
         } else {
-          setGrowthSaveStatus('idle');
+          await performInsert('growth_metrics', payload);
         }
+
+        setGrowthSaveStatus('success');
+        setTimeout(() => {
+          setGrowthValue(''); setGrowthNotes(''); setEditingGrowthId(null); setGrowthSaveStatus('idle');
+          loadAllDataRef.current();
+        }, 800);
       };
 
       const deleteGrowth = async (id) => {
@@ -704,7 +786,14 @@
                   <h1 className="font-bold text-gray-800 dark:text-white text-base">{babyName}</h1>
                   <span className="text-[10px] bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 font-bold px-2 py-0.5 rounded-full">{getBabyAge()}</span>
                 </div>
-                <p className="text-[10px] text-teal-500 font-bold flex items-center gap-1">● סנכרון פעיל בזמן אמת</p>
+                <p className="text-[10px] font-bold flex items-center gap-1">
+                  {isOnline ? (
+                    <span className="text-teal-500">● סנכרון פעיל בזמן אמת</span>
+                  ) : (
+                    <span className="text-amber-500">○ מצב אופליין (שומר מקומית)</span>
+                  )}
+                  {pendingSyncCount > 0 && <span className="bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-200 px-1.5 py-0.2 rounded-full text-[9px] font-bold">{pendingSyncCount} בהמתנה</span>}
+                </p>
               </div>
             </div>
             <button onClick={() => supabaseClient.auth.signOut()} className="text-xs font-bold text-red-500 bg-red-50 dark:bg-red-950/40 px-3 py-1.5 rounded-xl transition hover:bg-red-100 dark:hover:bg-red-900/60">התנתק</button>
@@ -713,6 +802,7 @@
           <nav className="bg-white/95 dark:bg-gray-800/95 border-b border-gray-100 dark:border-gray-700 sticky top-19 z-40 flex text-center backdrop-blur-md rounded-b-2xl shadow-sm overflow-x-auto hide-scrollbar snap-x">
             <button onClick={() => { setActiveTab('home'); setActiveSection(null); }} className={`min-w-[65px] flex-1 py-3 text-[11px] font-bold border-b-4 transition-all duration-200 snap-center ${activeTab === 'home' ? 'text-rose-500 border-rose-400' : 'text-gray-400 border-transparent'}`}>🏠 בית</button>
             <button onClick={() => setActiveTab('timeline')} className={`min-w-[65px] flex-1 py-3 text-[11px] font-bold border-b-4 transition-all duration-200 snap-center ${activeTab === 'timeline' ? 'text-rose-500 border-rose-400' : 'text-gray-400 border-transparent'}`}>📋 יומן</button>
+            <button onClick={() => setActiveTab('solids_board')} className={`min-w-[65px] flex-1 py-3 text-[11px] font-bold border-b-4 transition-all duration-200 snap-center ${activeTab === 'solids_board' ? 'text-emerald-500 border-emerald-400' : 'text-gray-400 border-transparent'}`}>🥑 טעימות</button>
             <button onClick={() => setActiveTab('pumping')} className={`min-w-[65px] flex-1 py-3 text-[11px] font-bold border-b-4 transition-all duration-200 snap-center ${activeTab === 'pumping' ? 'text-purple-500 border-purple-400' : 'text-gray-400 border-transparent'}`}>🥛 שאיבות</button>
             <button onClick={() => setActiveTab('trends')} className={`min-w-[65px] flex-1 py-3 text-[11px] font-bold border-b-4 transition-all duration-200 snap-center ${activeTab === 'trends' ? 'text-blue-500 border-blue-400' : 'text-gray-400 border-transparent'}`}>📊 מגמות</button>
             <button onClick={() => { setActiveTab('growth'); handleCancelGrowthEdit(); }} className={`min-w-[65px] flex-1 py-3 text-[11px] font-bold border-b-4 transition-all duration-200 snap-center ${activeTab === 'growth' ? 'text-teal-500 border-teal-400' : 'text-gray-400 border-transparent'}`}>📈 גדילה</button>
@@ -757,6 +847,16 @@
                     </div>
                   )}
                 </div>
+
+                {!notificationsEnabled && 'Notification' in window && (
+                  <div onClick={requestNotificationPermission} className="bg-rose-50 dark:bg-rose-950/40 p-3 rounded-2xl border border-rose-200 dark:border-rose-800/50 flex justify-between items-center cursor-pointer">
+                    <div className="flex items-center gap-2 text-xs font-bold text-rose-700 dark:text-rose-300">
+                      <span>🔔</span>
+                      <span>הפעל התראות בנייד כדי לא לפספס שעת האכלה</span>
+                    </div>
+                    <span className="text-[10px] bg-rose-500 text-white font-bold px-2.5 py-1 rounded-lg">הפעל</span>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-3.5 pt-1">
                   <button onClick={() => { setActiveSection(activeSection === 'breast' ? null : 'breast'); setFeedType('breastfeeding'); }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 ${activeSection === 'breast' ? 'bg-rose-400 text-white shadow-md shadow-rose-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-rose-500 shadow-sm border border-rose-100 dark:border-gray-700'}`}>🤱 הנקה</button>
@@ -870,10 +970,17 @@
                 {activeSection === 'solid' && (
                   <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl shadow-lg shadow-emerald-100/40 dark:shadow-none border border-emerald-50 dark:border-gray-700 space-y-4 animate-in fade-in duration-200">
                     <div className="flex justify-between items-center"><h3 className="font-bold text-emerald-600 text-sm">🥑 עדכון טעימות</h3><button onClick={()=>setActiveSection(null)} className="text-sm font-bold text-gray-400">✕</button></div>
+                    
                     <div>
-                      <label className="text-xs font-bold text-gray-500 dark:text-gray-400 block mb-1">סוג המזון (בטטה, קישוא, טחינה וכו'):</label>
+                      <label className="text-xs font-bold text-gray-500 dark:text-gray-400 block mb-1">בחר מאכל נפוץ או הקלד:</label>
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {quickSolids.map(food => (
+                          <button key={food} type="button" onClick={() => setSolidFood(food)} className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition ${solidFood === food ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600'}`}>{food}</button>
+                        ))}
+                      </div>
                       <input type="text" value={solidFood} onChange={e => setSolidFood(e.target.value)} placeholder="שם המאכל..." className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 font-bold focus:outline-none dark:text-white" />
                     </div>
+
                     <div>
                       <span className="text-xs font-bold text-gray-500 dark:text-gray-400 block mb-1.5">תגובת התינוק/ת:</span>
                       <div className="grid grid-cols-4 gap-1.5 text-xs">
@@ -887,9 +994,11 @@
                         ))}
                       </div>
                     </div>
+
                     <div>
                       <input type="text" value={solidNotes} onChange={e => setSolidNotes(e.target.value)} placeholder="הערות נוספות (כמות, מרקם וכו')..." className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 text-xs focus:outline-none dark:text-white" />
                     </div>
+
                     <button onClick={saveSolid} disabled={!solidFood.trim() || solidSaveStatus !== 'idle'} 
                       className={`w-full font-bold py-3.5 rounded-xl shadow-md transition-all duration-300 flex items-center justify-center gap-2 ${
                         solidSaveStatus === 'success' ? 'bg-green-500 text-white shadow-green-200/50 animate-success' : 'bg-emerald-500 text-white shadow-emerald-200/50 active:scale-95'
@@ -920,6 +1029,7 @@
                               <span className={`text-xs px-2.5 py-0.5 rounded-md font-bold ${getTagColor(item)}`}>
                                 {item.logType === 'vitamin_d' ? '2 טיפות' : item.logType === 'pumping' ? `${item.amount_ml} מ"ל` : item.logType === 'feeding' ? (item.duration_minutes ? `${item.duration_minutes} דק'` : `${item.amount_ml} מ"ל`) : item.logType === 'solid' ? `${item.food_name}` : item.logType === 'diaper' ? (item.type === 'wet' ? 'פיפי' : item.type === 'dirty' ? 'קקי' : 'שניהם') : `${item.value} ${item.unit === 'kg' ? 'ק"ג' : 'ס"מ'}`}
                               </span>
+                              {item.isOfflinePending && <span className="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 font-bold px-2 py-0.5 rounded-md">⏳ ממתין לסנכרון</span>}
                             </div>
                             <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mt-1">
                               בשעה <strong className="text-base text-gray-800 dark:text-gray-200">{new Date(item.timestamp).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'})}</strong> 
@@ -946,7 +1056,7 @@
                   <h2 className="text-base font-bold text-gray-800 dark:text-white">📋 היומן המלא של {babyName}</h2>
                 </div>
 
-                {/* תיבת סינון תאריכים מוגנת Timezone */}
+                {/* תיבת סינון תאריכים */}
                 <div className="bg-white dark:bg-gray-800 p-3.5 rounded-2xl border border-rose-100 dark:border-gray-700 shadow-sm flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2 flex-1">
                     <span className="text-xs font-bold text-gray-600 dark:text-gray-300 whitespace-nowrap">📅 סנן לפי יום:</span>
@@ -967,7 +1077,7 @@
                   )}
                 </div>
 
-                {/* כפתורי סינון קטגוריות (כולל טעימות) */}
+                {/* כפתורי סינון קטגוריות */}
                 <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1 snap-x">
                   {[
                     { id: 'all', label: 'הכל', icon: '📋' },
@@ -1008,6 +1118,7 @@
                             <span className={`text-xs px-2.5 py-0.5 rounded-md font-bold ${getTagColor(item)}`}>
                               {item.logType === 'vitamin_d' ? '2 טיפות' : item.logType === 'pumping' ? `${item.amount_ml} מ"ל` : item.logType === 'feeding' ? (item.duration_minutes ? `${item.duration_minutes} דק'` : `${item.amount_ml} מ"ל`) : item.logType === 'solid' ? `${item.food_name}` : (item.type === 'wet' ? 'פיפי' : item.type === 'dirty' ? 'קקי' : 'שניהם')}
                             </span>
+                            {item.isOfflinePending && <span className="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 font-bold px-2 py-0.5 rounded-md">⏳ ממתין לסנכרון</span>}
                           </div>
                           <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mt-1">
                             {new Date(item.timestamp).toLocaleDateString('he-IL')} בשעה <strong className="text-base text-gray-800 dark:text-gray-200">{new Date(item.timestamp).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'})}</strong> 
@@ -1026,6 +1137,61 @@
                 )}
               </div>
             )}
+
+            {/* --- לוח טעימות ואלרגנים ייעודי --- */}
+            {activeTab === 'solids_board' && (() => {
+              const uniqueFoods = {};
+              solids.forEach(s => {
+                if (!uniqueFoods[s.food_name] || new Date(s.created_at) > new Date(uniqueFoods[s.food_name].created_at)) {
+                  uniqueFoods[s.food_name] = s;
+                }
+              });
+              const foodsList = Object.values(uniqueFoods);
+              const allergicFoods = foodsList.filter(f => f.reaction === 'allergic');
+
+              return (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  <div className="bg-gradient-to-r from-emerald-500 to-teal-500 p-4 rounded-3xl text-white shadow-md flex justify-between items-center">
+                    <div>
+                      <h2 className="text-base font-bold">🥑 לוח טעימות ומאכלים</h2>
+                      <p className="text-xs opacity-90 mt-0.5">סה"כ נטעמו {foodsList.length} סוגי מזונות</p>
+                    </div>
+                    <div className="text-3xl">🥄</div>
+                  </div>
+
+                  {allergicFoods.length > 0 && (
+                    <div className="bg-red-50 dark:bg-red-900/30 p-4 rounded-2xl border border-red-200 dark:border-red-800/50 space-y-2">
+                      <h3 className="text-xs font-bold text-red-600 dark:text-red-300 flex items-center gap-1.5">
+                        <span>⚠️</span> חשש לאלרגיה או רגישות ({allergicFoods.length})
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
+                        {allergicFoods.map((f, idx) => (
+                          <span key={idx} className="bg-red-100 dark:bg-red-900/60 text-red-700 dark:text-red-200 px-3 py-1 rounded-xl text-xs font-bold border border-red-200 dark:border-red-700">{f.food_name}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-3">
+                    <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400">מאכלים שנטעמו:</h3>
+                    {foodsList.length === 0 ? (
+                      <p className="text-xs text-gray-400 text-center py-6">עדיין לא תועדו טעימות.</p>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2.5">
+                        {foodsList.map((f, idx) => (
+                          <div key={idx} className="p-3 bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-100 dark:border-gray-600 flex justify-between items-center">
+                            <span className="font-bold text-xs dark:text-white">{f.food_name}</span>
+                            <span className="text-xs">
+                              {f.reaction === 'liked' ? '😋' : f.reaction === 'neutral' ? '😐' : f.reaction === 'disliked' ? '😖' : '⚠️'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             {activeTab === 'pumping' && (
               <div className="space-y-4 bg-white dark:bg-gray-800 p-5 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm animate-in fade-in duration-200">
@@ -1146,73 +1312,94 @@
               );
             })()}
 
-            {activeTab === 'growth' && (
-              <div className="space-y-4 animate-in fade-in duration-200">
-                <div 
-                  onClick={() => setShowReportModal(true)}
-                  className="flex justify-between items-center bg-gradient-to-r from-teal-400 to-emerald-400 p-4 rounded-3xl text-white shadow-md cursor-pointer transition-all active:scale-95"
-                >
-                  <div>
-                    <h2 className="font-bold text-base">📄 דוח לרופא / טיפת חלב</h2>
-                    <p className="text-xs opacity-90 mt-0.5">הפקת PDF נקי עם נתוני גדילה ויציאות</p>
-                  </div>
-                  <div className="text-2xl drop-shadow-md">🖨️</div>
-                </div>
+            {activeTab === 'growth' && (() => {
+              const weights = growthLogs.filter(g => g.metric_type === 'weight').slice(0, 7).reverse();
+              const maxW = Math.max(...weights.map(w => parseFloat(w.value || 0)), 5);
 
-                <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-4">
-                  <h2 className="text-base font-bold dark:text-white">📈 הוספת מדידה חדשה</h2>
-                  <div className="grid grid-cols-3 gap-2">
-                    {['weight', 'height', 'head_circumference'].map(t => <button key={t} onClick={() => setGrowthType(t)} className={`py-3 rounded-2xl text-sm font-bold shadow-sm transition border dark:border-gray-600 ${growthType === t ? 'bg-teal-400 text-white border-teal-400' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100'}`}>{t === 'weight' ? '⚖️ משקל' : t === 'height' ? '📏 גובה' : '⭕ היקף'}</button>)}
-                  </div>
-                  <div className="pt-3 space-y-3 border-t border-gray-100 dark:border-gray-700">
-                    <div className="flex gap-2">
-                      <input type="number" step="0.01" value={growthValue} onChange={e => setGrowthValue(e.target.value)} placeholder="הכנס ערך" className="flex-1 px-4 py-2.5 bg-gray-50 dark:bg-gray-700 font-bold text-center border border-gray-100 dark:border-gray-600 rounded-xl focus:outline-none dark:text-white" />
-                      <span className="bg-gray-100 dark:bg-gray-700 px-4 py-2.5 rounded-xl font-bold text-gray-500 dark:text-gray-300 flex items-center border border-gray-200 dark:border-gray-600">{growthType === 'weight' ? 'ק"ג' : 'ס"מ'}</span>
+              return (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  <div 
+                    onClick={() => setShowReportModal(true)}
+                    className="flex justify-between items-center bg-gradient-to-r from-teal-400 to-emerald-400 p-4 rounded-3xl text-white shadow-md cursor-pointer transition-all active:scale-95"
+                  >
+                    <div>
+                      <h2 className="font-bold text-base">📄 דוח לרופא / טיפת חלב</h2>
+                      <p className="text-xs opacity-90 mt-0.5">הפקת PDF נקי עם נתוני גדילה ויציאות</p>
                     </div>
-                    <button onClick={saveGrowth} disabled={!growthValue || growthSaveStatus !== 'idle'} 
-                      className={`w-full font-bold py-3.5 rounded-xl shadow-md transition-all duration-300 flex items-center justify-center gap-2 ${
-                        growthSaveStatus === 'success' ? 'bg-green-500 text-white shadow-green-200/50 animate-success' : 'bg-teal-400 text-white shadow-teal-200/50 active:scale-95'
-                      }`}>
-                      {growthSaveStatus === 'saving' ? '⏳ שומר...' : growthSaveStatus === 'success' ? '✅ נשמר בהצלחה!' : 'שמור מדידה'}
-                    </button>
+                    <div className="text-2xl drop-shadow-md">🖨️</div>
                   </div>
-                </div>
 
-                <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm">
-                  <h2 className="text-base font-bold dark:text-white mb-4">📋 היסטוריית גדילה ({growthLogs.length})</h2>
-                  {growthLogs.length === 0 ? (
-                    <div className="text-center text-gray-400 text-sm py-6 border border-dashed border-gray-200 dark:border-gray-700 rounded-2xl">
-                      לא תועדו מדידות גדילה עדיין.
-                    </div>
-                  ) : (
-                    <div className="space-y-2.5">
-                      {growthLogs.map((item, i) => (
-                        <div key={i} className={`bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 flex justify-between items-center shadow-sm ${getCardBorderColor(item)}`}>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-base font-bold text-gray-900 dark:text-white">
-                                {item.metric_type === 'weight' ? '⚖️ משקל' : item.metric_type === 'height' ? '📏 גובה' : '⭕ היקף'}
-                              </span>
-                              <span className={`text-xs px-2.5 py-0.5 rounded-md font-bold ${getTagColor(item)}`}>
-                                {item.value} {item.unit === 'kg' ? 'ק"ג' : 'ס"מ'}
-                              </span>
-                            </div>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mt-1">
-                              {new Date(item.timestamp).toLocaleDateString('he-IL')} בשעה <strong className="text-base text-gray-800 dark:text-gray-200">{new Date(item.timestamp).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'})}</strong>
-                            </p>
-                            {item.notes && <p className="text-sm bg-gray-50 dark:bg-gray-700 p-2.5 rounded-xl text-gray-800 dark:text-gray-200 mt-2 font-medium border border-gray-100 dark:border-gray-600">{item.notes}</p>}
+                  {weights.length > 0 && (
+                    <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                      <h3 className="text-xs font-bold mb-4 text-teal-600 dark:text-teal-400">📈 מגמת עליית משקל (ק"ג)</h3>
+                      <div className="flex items-end justify-between h-28 gap-2 relative">
+                        <div className="absolute w-full border-t border-dashed border-gray-200 dark:border-gray-700 bottom-0"></div>
+                        {weights.map((item, idx) => (
+                          <div key={idx} className="flex flex-col items-center flex-1 h-full justify-end relative z-10">
+                            <span className="text-[10px] font-bold text-teal-600 dark:text-teal-400 mb-1">{item.value}</span>
+                            <div className="w-full max-w-[24px] bg-teal-400 dark:bg-teal-500 rounded-t-lg shadow-sm" style={{ height: `${(parseFloat(item.value) / maxW) * 100}%` }}></div>
+                            <span className="text-[8px] font-medium text-gray-400 dark:text-gray-500 mt-2">{new Date(item.timestamp).toLocaleDateString('he-IL', {day:'2-digit', month:'2-digit'})}</span>
                           </div>
-                          <div className="flex gap-1.5 mr-2">
-                            <button onClick={() => openEditModal(item)} className="text-xs bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600 px-3 py-2 rounded-xl font-bold transition active:scale-95">ערוך</button>
-                            <button onClick={() => deleteTimelineItem(item)} className="text-xs bg-red-50 dark:bg-red-900/40 text-red-500 dark:text-red-400 px-3 py-2 rounded-xl font-bold transition active:scale-95">🗑️</button>
-                          </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   )}
+
+                  <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-4">
+                    <h2 className="text-base font-bold dark:text-white">📈 הוספת מדידה חדשה</h2>
+                    <div className="grid grid-cols-3 gap-2">
+                      {['weight', 'height', 'head_circumference'].map(t => <button key={t} onClick={() => setGrowthType(t)} className={`py-3 rounded-2xl text-sm font-bold shadow-sm transition border dark:border-gray-600 ${growthType === t ? 'bg-teal-400 text-white border-teal-400' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100'}`}>{t === 'weight' ? '⚖️ משקל' : t === 'height' ? '📏 גובה' : '⭕ היקף'}</button>)}
+                    </div>
+                    <div className="pt-3 space-y-3 border-t border-gray-100 dark:border-gray-700">
+                      <div className="flex gap-2">
+                        <input type="number" step="0.01" value={growthValue} onChange={e => setGrowthValue(e.target.value)} placeholder="הכנס ערך" className="flex-1 px-4 py-2.5 bg-gray-50 dark:bg-gray-700 font-bold text-center border border-gray-100 dark:border-gray-600 rounded-xl focus:outline-none dark:text-white" />
+                        <span className="bg-gray-100 dark:bg-gray-700 px-4 py-2.5 rounded-xl font-bold text-gray-500 dark:text-gray-300 flex items-center border border-gray-200 dark:border-gray-600">{growthType === 'weight' ? 'ק"ג' : 'ס"מ'}</span>
+                      </div>
+                      <button onClick={saveGrowth} disabled={!growthValue || growthSaveStatus !== 'idle'} 
+                        className={`w-full font-bold py-3.5 rounded-xl shadow-md transition-all duration-300 flex items-center justify-center gap-2 ${
+                          growthSaveStatus === 'success' ? 'bg-green-500 text-white shadow-green-200/50 animate-success' : 'bg-teal-400 text-white shadow-teal-200/50 active:scale-95'
+                        }`}>
+                        {growthSaveStatus === 'saving' ? '⏳ שומר...' : growthSaveStatus === 'success' ? '✅ נשמר בהצלחה!' : 'שמור מדידה'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                    <h2 className="text-base font-bold dark:text-white mb-4">📋 היסטוריית גדילה ({growthLogs.length})</h2>
+                    {growthLogs.length === 0 ? (
+                      <div className="text-center text-gray-400 text-sm py-6 border border-dashed border-gray-200 dark:border-gray-700 rounded-2xl">
+                        לא תועדו מדידות גדילה עדיין.
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {growthLogs.map((item, i) => (
+                          <div key={i} className={`bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 flex justify-between items-center shadow-sm ${getCardBorderColor(item)}`}>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-base font-bold text-gray-900 dark:text-white">
+                                  {item.metric_type === 'weight' ? '⚖️ משקל' : item.metric_type === 'height' ? '📏 גובה' : '⭕ היקף'}
+                                </span>
+                                <span className={`text-xs px-2.5 py-0.5 rounded-md font-bold ${getTagColor(item)}`}>
+                                  {item.value} {item.unit === 'kg' ? 'ק"ג' : 'ס"מ'}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mt-1">
+                                {new Date(item.timestamp).toLocaleDateString('he-IL')} בשעה <strong className="text-base text-gray-800 dark:text-gray-200">{new Date(item.timestamp).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'})}</strong>
+                              </p>
+                              {item.notes && <p className="text-sm bg-gray-50 dark:bg-gray-700 p-2.5 rounded-xl text-gray-800 dark:text-gray-200 mt-2 font-medium border border-gray-100 dark:border-gray-600">{item.notes}</p>}
+                            </div>
+                            <div className="flex gap-1.5 mr-2">
+                              <button onClick={() => openEditModal(item)} className="text-xs bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600 px-3 py-2 rounded-xl font-bold transition active:scale-95">ערוך</button>
+                              <button onClick={() => deleteTimelineItem(item)} className="text-xs bg-red-50 dark:bg-red-900/40 text-red-500 dark:text-red-400 px-3 py-2 rounded-xl font-bold transition active:scale-95">🗑️</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {activeTab === 'settings' && (
               <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-5">
@@ -1221,6 +1408,16 @@
                 <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700 p-3 rounded-xl border border-gray-100 dark:border-gray-600">
                   <span className="text-sm font-bold dark:text-white">🌙 מצב לילה (Dark Mode)</span>
                   <input type="checkbox" checked={isDarkMode} onChange={e => setIsDarkMode(e.target.checked)} className="w-5 h-5 accent-rose-400 cursor-pointer" />
+                </div>
+
+                <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700 p-3 rounded-xl border border-gray-100 dark:border-gray-600">
+                  <div>
+                    <span className="text-sm font-bold dark:text-white block">🔔 התראות דחיפה לנייד</span>
+                    <span className="text-[10px] text-gray-400">תזכורת בזמן אמת כשהגיע מועד ההאכלה</span>
+                  </div>
+                  <button onClick={requestNotificationPermission} className={`text-xs font-bold px-3 py-1.5 rounded-xl ${notificationsEnabled ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-200' : 'bg-rose-500 text-white'}`}>
+                    {notificationsEnabled ? 'פעיל ✓' : 'הפעל'}
+                  </button>
                 </div>
 
                 <div className="space-y-1.5 border-t border-gray-100 dark:border-gray-700 pt-3">
