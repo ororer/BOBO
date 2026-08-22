@@ -51,11 +51,7 @@
     const swCode = `
       self.addEventListener('install', (e) => { self.skipWaiting(); });
       self.addEventListener('activate', (e) => { e.waitUntil(clients.claim()); });
-      self.addEventListener('fetch', (e) => {
-        e.respondWith(
-          fetch(e.request).catch(() => caches.match(e.request))
-        );
-      });
+      self.addEventListener('fetch', (e) => { e.respondWith(fetch(e.request).catch(() => caches.match(e.request))); });
     `;
     const swBlob = new Blob([swCode], { type: 'text/javascript' });
     const swUrl = URL.createObjectURL(swBlob);
@@ -124,8 +120,9 @@
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
-    const supabaseUrl = "https://zebyzpsffpvdaoqrhonq.supabase.co";
-    const supabaseAnonKey = "sb_publishable_OlWdt_VLHdB20MKNtUYO6w_MxdZXRs4";
+    // חיבור למסד הנתונים המקורי שבו שמורה כל ההיסטוריה שלך
+    const supabaseUrl = "https://zyejobjucmjpumdiczbt.supabase.co";
+    const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5ZWpvYmp1Y21qcHVtZGljemJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MjYyMDYsImV4cCI6MjA5OTAwMjIwNn0.MYlkEAjcr4nzF7SzNjen9Jjux-FnCksj-BdrjB4F3pA";
     const supabaseClient = supabase.createClient(supabaseUrl, supabaseAnonKey);
 
     function App() {
@@ -330,26 +327,33 @@
 
       useEffect(() => {
         supabaseClient.auth.getSession().then(({ data: { session } }) => {
-          setUser(session?.user || { id: 'temp-user', email: 'family@bobo.app' });
+          setUser(session?.user || null);
           setAuthLoading(false);
         });
         const { data: { subscription } } = supabaseClient.auth.onAuthStateChange((_event, session) => {
-          setUser(session?.user || { id: 'temp-user', email: 'family@bobo.app' });
+          setUser(session?.user || null);
         });
         return () => subscription.unsubscribe();
       }, []);
 
       const loadAllData = async () => {
+        if (!user) return;
         setDataLoading(true);
         try {
           const { data: fData } = await supabaseClient.from('feedings').select('*').order('created_at', { ascending: false });
           const { data: dData } = await supabaseClient.from('diapers').select('*').order('created_at', { ascending: false });
-          const { data: sData } = await supabaseClient.from('solids').select('*').order('created_at', { ascending: false });
+          
+          let sData = [];
+          try {
+            const { data } = await supabaseClient.from('solids').select('*').order('created_at', { ascending: false });
+            sData = data || [];
+          } catch(e) {}
+
           const { data: gData } = await supabaseClient.from('growth_metrics').select('*').order('measured_at', { ascending: false });
 
           setFeedings(fData || []);
           setDiapers(dData || []);
-          setSolids(sData || []);
+          setSolids(sData);
           setGrowthMetrics(gData || []);
 
           const combined = [
@@ -360,7 +364,7 @@
               return { ...f, logType, timestamp: f.created_at };
             }),
             ...(dData || []).map(d => ({ ...d, logType: 'diaper', timestamp: d.created_at })),
-            ...(sData || []).map(s => ({ ...s, logType: 'solid', timestamp: s.created_at })),
+            ...sData.map(s => ({ ...s, logType: 'solid', timestamp: s.created_at })),
             ...(gData || []).map(g => ({ ...g, logType: 'growth', timestamp: g.measured_at }))
           ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
@@ -372,12 +376,12 @@
       useEffect(() => { loadAllDataRef.current = loadAllData; });
 
       useEffect(() => {
+        if (!user) return;
         loadAllDataRef.current();
         const channel = supabaseClient
           .channel('family-realtime-channel')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'feedings' }, () => { loadAllDataRef.current(); })
           .on('postgres_changes', { event: '*', schema: 'public', table: 'diapers' }, () => { loadAllDataRef.current(); })
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'solids' }, () => { loadAllDataRef.current(); })
           .on('postgres_changes', { event: '*', schema: 'public', table: 'growth_metrics' }, () => { loadAllDataRef.current(); })
           .subscribe();
         return () => { supabaseClient.removeChannel(channel); };
@@ -425,6 +429,13 @@
         } else { if (timerRef.current) clearInterval(timerRef.current); }
         return () => { if (timerRef.current) clearInterval(timerRef.current); };
       }, [isTimerActive]);
+
+      const handleLogin = async (e) => {
+        e.preventDefault();
+        setAuthError('');
+        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (error) setAuthError('פרטי התחברות שגויים, אנא נסה שנית.');
+      };
 
       const saveFeeding = async (customType) => {
         setFeedSaveStatus('saving');
@@ -687,6 +698,24 @@
 
       if (authLoading) return <div className="flex items-center justify-center h-screen font-bold text-gray-400 bg-gray-50 dark:bg-black">בובו מתעורר...</div>;
 
+      if (!user) {
+        return (
+          <div className="max-w-md mx-auto mt-20 p-6 bg-white dark:bg-gray-800 rounded-3xl shadow-xl border border-rose-100 dark:border-gray-700">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-gradient-to-tr from-rose-400 to-orange-300 text-white rounded-full flex items-center justify-center mx-auto text-3xl shadow-md shadow-rose-200/50 mb-3">👶</div>
+              <h2 className="text-2xl font-bold text-gray-800 dark:text-white">בובו - סנכרון הורים</h2>
+              <p className="text-xs text-gray-500 mt-1">התחבר פעם אחת לסנכרון מלא בין המכשירים</p>
+            </div>
+            {authError && <div className="mb-4 bg-red-50 text-red-600 text-xs p-3 rounded-xl text-center font-bold">{authError}</div>}
+            <form onSubmit={handleLogin} className="space-y-4">
+              <input type="email" placeholder="אימייל משפחתי" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 dark:text-white rounded-xl border border-gray-200 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-rose-400 font-medium" required />
+              <input type="password" placeholder="סיסמה" value={password} onChange={e => setPassword(e.target.value)} className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 dark:text-white rounded-xl border border-gray-200 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-rose-400 font-medium" required />
+              <button type="submit" className="w-full bg-gradient-to-r from-rose-400 via-orange-400 to-amber-400 text-white font-bold py-3.5 rounded-xl shadow-md shadow-rose-200/50 cursor-pointer transition active:scale-95">התחל עכשיו</button>
+            </form>
+          </div>
+        );
+      }
+
       const actualBabyFeedings = feedings.filter(f => !f.notes?.includes('ויטמין D') && !f.notes?.includes('[שאיבת_חלב]') && f.type !== 'pumping');
       const actualFeedingsToday = actualBabyFeedings.filter(f => isToday(f.created_at));
       const todaysDiapers = diapers.filter(d => isToday(d.created_at));
@@ -741,6 +770,7 @@
                 </p>
               </div>
             </div>
+            <button onClick={() => supabaseClient.auth.signOut()} className="text-xs font-bold text-red-500 bg-red-50 dark:bg-red-950/40 px-3 py-1.5 rounded-xl transition hover:bg-red-100 dark:hover:bg-red-900/60">התנתק</button>
           </header>
 
           {deferredInstallPrompt && (
@@ -986,31 +1016,34 @@
             )}
 
             {activeTab === 'timeline' && (
-              <div className="space-y-3 animate-in fade-in duration-200">
+              <div className="space-y-4 animate-in fade-in duration-200">
                 <div className="flex justify-between items-center px-1">
-                  <h2 className="text-sm font-bold text-gray-500 dark:text-gray-400">היומן המלא של {babyName}</h2>
+                  <h2 className="text-base font-bold text-gray-800 dark:text-white">📋 היומן המלא של {babyName}</h2>
                 </div>
 
-                {/* --- בורר תאריכים ייעודי לסינון (Calendar Date Picker) --- */}
-                <div className="bg-white dark:bg-gray-800 p-3 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm flex items-center gap-2">
-                  <span className="text-xs font-bold text-gray-500 dark:text-gray-400 whitespace-nowrap">📅 בחר יום:</span>
-                  <input 
-                    type="date" 
-                    value={timelineDateFilter} 
-                    onChange={e => setTimelineDateFilter(e.target.value)} 
-                    className="flex-1 p-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-xs font-bold text-center focus:outline-none dark:text-white"
-                  />
+                {/* --- בורר תאריכים מעוצב ואינטואיטיבי --- */}
+                <div className="bg-white dark:bg-gray-800 p-3.5 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 flex-1">
+                    <span className="text-xs font-bold text-gray-500 dark:text-gray-400">📅 בחר יום:</span>
+                    <input 
+                      type="date" 
+                      value={timelineDateFilter} 
+                      onChange={e => setTimelineDateFilter(e.target.value)} 
+                      className="flex-1 p-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-xs font-bold text-center focus:outline-none dark:text-white"
+                    />
+                  </div>
                   {timelineDateFilter && (
                     <button 
                       onClick={() => setTimelineDateFilter('')} 
-                      className="text-xs bg-rose-50 dark:bg-rose-900/40 text-rose-500 font-bold px-3 py-2 rounded-xl transition hover:bg-rose-100"
+                      className="text-xs bg-rose-500 text-white font-bold px-3 py-2 rounded-xl transition active:scale-95 shadow-sm whitespace-nowrap"
                     >
-                      הצג הכל
+                      הצג הכל ✕
                     </button>
                   )}
                 </div>
 
-                <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-2 snap-x">
+                {/* כפתורי סינון לפי קטגוריות */}
+                <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1 snap-x">
                   {[
                     { id: 'all', label: 'הכל', icon: '📋' },
                     { id: 'breastfeeding', label: 'הנקה', icon: '🤱' },
@@ -1023,7 +1056,7 @@
                     <button 
                       key={f.id} 
                       onClick={() => setTimelineFilter(f.id)}
-                      className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-bold transition-all snap-center shadow-sm border ${
+                      className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-bold transition-all snap-center shadow-sm border ${
                         timelineFilter === f.id 
                           ? 'bg-rose-400 text-white border-rose-400 dark:border-rose-500' 
                           : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-700'
@@ -1035,8 +1068,8 @@
                 </div>
 
                 {displayedTimelineLogs.length === 0 ? (
-                  <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700 text-center text-gray-400 text-sm font-medium mt-4">
-                    לא נמצאו פעולות תואמות לתאריך או לסינון שנבחר.
+                  <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700 text-center text-gray-400 text-sm font-medium mt-2">
+                    לא נמצאו פעולות תואמות לחיפוש/לתאריך שנבחר.
                   </div>
                 ) : (
                   <div className="space-y-2.5">
