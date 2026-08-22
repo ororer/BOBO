@@ -151,7 +151,7 @@
       const [dataLoading, setDataLoading] = useState(false);
 
       const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('bobo_dark') === 'true');
-      const [defaultMl, setDefaultMl] = useState(() => parseInt(localStorage.getItem('bobo_def_ml') || '60'));
+      const [defaultMl, setDefaultMl] = useState(() => parseInt(localStorage.getItem('bobo_def_ml') || '150'));
       const [targetFeeds, setTargetFeeds] = useState(() => parseInt(localStorage.getItem('bobo_target_feeds') || '8'));
       const [targetDiapers, setTargetDiapers] = useState(() => parseInt(localStorage.getItem('bobo_target_diapers') || '6'));
       const [feedIntervalHours, setFeedIntervalHours] = useState(() => parseFloat(localStorage.getItem('bobo_feed_interval')) || 3);
@@ -168,7 +168,7 @@
       const [feedType, setFeedType] = useState('breastfeeding'); 
       const [feedSide, setFeedSide] = useState('both');
       const [duration, setDuration] = useState(10);
-      const [amount, setAmount] = useState(60);
+      const [amount, setAmount] = useState(150);
       const [bottleType, setBottleType] = useState('formula'); 
       const [feedNotes, setFeedNotes] = useState('');
       const [feedSaveStatus, setFeedSaveStatus] = useState('idle');
@@ -807,7 +807,7 @@
                         <input type="number" value={amount} onChange={e => setAmount(parseInt(e.target.value || 0))} className="w-24 text-center font-bold p-2 bg-gray-50 dark:bg-gray-700 border border-gray-100 dark:border-gray-600 rounded-xl focus:outline-none dark:text-white" />
                       </div>
                       <div className="grid grid-cols-4 gap-2">
-                        {[20, 30, 60, 90].map(v => (
+                        {[90, 120, 150, 180].map(v => (
                           <button key={v} type="button" onClick={() => setAmount(v)} className={`py-2.5 rounded-xl text-sm font-bold shadow-sm active:scale-95 transition border dark:border-gray-600 ${amount === v ? 'bg-cyan-400 text-white border-cyan-400' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100'}`}>{v}</button>
                         ))}
                       </div>
@@ -1170,7 +1170,7 @@
                   <div className="flex gap-2">
                     <input type="number" value={defaultMl} onChange={e => updateDefaultMl(parseInt(e.target.value || 0))} className="w-16 text-center font-bold p-2 bg-gray-50 dark:bg-gray-700 border border-gray-100 dark:border-gray-600 rounded-xl focus:outline-none dark:text-white" />
                     <div className="flex gap-1 flex-1">
-                      {[20, 30, 60, 90].map(v => <button key={v} onClick={()=>updateDefaultMl(v)} className={`px-2 py-1 rounded-lg text-xs font-bold transition border dark:border-gray-600 ${defaultMl === v ? 'bg-rose-400 text-white border-rose-400 shadow-sm' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100'}`}>{v}</button>)}
+                      {[90, 120, 150, 180].map(v => <button key={v} onClick={()=>updateDefaultMl(v)} className={`px-2 py-1 rounded-lg text-xs font-bold transition border dark:border-gray-600 ${defaultMl === v ? 'bg-rose-400 text-white border-rose-400 shadow-sm' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100'}`}>{v}</button>)}
                     </div>
                   </div>
                 </div>
