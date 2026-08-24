@@ -15,7 +15,7 @@
   <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23fb7185'/><text x='50' y='68' font-size='60' text-anchor='middle'>👶</text></svg>">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23fb7185'/><text x='50' y='68' font-size='60' text-anchor='middle'>👶</text></svg>">
 
-  <link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22%D7%91%D7%95%D7%91%D7%95%20-%20%D7%9E%D7%A2%D7%A7%D7%91%20%D7%AA%D7%99%D7%A0%D7%95%D7%A7%D7%95%D7%AA%22%2C%22short_name%22%3A%22%D7%91%D7%95%D7%91%D7%95%22%2C%22start_url%22%3A%22.%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23ffffff%22%2C%22theme_color%22%3A%22%23fb7185%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%2C%253Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20100%20100'%253E%253Crect%20width%3D'100'%20height%3D'100'%20rx%3D'22'%20fill%3D'%2523fb7185'%2F%253E%253Ctext%20x%3D'50'%20y%3D'68'%20font-size%3D'60'%20text-anchor%3D'middle'%253E%25F0%259F%2591%25B6%253C%2Ftext%253E%253C%2Fsvg%253E%22%2C%22sizes%22%3A%22192x192%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%7D%5D%7D">
+  <link rel="manifest" href="./manifest.json">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -45,7 +45,6 @@
     html.dark .text-gray-600, html.dark .text-gray-500 { color: #a1a1aa !important; }
     html.dark header, html.dark nav { border-color: #27272a !important; }
 
-    /* Deep Night / Red OLED Mode */
     html.deep-night body {
       background-image: none !important;
       background-color: #000000 !important;
@@ -160,8 +159,10 @@
         try { return typeof window !== 'undefined' && 'Notification' in window && window.Notification.permission === 'granted'; } catch(e) { return false; }
       });
 
+      // PWA Install State for Android & iOS
       const [showInstallPrompt, setShowInstallPrompt] = useState(false);
       const [installDeviceType, setInstallDeviceType] = useState('unknown');
+      const [deferredPrompt, setDeferredPrompt] = useState(null);
 
       const [activeTab, setActiveTab] = useState('home');
       const [activeSection, setActiveSection] = useState(null); 
@@ -272,24 +273,41 @@
         localStorage.setItem('bobo_deep_night', isDeepNight);
       }, [isDarkMode, isDeepNight]);
 
+      // Handle PWA installation for Android/Galaxy & iOS
       useEffect(() => {
-        const checkInstallPrompt = () => {
-          if (typeof window === 'undefined') return;
-          const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-          const hasDismissedPrompt = localStorage.getItem('bobo_hide_install') === 'true';
-
-          if (!isStandalone && !hasDismissedPrompt) {
-            const ua = window.navigator.userAgent;
-            const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
-            const isAndroid = /android/i.test(ua);
-            if (isIOS) setInstallDeviceType('ios');
-            else if (isAndroid) setInstallDeviceType('android');
-            else setInstallDeviceType('desktop');
-            setTimeout(() => { setShowInstallPrompt(true); }, 3000);
-          }
+        const handleBeforeInstallPrompt = (e) => {
+          e.preventDefault();
+          setDeferredPrompt(e);
+          setInstallDeviceType('android');
+          setShowInstallPrompt(true);
         };
-        checkInstallPrompt();
+
+        window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+        const hasDismissedPrompt = localStorage.getItem('bobo_hide_install') === 'true';
+
+        if (!isStandalone && !hasDismissedPrompt) {
+          const ua = window.navigator.userAgent;
+          const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+          if (isIOS) {
+            setInstallDeviceType('ios');
+            setTimeout(() => { setShowInstallPrompt(true); }, 2500);
+          }
+        }
+
+        return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       }, []);
+
+      const triggerAndroidInstall = async () => {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          setShowInstallPrompt(false);
+          setDeferredPrompt(null);
+        }
+      };
 
       useEffect(() => { 
         setAmount(defaultMl); setBottleType(defaultBottleType); setDuration(defaultBreastDuration); 
@@ -653,7 +671,6 @@
         return () => { supabaseClient.removeChannel(channel); };
       }, [user]);
 
-      // חישוב שעת ההאכלה האחרונה - כולל בדיקה ב-timeline המלא (כולל ממתינים לסנכרון)
       useEffect(() => {
         const significantFeedings = timeline.filter(f => {
           if (f.logType !== 'feeding') return false;
@@ -1010,20 +1027,29 @@
                   <div className="w-12 h-12 bg-gradient-to-tr from-rose-400 to-orange-300 rounded-2xl flex items-center justify-center text-2xl shadow-inner text-white">📱</div>
                   <div>
                     <h4 className="font-black text-sm text-gray-800 dark:text-white">התקן את האפליקציה</h4>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">גישה מהירה וחוויה חלקה יותר.</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">חוויית PWA אמיתית ומהירה יותר.</p>
                   </div>
                 </div>
                 <button onClick={handleDismissInstallPrompt} className="text-gray-400 font-bold p-2 bg-gray-50 dark:bg-gray-700 rounded-full hover:bg-gray-100 dark:hover:bg-gray-600 transition">✕</button>
               </div>
-              <div className="text-[11px] font-bold text-gray-700 dark:text-gray-300 bg-rose-50 dark:bg-gray-700/50 border border-rose-100 dark:border-gray-600 p-3 rounded-xl flex items-center gap-2">
-                {installDeviceType === 'ios' ? (
-                  <span>בספארי, לחץ על כפתור ה<strong>שיתוף</strong> בתחתית המסך (ריבוע עם חץ) ואז על <strong>הוסף למסך הבית ➕</strong></span>
-                ) : installDeviceType === 'android' ? (
-                  <span>בדפדפן, לחץ על <strong>התפריט</strong> (שלוש נקודות) ואז בחר ב<strong>התקן אפליקציה</strong> או <strong>הוסף למסך הבית ➕</strong></span>
-                ) : (
-                  <span>לחץ על סמל ההתקנה (➕) בשורת הכתובת של הדפדפן כדי להוסיף את בובו למחשב.</span>
-                )}
-              </div>
+
+              {installDeviceType === 'android' ? (
+                <button 
+                  onClick={triggerAndroidInstall}
+                  className="w-full bg-rose-500 text-white font-bold py-3 rounded-2xl text-xs shadow-md shadow-rose-200/50 active:scale-95 transition flex items-center justify-center gap-2"
+                >
+                  <span>📲</span>
+                  <span>לחץ כאן להתקנה במכשיר הגלאקסי</span>
+                </button>
+              ) : installDeviceType === 'ios' ? (
+                <div className="text-[11px] font-bold text-gray-700 dark:text-gray-300 bg-rose-50 dark:bg-gray-700/50 border border-rose-100 dark:border-gray-600 p-3 rounded-xl">
+                  בספארי, לחץ על כפתור ה<strong>שיתוף</strong> (ריבוע עם חץ) ואז על <strong>הוסף למסך הבית ➕</strong>
+                </div>
+              ) : (
+                <div className="text-[11px] font-bold text-gray-700 dark:text-gray-300 bg-rose-50 dark:bg-gray-700/50 border border-rose-100 dark:border-gray-600 p-3 rounded-xl">
+                  לחץ על סמל ההתקנה (➕) בשורת הכתובת של הדפדפן להורדה למחשב.
+                </div>
+              )}
             </div>
           )}
 
@@ -1130,7 +1156,6 @@
             {activeTab === 'home' && (
               <div className="animate-tab space-y-5">
                 
-                {/* Shared Sticky Note */}
                 <div className="bg-amber-50/80 dark:bg-amber-950/30 p-3.5 rounded-3xl border border-amber-200/70 dark:border-amber-900/50 shadow-sm flex items-center justify-between gap-3">
                   <div className="flex-1">
                     <div className="flex items-center justify-between mb-1">
