@@ -13,8 +13,6 @@
   <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23fb7185'/><text x='50' y='68' font-size='60' text-anchor='middle'>👶</text></svg>">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23fb7185'/><text x='50' y='68' font-size='60' text-anchor='middle'>👶</text></svg>">
 
-  <link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22%D7%91%D7%95%D7%91%D7%95%20-%20%D7%9E%D7%A2%D7%A7%D7%91%20%D7%AA%D7%99%D7%A0%D7%95%D7%A7%D7%95%D7%AA%22%2C%22short_name%22%3A%22%D7%91%D7%95%D7%91%D7%95%22%2C%22start_url%22%3A%22.%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23ffffff%22%2C%22theme_color%22%3A%22%23fb7185%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%2C%253Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20100%20100'%253E%253Crect%20width%3D'100'%20height%3D'100'%20rx%3D'22'%20fill%3D'%2523fb7185'%2F%253E%253Ctext%20x%3D'50'%20y%3D'68'%20font-size%3D'60'%20text-anchor%3D'middle'%253E%25F0%259F%2591%25B6%253C%2Ftext%253E%253C%2Fsvg%253E%22%2C%22sizes%22%3A%22192x192%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%7D%5D%7D">
-
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800;900&display=swap" rel="stylesheet">
@@ -94,6 +92,45 @@
       auth: { persistSession: true, autoRefreshToken: true }
     });
 
+    const THEME_CONFIGS = {
+      rose: {
+        id: 'rose',
+        name: 'ורוד בייבי',
+        colorHex: '#fb7185',
+        primaryBtn: 'bg-rose-400 text-white',
+        activeTab: 'text-rose-500 border-rose-400',
+        badge: 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300',
+        headerGrad: 'from-rose-400 via-orange-300 to-amber-300'
+      },
+      teal: {
+        id: 'teal',
+        name: 'טורקיז מנטה',
+        colorHex: '#14b8a6',
+        primaryBtn: 'bg-teal-500 text-white',
+        activeTab: 'text-teal-500 border-teal-400',
+        badge: 'bg-teal-100 text-teal-700 dark:bg-teal-950/60 dark:text-teal-300',
+        headerGrad: 'from-teal-400 via-cyan-300 to-emerald-300'
+      },
+      purple: {
+        id: 'purple',
+        name: 'סגול לבנדר',
+        colorHex: '#a855f7',
+        primaryBtn: 'bg-purple-500 text-white',
+        activeTab: 'text-purple-500 border-purple-400',
+        badge: 'bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300',
+        headerGrad: 'from-purple-400 via-fuchsia-300 to-indigo-300'
+      },
+      amber: {
+        id: 'amber',
+        name: 'כתום שקיעה',
+        colorHex: '#f59e0b',
+        primaryBtn: 'bg-amber-500 text-white',
+        activeTab: 'text-amber-500 border-amber-400',
+        badge: 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300',
+        headerGrad: 'from-amber-400 via-orange-300 to-rose-300'
+      }
+    };
+
     function App() {
       const [user, setUser] = useState(() => supabaseClient.auth.getSession()?.data?.session?.user || null);
       const [authLoading, setAuthLoading] = useState(!user);
@@ -128,6 +165,7 @@
       });
       const [timeline, setTimeline] = useState([]);
 
+      const [themePreset, setThemePreset] = useState(() => localStorage.getItem('bobo_theme') || 'rose');
       const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('bobo_dark') === 'true');
       const [defaultMl, setDefaultMl] = useState(() => parseInt(localStorage.getItem('bobo_def_ml') || '150'));
       const [targetFeeds, setTargetFeeds] = useState(() => parseInt(localStorage.getItem('bobo_target_feeds') || '8'));
@@ -191,6 +229,9 @@
       const [showReportModal, setShowReportModal] = useState(false);
       const [trendsDaysRange, setTrendsDaysRange] = useState(7);
       const [activeTrendTooltip, setActiveTrendTooltip] = useState(null);
+      
+      const fileInputRef = useRef(null);
+      const currentTheme = THEME_CONFIGS[themePreset] || THEME_CONFIGS.rose;
 
       const quickSolids = ['בטטה', 'גזר', 'קישוא', 'דלעת', 'בננה', 'אבוקדו', 'טחינה', 'תפוח'];
 
@@ -307,6 +348,11 @@
         else { document.documentElement.classList.remove('dark'); }
         localStorage.setItem('bobo_dark', isDarkMode);
       }, [isDarkMode]);
+
+      const handleThemeChange = (newTheme) => {
+        setThemePreset(newTheme);
+        localStorage.setItem('bobo_theme', newTheme);
+      };
 
       useEffect(() => {
         supabaseClient.auth.getSession().then(({ data: { session } }) => {
@@ -614,6 +660,74 @@
         if (type === 'diapers') { setTargetDiapers(num); localStorage.setItem('bobo_target_diapers', num); }
       };
 
+      // ייצוא קובץ גיבוי מלא בפורמט JSON
+      const exportFullBackupJSON = () => {
+        const backupData = {
+          version: "1.0",
+          exportDate: new Date().toISOString(),
+          babyName,
+          babyGender,
+          babyDob,
+          feedings,
+          diapers,
+          solids,
+          growthMetrics
+        };
+
+        const jsonStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
+        const dlAnchor = document.createElement('a');
+        dlAnchor.setAttribute("href", jsonStr);
+        dlAnchor.setAttribute("download", `bobo_backup_${babyName}_${new Date().toISOString().slice(0,10)}.json`);
+        document.body.appendChild(dlAnchor);
+        dlAnchor.click();
+        dlAnchor.remove();
+      };
+
+      // שחזור מקובץ JSON
+      const handleImportBackup = (e) => {
+        const fileReader = new FileReader();
+        if (!e.target.files || e.target.files.length === 0) return;
+        
+        fileReader.readAsText(e.target.files[0], "UTF-8");
+        fileReader.onload = async (event) => {
+          try {
+            const data = JSON.parse(event.target.result);
+            if (!confirm(`נמצאו בגיבוי:\n${data.feedings?.length || 0} האכלות\n${data.diapers?.length || 0} חיתולים\n${data.solids?.length || 0} טעימות\nהאם לייבא ולסנכרן נתונים אלו?`)) {
+              return;
+            }
+
+            if (data.feedings && data.feedings.length > 0) {
+              await supabaseClient.from('feedings').upsert(data.feedings);
+            }
+            if (data.diapers && data.diapers.length > 0) {
+              await supabaseClient.from('diapers').upsert(data.diapers);
+            }
+            if (data.solids && data.solids.length > 0) {
+              await supabaseClient.from('solids').upsert(data.solids);
+            }
+            if (data.growthMetrics && data.growthMetrics.length > 0) {
+              await supabaseClient.from('growth_metrics').upsert(data.growthMetrics);
+            }
+
+            alert("✅ הגיבוי שוחזר וסונכרן בהצלחה!");
+            loadAllDataRef.current();
+          } catch (err) {
+            alert("❌ שגיאה בקריאת קובץ הגיבוי. ודא שזהו קובץ JSON תקין של בובו.");
+          }
+        };
+      };
+
+      // ניקוי זיכרון מטמון ורענון מלא
+      const handleClearLocalCache = () => {
+        if (!confirm("האם לרענן את כל המטמון המקומי מהשרת? (לא יימחקו נתונים שכבר סונכרנו)")) return;
+        localStorage.removeItem('bobo_cache_feedings');
+        localStorage.removeItem('bobo_cache_diapers');
+        localStorage.removeItem('bobo_cache_solids');
+        localStorage.removeItem('bobo_cache_growth');
+        loadAllDataRef.current();
+        alert("המטמון רוענן בהצלחה!");
+      };
+
       const exportToCSV = () => {
         if (timeline.length === 0) return alert("אין נתונים לייצוא");
         let csvContent = "\uFEFFסוג פעולה,פירוט,כמות/משך,צד/החזקה,תאריך,שעה,הערות\n";
@@ -659,7 +773,6 @@
         return result;
       };
 
-      // מחולל נתוני מגמות דינמי לפי מספר ימים שנבחר + ממוצעים
       const getTrendsData = (daysCount = 7) => {
         const stats = [];
         const today = new Date();
@@ -817,13 +930,13 @@
       return (
         <div className="max-w-lg mx-auto min-h-screen flex flex-col pb-12 text-gray-800 dark:text-gray-100 relative">
           
-          <header className="bg-white/90 dark:bg-gray-800/95 backdrop-blur-md p-4 sticky top-0 z-50 flex justify-between items-center shadow-sm border-b border-rose-100/50 dark:border-gray-700">
+          <header className="bg-white/90 dark:bg-gray-800/95 backdrop-blur-md p-4 sticky top-0 z-50 flex justify-between items-center shadow-sm border-b border-gray-100 dark:border-gray-700">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 bg-gradient-to-tr from-rose-400 via-orange-300 to-amber-300 text-white rounded-full flex items-center justify-center text-2xl shadow-inner">👶</div>
+              <div className={`w-11 h-11 bg-gradient-to-tr ${currentTheme.headerGrad} text-white rounded-full flex items-center justify-center text-2xl shadow-inner`}>👶</div>
               <div>
                 <div className="flex items-center gap-1.5">
                   <h1 className="font-bold text-gray-800 dark:text-white text-base">{babyName}</h1>
-                  <span className="text-[10px] bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 font-bold px-2 py-0.5 rounded-full">{getBabyAge()}</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${currentTheme.badge}`}>{getBabyAge()}</span>
                 </div>
                 <p className="text-[10px] font-bold flex items-center gap-1">
                   {isOnline ? (
@@ -839,13 +952,13 @@
           </header>
 
           <nav className="bg-white/95 dark:bg-gray-800/95 border-b border-gray-100 dark:border-gray-700 sticky top-19 z-40 flex text-center backdrop-blur-md rounded-b-2xl shadow-sm overflow-x-auto hide-scrollbar snap-x">
-            <button onClick={() => { setActiveTab('home'); setActiveSection(null); }} className={`min-w-[65px] flex-1 py-3 text-[11px] font-bold border-b-4 transition-all duration-200 snap-center ${activeTab === 'home' ? 'text-rose-500 border-rose-400' : 'text-gray-400 border-transparent'}`}>🏠 בית</button>
-            <button onClick={() => setActiveTab('timeline')} className={`min-w-[65px] flex-1 py-3 text-[11px] font-bold border-b-4 transition-all duration-200 snap-center ${activeTab === 'timeline' ? 'text-rose-500 border-rose-400' : 'text-gray-400 border-transparent'}`}>📋 יומן</button>
+            <button onClick={() => { setActiveTab('home'); setActiveSection(null); }} className={`min-w-[65px] flex-1 py-3 text-[11px] font-bold border-b-4 transition-all duration-200 snap-center ${activeTab === 'home' ? currentTheme.activeTab : 'text-gray-400 border-transparent'}`}>🏠 בית</button>
+            <button onClick={() => setActiveTab('timeline')} className={`min-w-[65px] flex-1 py-3 text-[11px] font-bold border-b-4 transition-all duration-200 snap-center ${activeTab === 'timeline' ? currentTheme.activeTab : 'text-gray-400 border-transparent'}`}>📋 יומן</button>
             <button onClick={() => setActiveTab('solids_board')} className={`min-w-[65px] flex-1 py-3 text-[11px] font-bold border-b-4 transition-all duration-200 snap-center ${activeTab === 'solids_board' ? 'text-emerald-500 border-emerald-400' : 'text-gray-400 border-transparent'}`}>🥑 טעימות</button>
             <button onClick={() => setActiveTab('pumping')} className={`min-w-[65px] flex-1 py-3 text-[11px] font-bold border-b-4 transition-all duration-200 snap-center ${activeTab === 'pumping' ? 'text-purple-500 border-purple-400' : 'text-gray-400 border-transparent'}`}>🥛 שאיבות</button>
             <button onClick={() => setActiveTab('trends')} className={`min-w-[65px] flex-1 py-3 text-[11px] font-bold border-b-4 transition-all duration-200 snap-center ${activeTab === 'trends' ? 'text-blue-500 border-blue-400' : 'text-gray-400 border-transparent'}`}>📊 מגמות</button>
             <button onClick={() => { setActiveTab('growth'); handleCancelGrowthEdit(); }} className={`min-w-[65px] flex-1 py-3 text-[11px] font-bold border-b-4 transition-all duration-200 snap-center ${activeTab === 'growth' ? 'text-teal-500 border-teal-400' : 'text-gray-400 border-transparent'}`}>📈 גדילה</button>
-            <button onClick={() => setActiveTab('settings')} className={`min-w-[65px] flex-1 py-3 text-[11px] font-bold border-b-4 transition-all duration-200 snap-center ${activeTab === 'settings' ? 'text-rose-500 border-rose-400' : 'text-gray-400 border-transparent'}`}>⚙️ הגדרות</button>
+            <button onClick={() => setActiveTab('settings')} className={`min-w-[65px] flex-1 py-3 text-[11px] font-bold border-b-4 transition-all duration-200 snap-center ${activeTab === 'settings' ? currentTheme.activeTab : 'text-gray-400 border-transparent'}`}>⚙️ הגדרות</button>
           </nav>
 
           <main className="p-4 space-y-5 flex-1 relative">
@@ -853,16 +966,16 @@
             {activeTab === 'home' && (
               <>
                 <div className={`grid ${statColsCount} gap-2.5 text-white`}>
-                  <div className="bg-gradient-to-br from-rose-300 to-rose-400 p-3 rounded-2xl shadow-md shadow-rose-100/50 dark:shadow-none">
+                  <div className="bg-gradient-to-br from-rose-400 to-rose-500 p-3 rounded-2xl shadow-md shadow-rose-100/50 dark:shadow-none">
                     <div className="flex justify-between items-center"><span className="text-[11px] font-bold">אכילות (היום)</span><span className="font-bold text-base">{actualFeedingsToday.length}/{targetFeeds}</span></div>
                     <p className="text-[10px] mt-2 font-medium truncate">{totalDurationToday > 0 && `${totalDurationToday} דק'`} {totalMlToday > 0 && `| ${totalMlToday} מ"ל`}</p>
                   </div>
-                  <div className="bg-gradient-to-br from-amber-300 to-amber-400 p-3 rounded-2xl shadow-md shadow-amber-100/50 dark:shadow-none">
+                  <div className="bg-gradient-to-br from-amber-400 to-amber-500 p-3 rounded-2xl shadow-md shadow-amber-100/50 dark:shadow-none">
                     <div className="flex justify-between items-center"><span className="text-[11px] font-bold">חיתולים (היום)</span><span className="font-bold text-base">{todaysDiapers.length}/{targetDiapers}</span></div>
                     <p className="text-[10px] mt-2 font-medium">היום ביומן</p>
                   </div>
                   {showLastSideStat && (
-                    <div className="bg-gradient-to-br from-purple-300 to-purple-400 p-3 rounded-2xl shadow-md shadow-purple-100/50 dark:shadow-none">
+                    <div className="bg-gradient-to-br from-purple-400 to-purple-500 p-3 rounded-2xl shadow-md shadow-purple-100/50 dark:shadow-none">
                       <div className="flex justify-between items-center"><span className="text-[11px] font-bold">צד אחרון</span><span className="font-bold text-xs">{lastSide === 'left' ? 'שמאל' : lastSide === 'right' ? 'ימין' : 'שניהם'}</span></div>
                       <p className="text-[10px] mt-2 font-medium truncate">מומלץ: {lastSide === 'left' ? 'ימין' : lastSide === 'right' ? 'שמאל' : 'איזה שבא לך'}</p>
                     </div>
@@ -871,7 +984,7 @@
 
                 <div className={`mt-3 p-4 rounded-3xl flex justify-between items-center shadow-md border transition-colors duration-300 ${timeToNextFeed !== null && timeToNextFeed <= 0 ? 'bg-red-50 border-red-100 dark:bg-red-900/20 dark:border-red-800 shadow-red-100/50 dark:shadow-none text-red-600 dark:text-red-400' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 text-gray-800 dark:text-white'}`}>
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${timeToNextFeed !== null && timeToNextFeed <= 0 ? 'bg-red-100 dark:bg-red-900/50' : 'bg-rose-50 dark:bg-gray-700'}`}>⏰</div>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${timeToNextFeed !== null && timeToNextFeed <= 0 ? 'bg-red-100 dark:bg-red-900/50' : 'bg-gray-100 dark:bg-gray-700'}`}>⏰</div>
                     <div>
                       <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400">האכלה הבאה בעוד:</p>
                       <p className="text-lg font-black font-mono tracking-wider" dir="ltr">{renderCountdownText()}</p>
@@ -907,7 +1020,7 @@
                 </div>
 
                 {activeSection === 'breast' && (
-                  <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl shadow-lg shadow-rose-100/40 dark:shadow-none border border-rose-50 dark:border-gray-700 space-y-4 animate-in fade-in duration-200">
+                  <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-700 space-y-4 animate-in fade-in duration-200">
                     <div className="flex justify-between items-center"><h3 className="font-bold text-rose-500 text-sm">🤱 עדכון הנקה</h3><button onClick={()=>setActiveSection(null)} className="text-sm font-bold text-gray-400">✕</button></div>
                     <div className="bg-rose-50/60 dark:bg-gray-700/50 p-4 rounded-2xl text-center border border-rose-100/50 dark:border-gray-600">
                       <div className="text-3xl font-mono font-bold dark:text-white">{String(Math.floor(timerTime / 60)).padStart(2, '0')}:{String(timerTime % 60).padStart(2, '0')}</div>
@@ -930,7 +1043,7 @@
                 )}
 
                 {activeSection === 'bottle' && (
-                  <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl shadow-lg shadow-cyan-100/40 dark:shadow-none border border-cyan-50 dark:border-gray-700 space-y-4 animate-in fade-in duration-200">
+                  <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-700 space-y-4 animate-in fade-in duration-200">
                     <div className="flex justify-between items-center"><h3 className="font-bold text-cyan-500 text-sm">🍼 עדכון בקבוק</h3><button onClick={()=>setActiveSection(null)} className="text-sm font-bold text-gray-400">✕</button></div>
                     <div className="grid grid-cols-2 gap-2 bg-cyan-50/40 dark:bg-gray-700/50 p-1.5 rounded-xl border border-cyan-100/50 dark:border-gray-600">
                       <button onClick={() => setBottleType('formula')} className={`py-3 rounded-xl text-sm font-bold transition ${bottleType === 'formula' ? 'bg-cyan-400 text-white shadow-sm' : 'text-gray-500 dark:text-gray-300'}`}>תמ"ל</button>
@@ -963,7 +1076,7 @@
                 )}
 
                 {activeSection === 'pumping' && (
-                  <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl shadow-lg shadow-purple-100/40 dark:shadow-none border border-purple-50 dark:border-gray-700 space-y-4 animate-in fade-in duration-200">
+                  <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-700 space-y-4 animate-in fade-in duration-200">
                     <div className="flex justify-between items-center"><h3 className="font-bold text-purple-500 text-sm">🥛 עדכון שאיבת חלב</h3><button onClick={()=>setActiveSection(null)} className="text-sm font-bold text-gray-400">✕</button></div>
                     <div>
                       <span className="text-xs font-bold text-gray-500 dark:text-gray-400 block mb-1.5">צד השאיבה:</span>
@@ -992,7 +1105,7 @@
                 )}
 
                 {activeSection === 'diaper' && (
-                  <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl shadow-lg shadow-amber-100/40 dark:shadow-none border border-amber-50 dark:border-gray-700 space-y-4 animate-in fade-in duration-200">
+                  <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-700 space-y-4 animate-in fade-in duration-200">
                     <div className="flex justify-between items-center"><h3 className="font-bold text-amber-500 text-sm">🚼 עדכון חיתול</h3><button onClick={()=>setActiveSection(null)} className="text-sm font-bold text-gray-400">✕</button></div>
                     <div className="grid grid-cols-3 gap-2">
                       {['wet', 'dirty', 'both'].map(t => <button key={t} onClick={() => setDiaperType(t)} className={`py-3.5 rounded-2xl text-sm font-bold shadow-sm active:scale-95 transition border dark:border-gray-600 ${diaperType === t ? 'bg-amber-400 text-white border-amber-400' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100'}`}>{t === 'wet' ? '💧 פיפי' : t === 'dirty' ? '💩 קקי' : '✨ שניהם'}</button>)}
@@ -1007,7 +1120,7 @@
                 )}
 
                 {activeSection === 'solid' && (
-                  <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl shadow-lg shadow-emerald-100/40 dark:shadow-none border border-emerald-50 dark:border-gray-700 space-y-4 animate-in fade-in duration-200">
+                  <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-700 space-y-4 animate-in fade-in duration-200">
                     <div className="flex justify-between items-center"><h3 className="font-bold text-emerald-600 text-sm">🥑 עדכון טעימות</h3><button onClick={()=>setActiveSection(null)} className="text-sm font-bold text-gray-400">✕</button></div>
                     
                     <div>
@@ -1095,7 +1208,7 @@
                   <h2 className="text-base font-bold text-gray-800 dark:text-white">📋 היומן המלא של {babyName}</h2>
                 </div>
 
-                <div className="bg-white dark:bg-gray-800 p-3.5 rounded-2xl border border-rose-100 dark:border-gray-700 shadow-sm flex items-center justify-between gap-3">
+                <div className="bg-white dark:bg-gray-800 p-3.5 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2 flex-1">
                     <span className="text-xs font-bold text-gray-600 dark:text-gray-300 whitespace-nowrap">📅 סנן לפי יום:</span>
                     <input 
@@ -1108,7 +1221,7 @@
                   {selectedTimelineDate && (
                     <button 
                       onClick={() => setSelectedTimelineDate('')} 
-                      className="text-xs bg-rose-500 text-white font-bold px-3 py-2 rounded-xl transition active:scale-95 shadow-sm whitespace-nowrap"
+                      className={`text-xs ${currentTheme.primaryBtn} font-bold px-3 py-2 rounded-xl transition active:scale-95 shadow-sm whitespace-nowrap`}
                     >
                       הצג הכל ✕
                     </button>
@@ -1130,7 +1243,7 @@
                       onClick={() => setTimelineFilter(f.id)}
                       className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-bold transition-all snap-center shadow-sm border ${
                         timelineFilter === f.id 
-                          ? 'bg-rose-400 text-white border-rose-400 dark:border-rose-500' 
+                          ? `${currentTheme.primaryBtn} border-transparent` 
                           : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-700'
                       }`}
                     >
@@ -1287,7 +1400,6 @@
               </div>
             )}
 
-            {/* טאב מגמות משודרג עם ממוצעים ו-UX מתקדם */}
             {activeTab === 'trends' && (() => {
               const { stats, avgBottle, avgPumping, avgBreast, avgDiapers } = getTrendsData(trendsDaysRange);
               const maxBottle = Math.max(...stats.map(s => s.bottleMl), 50);
@@ -1297,8 +1409,6 @@
 
               return (
                 <div className="space-y-4 animate-in fade-in duration-200">
-                  
-                  {/* בורר טווחי זמן */}
                   <div className="flex items-center justify-between bg-white dark:bg-gray-800 p-2 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
                     <span className="text-xs font-bold text-gray-500 dark:text-gray-400 mr-2">טווח ניתוח:</span>
                     <div className="flex gap-1.5">
@@ -1312,7 +1422,7 @@
                           onClick={() => { setTrendsDaysRange(r.days); setActiveTrendTooltip(null); }}
                           className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                             trendsDaysRange === r.days
-                              ? 'bg-blue-500 text-white shadow-sm'
+                              ? `${currentTheme.primaryBtn} shadow-sm`
                               : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
                           }`}
                         >
@@ -1322,7 +1432,6 @@
                     </div>
                   </div>
 
-                  {/* כרטיסי ממוצעים יומיים (KPIs) */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                     <div className="bg-gradient-to-br from-cyan-500 to-blue-600 p-3.5 rounded-2xl text-white shadow-md shadow-cyan-100/50 dark:shadow-none">
                       <div className="text-[11px] font-bold opacity-90">ממוצע בקבוקים</div>
@@ -1342,7 +1451,6 @@
                     </div>
                   </div>
 
-                  {/* בועית מידע אינטראקטיבית (Tooltip) */}
                   {activeTrendTooltip && (
                     <div className="bg-gray-900 text-white p-3 rounded-2xl text-xs flex justify-between items-center animate-in fade-in duration-150">
                       <div>
@@ -1358,14 +1466,12 @@
                     </div>
                   )}
 
-                  {/* גרף בקבוקים */}
                   <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-3">
                     <div className="flex justify-between items-center">
                       <h3 className="text-xs font-bold text-cyan-600 dark:text-cyan-400">🍼 סה"כ בקבוקים (מ"ל ליום)</h3>
                       <span className="text-[10px] font-bold bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 px-2 py-0.5 rounded-md">ממוצע: {avgBottle} מ"ל</span>
                     </div>
                     <div className="flex items-end justify-between h-32 gap-1.5 relative pt-4 overflow-x-auto hide-scrollbar">
-                      {/* קו ממוצע מקווקו */}
                       {avgBottle > 0 && maxBottle > 0 && (
                         <div 
                           className="absolute w-full border-t border-dashed border-cyan-400/60 z-0 flex justify-end" 
@@ -1377,7 +1483,7 @@
                         <div 
                           key={idx} 
                           onClick={() => setActiveTrendTooltip({ type: 'bottle', data: item, fullDateStr: item.fullDateStr })}
-                          className={`flex flex-col items-center flex-1 min-w-[22px] h-full justify-end relative z-10 cursor-pointer group`}
+                          className="flex flex-col items-center flex-1 min-w-[22px] h-full justify-end relative z-10 cursor-pointer group"
                         >
                           <span className="text-[9px] font-bold text-gray-500 dark:text-gray-400 mb-1">{item.bottleMl > 0 ? item.bottleMl : ''}</span>
                           <div 
@@ -1392,7 +1498,6 @@
                     </div>
                   </div>
 
-                  {/* גרף שאיבות */}
                   <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-3">
                     <div className="flex justify-between items-center">
                       <h3 className="text-xs font-bold text-purple-600 dark:text-purple-400">🥛 סה"כ שאיבות (מ"ל ליום)</h3>
@@ -1425,7 +1530,6 @@
                     </div>
                   </div>
 
-                  {/* גרף הנקה */}
                   <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-3">
                     <div className="flex justify-between items-center">
                       <h3 className="text-xs font-bold text-rose-600 dark:text-rose-400">🤱 סה"כ הנקה (דקות ליום)</h3>
@@ -1458,7 +1562,6 @@
                     </div>
                   </div>
 
-                  {/* גרף יציאות וחיתולים */}
                   <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-3">
                     <div className="flex justify-between items-center">
                       <h3 className="text-xs font-bold text-amber-600 dark:text-amber-400">🚼 כמות חיתולים ליום</h3>
@@ -1582,6 +1685,30 @@
               <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-5">
                 <h2 className="text-base font-bold pb-2 border-b border-gray-100 dark:border-gray-700 dark:text-white">⚙️ הגדרות האפליקציה</h2>
                 
+                {/* התאמה אישית של ערכות נושא */}
+                <div className="space-y-2">
+                  <span className="text-xs font-bold text-gray-500 dark:text-gray-400 block">🎨 ערכת נושא וצבעים:</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    {Object.values(THEME_CONFIGS).map(th => (
+                      <button
+                        key={th.id}
+                        onClick={() => handleThemeChange(th.id)}
+                        className={`p-3 rounded-2xl border text-xs font-bold flex items-center justify-between transition-all ${
+                          themePreset === th.id
+                            ? 'border-gray-800 dark:border-white bg-gray-50 dark:bg-gray-700 shadow-sm'
+                            : 'border-gray-100 dark:border-gray-700'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="w-4 h-4 rounded-full shadow-inner" style={{ backgroundColor: th.colorHex }}></span>
+                          <span className="dark:text-white">{th.name}</span>
+                        </div>
+                        {themePreset === th.id && <span className="text-xs">✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700 p-3 rounded-xl border border-gray-100 dark:border-gray-600">
                   <span className="text-sm font-bold dark:text-white">🌙 מצב לילה (Dark Mode)</span>
                   <input type="checkbox" checked={isDarkMode} onChange={e => setIsDarkMode(e.target.checked)} className="w-5 h-5 accent-rose-400 cursor-pointer" />
@@ -1592,7 +1719,7 @@
                     <span className="text-sm font-bold dark:text-white block">🔔 התראות דחיפה לנייד</span>
                     <span className="text-[10px] text-gray-400">תזכורת בזמן אמת לפני הארוחה הבאה</span>
                   </div>
-                  <button onClick={requestNotificationPermission} className={`text-xs font-bold px-3 py-1.5 rounded-xl ${notificationsEnabled ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-200' : 'bg-rose-500 text-white'}`}>
+                  <button onClick={requestNotificationPermission} className={`text-xs font-bold px-3 py-1.5 rounded-xl ${notificationsEnabled ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-200' : `${currentTheme.primaryBtn}`}`}>
                     {notificationsEnabled ? 'פעיל ✓' : 'הפעל'}
                   </button>
                 </div>
@@ -1602,13 +1729,13 @@
                   <div className="flex gap-2">
                     <input type="number" value={defaultMl} onChange={e => updateDefaultMl(parseInt(e.target.value || 0))} className="w-16 text-center font-bold p-2 bg-gray-50 dark:bg-gray-700 border border-gray-100 dark:border-gray-600 rounded-xl focus:outline-none dark:text-white" />
                     <div className="flex gap-1 flex-1">
-                      {[90, 120, 150, 180].map(v => <button key={v} onClick={()=>updateDefaultMl(v)} className={`px-2 py-1 rounded-lg text-xs font-bold transition border dark:border-gray-600 ${defaultMl === v ? 'bg-rose-400 text-white border-rose-400 shadow-sm' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100'}`}>{v}</button>)}
+                      {[90, 120, 150, 180].map(v => <button key={v} onClick={()=>updateDefaultMl(v)} className={`px-2 py-1 rounded-lg text-xs font-bold transition border dark:border-gray-600 ${defaultMl === v ? `${currentTheme.primaryBtn} border-transparent shadow-sm` : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100'}`}>{v}</button>)}
                     </div>
                   </div>
                 </div>
 
                 <div className="space-y-3 border-t border-gray-100 dark:border-gray-700 pt-3 text-xs">
-                  <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-2">ברירות מחדל חכמות (חוסך קליקים):</h3>
+                  <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-2">ברירות מחדל חכמות:</h3>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block font-bold mb-1.5 dark:text-gray-300">נוזל בקבוק מועדף:</label>
@@ -1649,7 +1776,7 @@
                   </div>
                   <div className="flex gap-1.5 pt-1">
                     {[5, 10, 15, 20, 30].map(m => (
-                      <button key={m} type="button" onClick={() => updateNotifyLead(m)} className={`flex-1 py-1 rounded-lg text-xs font-bold border transition ${notifyLeadMinutes === m ? 'bg-teal-500 text-white border-teal-500' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600'}`}>
+                      <button key={m} type="button" onClick={() => updateNotifyLead(m)} className={`flex-1 py-1 rounded-lg text-xs font-bold border transition ${notifyLeadMinutes === m ? `${currentTheme.primaryBtn} border-transparent` : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600'}`}>
                         {m} דק'
                       </button>
                     ))}
@@ -1687,7 +1814,44 @@
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
+                {/* ניהול גיבויים וסנכרון נתונים */}
+                <div className="space-y-3 border-t border-gray-100 dark:border-gray-700 pt-3">
+                  <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">💾 ניהול נתונים וגיבויים:</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button 
+                      onClick={exportFullBackupJSON}
+                      className="bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 p-3 rounded-2xl border border-gray-200 dark:border-gray-600 font-bold text-xs flex flex-col items-center justify-center gap-1 transition"
+                    >
+                      <span className="text-base">📦</span>
+                      <span>ייצוא גיבוי מלא (JSON)</span>
+                    </button>
+                    
+                    <button 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 p-3 rounded-2xl border border-gray-200 dark:border-gray-600 font-bold text-xs flex flex-col items-center justify-center gap-1 transition"
+                    >
+                      <span className="text-base">📥</span>
+                      <span>ייבוא מקובץ גיבוי</span>
+                    </button>
+                    <input 
+                      ref={fileInputRef} 
+                      type="file" 
+                      accept=".json" 
+                      onChange={handleImportBackup} 
+                      className="hidden" 
+                    />
+                  </div>
+
+                  <button 
+                    onClick={handleClearLocalCache}
+                    className="w-full bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 py-2.5 rounded-xl border border-gray-100 dark:border-gray-600 font-bold text-xs transition flex items-center justify-center gap-1.5"
+                  >
+                    <span>🔄</span>
+                    <span>רענן מטמון מקומי מהשרת (Force Sync)</span>
+                  </button>
+                </div>
+
+                <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
                   <button onClick={exportToCSV} className="w-full bg-gradient-to-r from-teal-400 to-cyan-400 text-white text-sm font-bold py-3.5 rounded-xl shadow-md text-center cursor-pointer transition active:scale-95">
                     📊 ייצא יומן לאקסל (CSV)
                   </button>
@@ -1802,7 +1966,7 @@
                   <button onClick={() => setEditingItem(null)} className="w-full bg-gray-100 dark:bg-gray-700 font-bold py-3 rounded-xl cursor-pointer text-gray-700 dark:text-white">ביטול</button>
                   <button onClick={saveItemEdits} disabled={editSaveStatus !== 'idle'} 
                     className={`w-full font-bold py-3 rounded-xl cursor-pointer shadow-md transition-all duration-300 flex items-center justify-center gap-2 ${
-                      editSaveStatus === 'success' ? 'bg-green-500 text-white shadow-green-200/50 animate-success' : 'bg-rose-400 text-white shadow-rose-200/50 active:scale-95'
+                      editSaveStatus === 'success' ? 'bg-green-500 text-white shadow-green-200/50 animate-success' : `${currentTheme.primaryBtn} active:scale-95`
                     }`}>
                     {editSaveStatus === 'saving' ? '⏳ שומר...' : editSaveStatus === 'success' ? '✅ עודכן!' : 'שמור שינויים'}
                   </button>
