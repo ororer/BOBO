@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
-const getInitialData = (key, fallbackKey) => {
+const getInitialData = (key1, key2, key3) => {
   try {
-    const raw = localStorage.getItem(key) || localStorage.getItem(fallbackKey);
+    const raw = localStorage.getItem(key1) || localStorage.getItem(key2) || localStorage.getItem(key3);
     return raw ? JSON.parse(raw) : [];
   } catch (e) {
     return [];
@@ -15,10 +15,10 @@ const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function App() {
-  const [feedings, setFeedings] = useState(() => getInitialData('bobo_feedings', 'bobo_cache_feedings'));
-  const [diapers, setDiapers] = useState(() => getInitialData('bobo_diapers', 'bobo_cache_diapers'));
-  const [solids, setSolids] = useState(() => getInitialData('bobo_solids', 'bobo_cache_solids'));
-  const [growthMetrics, setGrowthMetrics] = useState(() => getInitialData('bobo_growth', 'bobo_cache_growth'));
+  const [feedings, setFeedings] = useState(() => getInitialData('feedings', 'bobo_feedings', 'bobo_cache_feedings'));
+  const [diapers, setDiapers] = useState(() => getInitialData('diapers', 'bobo_diapers', 'bobo_cache_diapers'));
+  const [solids, setSolids] = useState(() => getInitialData('solids', 'bobo_solids', 'bobo_cache_solids'));
+  const [growthMetrics, setGrowthMetrics] = useState(() => getInitialData('growth_metrics', 'bobo_growth', 'bobo_cache_growth'));
   const [timeline, setTimeline] = useState([]);
 
   const [activeTab, setActiveTab] = useState('home');
@@ -54,7 +54,8 @@ export default function App() {
 
   const saveToLocal = (key, data) => {
     localStorage.setItem(key, JSON.stringify(data));
-    localStorage.setItem(`bobo_cache_${key.replace('bobo_', '')}`, JSON.stringify(data));
+    localStorage.setItem(`bobo_${key}`, JSON.stringify(data));
+    localStorage.setItem(`bobo_cache_${key}`, JSON.stringify(data));
   };
 
   const isToday = (timestamp) => {
@@ -66,64 +67,66 @@ export default function App() {
            date.getFullYear() === today.getFullYear();
   };
 
-  // פעולת סנכרון מבוקרת ומאובטחת ל-Supabase
   const uploadAllToSupabase = async () => {
     setSyncStatus('syncing');
     try {
-      let count = 0;
+      const rawFeedings = JSON.parse(localStorage.getItem('feedings') || localStorage.getItem('bobo_feedings') || localStorage.getItem('bobo_cache_feedings') || '[]');
+      const rawDiapers = JSON.parse(localStorage.getItem('diapers') || localStorage.getItem('bobo_diapers') || localStorage.getItem('bobo_cache_diapers') || '[]');
+      const rawSolids = JSON.parse(localStorage.getItem('solids') || localStorage.getItem('bobo_solids') || localStorage.getItem('bobo_cache_solids') || '[]');
+      const rawGrowth = JSON.parse(localStorage.getItem('growth_metrics') || localStorage.getItem('bobo_growth') || localStorage.getItem('bobo_cache_growth') || '[]');
 
-      // 1. העלאת האכלות
-      if (feedings.length > 0) {
-        const payload = feedings.map(f => ({
+      let totalUploaded = 0;
+
+      if (rawFeedings.length > 0) {
+        const payload = rawFeedings.map(f => ({
           type: f.type || 'bottle',
           side: f.side || 'both',
-          duration_minutes: f.duration_minutes || null,
-          amount_ml: f.amount_ml || null,
+          duration_minutes: f.duration_minutes || (f.duration ? parseInt(f.duration) : null),
+          amount_ml: f.amount_ml || (f.amount ? parseInt(f.amount) : null),
           notes: f.notes || null,
           created_at: f.created_at || f.timestamp || new Date().toISOString()
         }));
         const { error } = await supabaseClient.from('feedings').insert(payload);
-        if (!error) count += payload.length;
+        if (!error) totalUploaded += payload.length;
+        else console.error('Feedings error:', error);
       }
 
-      // 2. העלאת חיתולים
-      if (diapers.length > 0) {
-        const payload = diapers.map(d => ({
+      if (rawDiapers.length > 0) {
+        const payload = rawDiapers.map(d => ({
           type: d.type || 'wet',
           notes: d.notes || null,
           created_at: d.created_at || d.timestamp || new Date().toISOString()
         }));
         const { error } = await supabaseClient.from('diapers').insert(payload);
-        if (!error) count += payload.length;
+        if (!error) totalUploaded += payload.length;
+        else console.error('Diapers error:', error);
       }
 
-      // 3. העלאת מוצקים
-      if (solids.length > 0) {
-        const payload = solids.map(s => ({
-          food_name: s.food_name || 'אוכל',
+      if (rawSolids.length > 0) {
+        const payload = rawSolids.map(s => ({
+          food_name: s.food_name || s.name || 'אוכל',
           reaction: s.reaction || 'liked',
           notes: s.notes || null,
           created_at: s.created_at || s.timestamp || new Date().toISOString()
         }));
         const { error } = await supabaseClient.from('solids').insert(payload);
-        if (!error) count += payload.length;
+        if (!error) totalUploaded += payload.length;
       }
 
-      // 4. העלאת מדדי גדילה
-      if (growthMetrics.length > 0) {
-        const payload = growthMetrics.map(g => ({
-          metric_type: g.metric_type || 'weight',
+      if (rawGrowth.length > 0) {
+        const payload = rawGrowth.map(g => ({
+          metric_type: g.metric_type || g.type || 'weight',
           value: parseFloat(g.value || 0),
           unit: g.unit || 'kg',
           notes: g.notes || null,
-          measured_at: g.measured_at || g.timestamp || new Date().toISOString()
+          measured_at: g.measured_at || g.timestamp || g.created_at || new Date().toISOString()
         }));
         const { error } = await supabaseClient.from('growth_metrics').insert(payload);
-        if (!error) count += payload.length;
+        if (!error) totalUploaded += payload.length;
       }
 
       setSyncStatus('success');
-      alert(`✅ הסנכרון הצליח! ${count} רשומות הועלו בהצלחה ל-Supabase.`);
+      alert(`✅ מעולה! ${totalUploaded} רשומות עלו בהצלחה ל-Supabase!`);
       setTimeout(() => setSyncStatus('idle'), 3000);
     } catch (err) {
       alert('שגיאה בסנכרון: ' + err.message);
@@ -156,9 +159,8 @@ export default function App() {
 
     const updated = [newItem, ...feedings];
     setFeedings(updated);
-    saveToLocal('bobo_feedings', updated);
+    saveToLocal('feedings', updated);
 
-    // שמירה מיידית גם בענן ברקע
     supabaseClient.from('feedings').insert([{
       type: newItem.type,
       side: newItem.side,
@@ -183,7 +185,7 @@ export default function App() {
     };
     const updated = [newItem, ...diapers];
     setDiapers(updated);
-    saveToLocal('bobo_diapers', updated);
+    saveToLocal('diapers', updated);
 
     supabaseClient.from('diapers').insert([{
       type: newItem.type,
