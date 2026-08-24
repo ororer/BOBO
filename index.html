@@ -215,6 +215,22 @@
         return outputArray;
       };
 
+// פונקציית עזר תקנית לחלוטין להמרת VAPID Key
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding)
+        .replace(/\-/g, '+')
+        .replace(/_/g, '/');
+
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
+
 const requestNotificationPermission = async () => {
     if (typeof window !== 'undefined' && 'Notification' in window && 'serviceWorker' in navigator) {
         try {
@@ -223,7 +239,7 @@ const requestNotificationPermission = async () => {
             if (perm === 'granted') {
                 const registration = await navigator.serviceWorker.ready;
                 
-                // מפתח VAPID ציבורي סטנדרטי בפורמט תקין
+                // מפתח VAPID תקני בפורמט נכון
                 const vapidPublicKey = 'BEl62iUjGuivXIkv69yViEuIBia-Ib9-SkvMeAtA3LfGgDzkrXZJjSgSnfckjBuBkr3qBUYIHBOFLXYUW5NxhIo';
                 const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
 
@@ -250,6 +266,8 @@ const requestNotificationPermission = async () => {
         }
     } else {
         alert('הדפדפן שלך אינו תומך בהתראות פוש.');
+    }
+};
     }
 };
 
