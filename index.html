@@ -82,6 +82,19 @@
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
+    const VAPID_PUBLIC_KEY = "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U";
+
+    function urlBase64ToUint8Array(base64String) {
+      const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+      const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+      }
+      return outputArray;
+    }
+
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW:', err));
@@ -245,18 +258,75 @@
         setPendingSyncCount(q.length);
       };
 
+      const registerPushSubscription = async () => {
+        if (!('serviceWorker' in navigator) || !user) return;
+        try {
+          const reg = await navigator.serviceWorker.ready;
+          let sub = await reg.pushManager.getSubscription();
+          if (!sub) {
+            sub = await reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+            });
+          }
+          if (sub) {
+            const subData = sub.toJSON();
+            await supabaseClient.from('push_subscriptions').upsert({
+              user_id: user.id,
+              endpoint: subData.endpoint,
+              keys: subData.keys
+            }, { onConflict: 'endpoint' });
+          }
+        } catch (e) {
+          console.log('Push subscription sync:', e);
+        }
+      };
+
       const requestNotificationPermission = async () => {
-        if (typeof window !== 'undefined' && 'Notification' in window) {
-          try {
-            const perm = await window.Notification.requestPermission();
-            setNotificationsEnabled(perm === 'granted');
-            if (perm === 'granted' && 'serviceWorker' in navigator) {
+        if (typeof window === 'undefined' || !('Notification' in window)) {
+          alert('דפדפן זה אינו תומך בהתראות. ודא שהוספת את האפליקציה למסך הבית ב-iOS.');
+          return;
+        }
+
+        try {
+          const perm = await Notification.requestPermission();
+          setNotificationsEnabled(perm === 'granted');
+
+          if (perm === 'granted') {
+            await registerPushSubscription();
+            if ('serviceWorker' in navigator) {
               const reg = await navigator.serviceWorker.ready;
-              reg.showNotification(`בובו - התראות פעילות! 👶`, { 
-                body: `תקבל תזכורת כ-${notifyLeadMinutes} דקות לפני מועד ההאכלה הבא.` 
+              await reg.showNotification(`בובו - ההתראות הופעלו בהצלחה! 👶`, {
+                body: `תקבל תזכורת כ-${notifyLeadMinutes} דקות לפני כל האכלה (גם כשהמסך נעול).`,
+                icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🍼</text></svg>',
+                badge: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🍼</text></svg>',
+                tag: 'bobo-welcome'
               });
             }
-          } catch(e) { console.error(e); }
+          } else if (perm === 'denied') {
+            alert('ההרשאה חסומה. יש לפתוח: הגדרות המכשיר > בובו > התראות > אפשר התראות.');
+          }
+        } catch (e) {
+          console.error('Notification error:', e);
+        }
+      };
+
+      const scheduleServerPush = async (feedTimeMs) => {
+        if (!user) return;
+        try {
+          const intervalMs = feedIntervalHours * 60 * 60 * 1000;
+          const targetTime = feedTimeMs + intervalMs;
+          const notifyTime = new Date(targetTime - (notifyLeadMinutes * 60 * 1000)).toISOString();
+
+          await supabaseClient.from('scheduled_notifications').delete().eq('user_id', user.id).eq('sent', false);
+          await supabaseClient.from('scheduled_notifications').insert({
+            user_id: user.id,
+            title: `🍼 בעוד ${notifyLeadMinutes} דקות: זמן האכלה של ${babyName}!`,
+            body: `עברו כמעט ${feedIntervalHours} שעות מהארוחה האחרונה.`,
+            scheduled_for: notifyTime
+          });
+        } catch (err) {
+          console.error('Failed to schedule server push:', err);
         }
       };
 
@@ -367,6 +437,12 @@
         return () => subscription.unsubscribe();
       }, []);
 
+      useEffect(() => {
+        if (user && notificationsEnabled) {
+          registerPushSubscription();
+        }
+      }, [user, notificationsEnabled]);
+
       const loadAllData = async () => {
         if (!user) return;
         try {
@@ -436,7 +512,9 @@
         });
 
         if (significantFeedings.length > 0) {
-          setLastFeedTime(new Date(significantFeedings[0].created_at).getTime());
+          const lastTime = new Date(significantFeedings[0].created_at).getTime();
+          setLastFeedTime(lastTime);
+          scheduleServerPush(lastTime);
         } else {
           setLastFeedTime(null);
         }
@@ -450,22 +528,6 @@
 
         const intervalMs = feedIntervalHours * 60 * 60 * 1000;
         const targetTime = lastFeedTime + intervalMs;
-        const notifyTime = targetTime - (notifyLeadMinutes * 60 * 1000);
-        const now = Date.now();
-
-        if (notifyTime > now && notificationsEnabled && 'serviceWorker' in navigator) {
-          navigator.serviceWorker.ready.then(registration => {
-            registration.active?.postMessage({
-              type: 'SCHEDULE_NOTIFICATION',
-              delay: notifyTime - now,
-              title: `🍼 בעוד ${notifyLeadMinutes} דקות: זמן האכלה של ${babyName}!`,
-              options: {
-                body: `עברו כמעט ${feedIntervalHours} שעות מהארוחה האחרונה. זמן טוב להתארגן!`,
-                icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🍼</text></svg>'
-              }
-            });
-          });
-        }
 
         const updateCountdown = () => {
           const current = Date.now();
@@ -476,7 +538,7 @@
         updateCountdown();
         const interval = setInterval(updateCountdown, 1000);
         return () => clearInterval(interval);
-      }, [lastFeedTime, feedIntervalHours, notifyLeadMinutes, notificationsEnabled, babyName]);
+      }, [lastFeedTime, feedIntervalHours]);
 
       useEffect(() => {
         if (isTimerActive) {
@@ -511,9 +573,14 @@
           finalNotes = `[שאיבת_חלב] ${feedNotes}`.trim();
         }
 
+        const now = new Date();
         await performInsert('feedings', {
-          type: finalType, side: feedSide, duration_minutes: currentType === 'breastfeeding' ? duration : null, amount_ml: (currentType === 'bottle' || currentType === 'pumping') ? amount : null, notes: finalNotes || null, created_at: new Date().toISOString()
+          type: finalType, side: feedSide, duration_minutes: currentType === 'breastfeeding' ? duration : null, amount_ml: (currentType === 'bottle' || currentType === 'pumping') ? amount : null, notes: finalNotes || null, created_at: now.toISOString()
         });
+
+        if (currentType === 'breastfeeding' || (currentType === 'bottle' && amount >= 60)) {
+          scheduleServerPush(now.getTime());
+        }
 
         setFeedSaveStatus('success');
         setTimeout(() => {
@@ -967,7 +1034,6 @@
       
       const statColsCount = showLastSideStat ? "grid-cols-3" : "grid-cols-2";
 
-      // חישוב אחוזי התקדמות
       const feedProgressPercent = Math.min(100, Math.round((actualFeedingsToday.length / targetFeeds) * 100));
       const diaperProgressPercent = Math.min(100, Math.round((todaysDiapers.length / targetDiapers) * 100));
 
@@ -999,7 +1065,6 @@
             
             {activeTab === 'home' && (
               <>
-                {/* כרטיסי KPI עם פסי התקדמות ויזואליים */}
                 <div className={`grid ${statColsCount} gap-2.5 text-white`}>
                   <div className="bg-gradient-to-br from-rose-400 to-rose-500 p-3.5 rounded-3xl shadow-lg shadow-rose-200/50 dark:shadow-none flex flex-col justify-between">
                     <div>
@@ -1029,7 +1094,6 @@
                   )}
                 </div>
 
-                {/* כרטיס טיימר חי */}
                 <div className={`p-4 rounded-3xl flex justify-between items-center shadow-md border transition-all duration-300 ${timeToNextFeed !== null && timeToNextFeed <= 0 ? 'bg-red-50 border-red-100 dark:bg-red-900/20 dark:border-red-800 text-red-600 dark:text-red-400' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 text-gray-800 dark:text-white'}`}>
                   <div className="flex items-center gap-3">
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl ${timeToNextFeed !== null && timeToNextFeed <= 0 ? 'bg-red-100 dark:bg-red-900/50 animate-bounce' : 'bg-rose-50 dark:bg-gray-700 text-rose-500 animate-pulse'}`}>⏰</div>
@@ -1048,7 +1112,6 @@
                   )}
                 </div>
 
-                {/* כפתור שיתוף וואטסאפ */}
                 <button
                   onClick={shareDailySummaryWhatsApp}
                   className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white p-3.5 rounded-2xl font-extrabold text-xs flex items-center justify-center gap-2 shadow-sm transition active:scale-95"
@@ -1067,7 +1130,6 @@
                   </div>
                 )}
 
-                {/* כפתורי פעולות מהירות */}
                 <div className="grid grid-cols-2 gap-3 pt-1">
                   <button onClick={() => { setActiveSection(activeSection === 'breast' ? null : 'breast'); setFeedType('breastfeeding'); }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 ${activeSection === 'breast' ? 'bg-rose-400 text-white shadow-md shadow-rose-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-rose-500 shadow-sm border border-rose-100 dark:border-gray-700'}`}>🤱 הנקה</button>
                   <button onClick={() => { setActiveSection(activeSection === 'bottle' ? null : 'bottle'); setFeedType('bottle'); }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 ${activeSection === 'bottle' ? 'bg-cyan-400 text-white shadow-md shadow-cyan-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-cyan-500 shadow-sm border border-cyan-100 dark:border-gray-700'}`}>🍼 בקבוק</button>
@@ -1218,7 +1280,6 @@
                   </div>
                 )}
 
-                {/* ציר זמן מחובר - פעולות מהיום */}
                 <div className="space-y-3 pt-2">
                   <div className="flex justify-between items-center px-1">
                     <h3 className="text-xs font-bold text-gray-400 dark:text-gray-400">ציר זמן היום ({todaysTimeline.length})</h3>
@@ -1233,13 +1294,12 @@
                     <div className="relative border-r-2 border-rose-100 dark:border-gray-700 mr-4 space-y-3.5 pr-5 pt-1">
                       {todaysTimeline.map((item, i) => (
                         <div key={i} className="relative bg-white dark:bg-gray-800 p-4 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm flex justify-between items-center">
-                          {/* נקודת ציר זמן */}
                           <div className={`absolute -right-[27px] top-5 w-3.5 h-3.5 rounded-full ring-4 ${getNodeColor(item)} flex items-center justify-center`}></div>
                           
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
                               <span className="text-sm font-extrabold text-gray-900 dark:text-white">
-                                {item.logType === 'vitamin_d' ? '💊 ויטמין D' : item.logType === 'pumping' ? '🥛 שאיבה' : item.logType === 'feeding' ? (item.type === 'breastfeeding' ? '🤱 הנקה' : '🍼 בקבוק') : item.logType === 'solid' ? '🥑 טעימה' : item.logType === 'diaper' ? '🚼 חיתול' : '📈 גדילה'}
+                                {item.logType === 'vitamin_d' ? '💊 ויטמין D' : item.logType === 'pumping' ? '🥛 שאיבה' : item.logType === 'feeding' ? (item.type === 'breastfeeding' ? '🤱 הנקה' : '🍼 בקבוק') : item.logType === 'solid' ? '🥑 טעימה' : '🚼 חיתול'}
                               </span>
                               <span className={`text-xs px-2 py-0.5 rounded-md font-bold ${getTagColor(item)}`}>
                                 {item.logType === 'vitamin_d' ? '2 טיפות' : item.logType === 'pumping' ? `${item.amount_ml} מ"ל` : item.logType === 'feeding' ? (item.duration_minutes ? `${item.duration_minutes} דק'` : `${item.amount_ml} מ"ל`) : item.logType === 'solid' ? `${item.food_name}` : (item.type === 'wet' ? 'פיפי' : item.type === 'dirty' ? 'קקי' : 'שניהם')}
@@ -1784,7 +1844,7 @@
                     <span className="text-[10px] text-gray-400">תזכורת בזמן אמת לפני הארוחה הבאה</span>
                   </div>
                   <button onClick={requestNotificationPermission} className={`text-xs font-bold px-3 py-1.5 rounded-xl ${notificationsEnabled ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-200' : `${currentTheme.primaryBtn}`}`}>
-                    {notificationsEnabled ? 'פעיל ✓' : 'הפעל'}
+                    {notificationsEnabled ? 'פעיל ✓ (שלח בדיקה)' : 'הפעל'}
                   </button>
                 </div>
 
@@ -1924,7 +1984,6 @@
 
           </main>
 
-          {/* Floating Glass Bottom Navigation Bar */}
           <nav className="fixed bottom-3 left-4 right-4 max-w-md mx-auto bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border border-gray-100/80 dark:border-gray-700/80 shadow-2xl rounded-3xl p-1.5 z-50 flex justify-between items-center no-print">
             <button 
               onClick={() => { setActiveTab('home'); setActiveSection(null); }} 
