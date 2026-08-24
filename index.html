@@ -204,7 +204,6 @@
         setPendingSyncCount(q.length);
       };
 
-      // פונקציית רישום לדפדפן ולמסד הנתונים עבור Web Push אמיתי
       const urlBase64ToUint8Array = (base64String) => {
         const padding = '='.repeat((4 - base64String.length % 4) % 4);
         const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
@@ -244,8 +243,8 @@
               alert('התראות הפוש הופקו ונרשמו בהצלחה למכשיר!');
             }
           } catch(e) {
-            console.error('Push subscription error:', e);
-            alert('שגיאה ברישום ההתראות. ודא שהאפליקציה מותקנת במסך הבית (PWA).');
+            console.error('Push subscription error details:', e);
+            alert('שגיאה ברישום ההתראות: ' + (e.message || e));
           }
         } else {
           alert('הדפדפן שלך אינו תומך בהתראות פוש.');
