@@ -13,6 +13,8 @@
   <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23fb7185'/><text x='50' y='68' font-size='60' text-anchor='middle'>👶</text></svg>">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23fb7185'/><text x='50' y='68' font-size='60' text-anchor='middle'>👶</text></svg>">
 
+  <link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22%D7%91%D7%95%D7%91%D7%95%20-%20%D7%9E%D7%A2%D7%A7%D7%91%20%D7%AA%D7%99%D7%A0%D7%95%D7%A7%D7%95%D7%AA%22%2C%22short_name%22%3A%22%D7%91%D7%95%D7%91%D7%95%22%2C%22start_url%22%3A%22.%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23ffffff%22%2C%22theme_color%22%3A%22%23fb7185%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%2C%253Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20100%20100'%253E%253Crect%20width%3D'100'%20height%3D'100'%20rx%3D'22'%20fill%3D'%2523fb7185'%2F%253E%253Ctext%20x%3D'50'%20y%3D'68'%20font-size%3D'60'%20text-anchor%3D'middle'%253E%25F0%259F%2591%25B6%253C%2Ftext%253E%253C%2Fsvg%253E%22%2C%22sizes%22%3A%22192x192%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%7D%5D%7D">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800;900&display=swap" rel="stylesheet">
@@ -660,7 +662,6 @@
         if (type === 'diapers') { setTargetDiapers(num); localStorage.setItem('bobo_target_diapers', num); }
       };
 
-      // ייצוא קובץ גיבוי מלא בפורמט JSON
       const exportFullBackupJSON = () => {
         const backupData = {
           version: "1.0",
@@ -683,7 +684,6 @@
         dlAnchor.remove();
       };
 
-      // שחזור מקובץ JSON
       const handleImportBackup = (e) => {
         const fileReader = new FileReader();
         if (!e.target.files || e.target.files.length === 0) return;
@@ -717,7 +717,6 @@
         };
       };
 
-      // ניקוי זיכרון מטמון ורענון מלא
       const handleClearLocalCache = () => {
         if (!confirm("האם לרענן את כל המטמון המקומי מהשרת? (לא יימחקו נתונים שכבר סונכרנו)")) return;
         localStorage.removeItem('bobo_cache_feedings');
@@ -744,6 +743,48 @@
         document.body.appendChild(link); 
         link.click(); 
         document.body.removeChild(link);
+      };
+
+      // מחולל שיתוף בוואטסאפ של סיכום היום
+      const shareDailySummaryWhatsApp = () => {
+        const todayDateStr = new Date().toLocaleDateString('he-IL');
+        const todayFeedings = actualFeedingsToday;
+        const totalBreastMins = todayFeedings.filter(f => f.type === 'breastfeeding').reduce((a, c) => a + (c.duration_minutes || 0), 0);
+        const totalBottleAmount = todayFeedings.filter(f => f.type === 'bottle').reduce((a, c) => a + (c.amount_ml || 0), 0);
+        
+        const wetDiapersCount = todaysDiapers.filter(d => d.type === 'wet' || d.type === 'both').length;
+        const dirtyDiapersCount = todaysDiapers.filter(d => d.type === 'dirty' || d.type === 'both').length;
+        
+        const todayPumpingTotal = timeline.filter(item => item.logType === 'pumping' && isToday(item.timestamp)).reduce((a, c) => a + (c.amount_ml || 0), 0);
+        const todaySolidsList = solids.filter(s => isToday(s.created_at)).map(s => s.food_name);
+        const vitDGiven = feedings.some(f => f.notes?.includes('ויטמין D') && isToday(f.created_at));
+
+        let lastFeedStr = "עדיין לא תועד היום";
+        if (lastFeedTime) {
+          lastFeedStr = new Date(lastFeedTime).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'});
+        }
+
+        let msg = `👶 *סיכום יומי עבור ${babyName} (${todayDateStr})*\n\n`;
+        msg += `🍼 *האכלות:* ${todayFeedings.length} ארוחות\n`;
+        if (totalBottleAmount > 0) msg += `• בקבוקים: ${totalBottleAmount} מ"ל\n`;
+        if (totalBreastMins > 0) msg += `• הנקה: ${totalBreastMins} דקות\n`;
+        msg += `• האכלה אחרונה: ${lastFeedStr}\n\n`;
+        
+        msg += `🚼 *חיתולים:* ${todaysDiapers.length} בסה"כ (💧 ${wetDiapersCount} רטובים | 💩 ${dirtyDiapersCount} צואים)\n\n`;
+        
+        if (todayPumpingTotal > 0) {
+          msg += `🥛 *שאיבות היום:* ${todayPumpingTotal} מ"ל\n\n`;
+        }
+        
+        if (todaySolidsList.length > 0) {
+          msg += `🥑 *טעימות:* ${todaySolidsList.join(', ')}\n\n`;
+        }
+
+        msg += `💊 *ויטמין D:* ${vitDGiven ? 'ניתן ✓' : 'טרם ניתן ✕'}\n\n`;
+        msg += `נשלח מאפליקציית בובו 👶`;
+
+        const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
+        window.open(whatsappUrl, '_blank');
       };
 
       const getBabyAge = () => {
@@ -999,6 +1040,15 @@
                     </div>
                   )}
                 </div>
+
+                {/* כפתור שיתוף בוואטסאפ */}
+                <button
+                  onClick={shareDailySummaryWhatsApp}
+                  className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white p-3.5 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition active:scale-95"
+                >
+                  <span className="text-base">💬</span>
+                  <span>שתף סיכום יומי בוואטסאפ (WhatsApp)</span>
+                </button>
 
                 {!notificationsEnabled && typeof window !== 'undefined' && 'Notification' in window && (
                   <div onClick={requestNotificationPermission} className="bg-rose-50 dark:bg-rose-950/40 p-3 rounded-2xl border border-rose-200 dark:border-rose-800/50 flex justify-between items-center cursor-pointer">
@@ -1685,7 +1735,6 @@
               <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-5">
                 <h2 className="text-base font-bold pb-2 border-b border-gray-100 dark:border-gray-700 dark:text-white">⚙️ הגדרות האפליקציה</h2>
                 
-                {/* התאמה אישית של ערכות נושא */}
                 <div className="space-y-2">
                   <span className="text-xs font-bold text-gray-500 dark:text-gray-400 block">🎨 ערכת נושא וצבעים:</span>
                   <div className="grid grid-cols-2 gap-2">
@@ -1814,7 +1863,6 @@
                   </div>
                 </div>
 
-                {/* ניהול גיבויים וסנכרון נתונים */}
                 <div className="space-y-3 border-t border-gray-100 dark:border-gray-700 pt-3">
                   <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">💾 ניהול נתונים וגיבויים:</h3>
                   <div className="grid grid-cols-2 gap-2">
