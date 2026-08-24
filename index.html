@@ -12,7 +12,12 @@
   <meta name="apple-mobile-web-app-title" content="בובו">
   <meta name="application-name" content="בובו">
   
-  <link rel="manifest" href="manifest.json">
+  <!-- אייקון ייעודי לאייפון למסך הבית (מחזיר את פרצוף התינוק) -->
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23fb7185'/><text x='50' y='68' font-size='60' text-anchor='middle'>👶</text></svg>">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23fb7185'/><text x='50' y='68' font-size='60' text-anchor='middle'>👶</text></svg>">
+
+  <!-- Manifest תקני -->
+  <link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22%D7%91%D7%95%D7%91%D7%95%20-%20%D7%9E%D7%A2%D7%A7%D7%91%20%D7%AA%D7%99%D7%A0%D7%95%D7%A7%D7%95%D7%AA%22%2C%22short_name%22%3A%22%D7%91%D7%95%D7%91%D7%95%22%2C%22start_url%22%3A%22.%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23ffffff%22%2C%22theme_color%22%3A%22%23fb7185%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%2C%253Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20100%20100'%253E%253Crect%20width%3D'100'%20height%3D'100'%20rx%3D'22'%20fill%3D'%2523fb7185'%2F%253E%253Ctext%20x%3D'50'%20y%3D'68'%20font-size%3D'60'%20text-anchor%3D'middle'%253E%25F0%259F%2591%25B6%253C%2Ftext%253E%253C%2Fsvg%253E%22%2C%22sizes%22%3A%22192x192%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%7D%5D%7D">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -82,7 +87,7 @@
     // רישום ה-Service Worker של בובו
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js')
-        .then(reg => console.log('BOBO SW רשום בהצלחה'))
+        .then(reg => console.log('BOBO SW רשום'))
         .catch(err => console.error('SW Reg Error:', err));
     }
 
@@ -393,7 +398,7 @@
         }
       }, [feedings]);
 
-      // מנגנון תזמון התראה 10 דקות לפני שעת היעד
+      // תזמון התראה ל-Service Worker בדיוק 10 דקות לפני
       useEffect(() => {
         if (!lastFeedTime) {
           setTimeToNextFeed(null);
@@ -402,7 +407,7 @@
 
         const intervalMs = feedIntervalHours * 60 * 60 * 1000;
         const targetTime = lastFeedTime + intervalMs;
-        const notifyTime = targetTime - (10 * 60 * 1000); // 10 דקות לפני
+        const notifyTime = targetTime - (10 * 60 * 1000);
         const now = Date.now();
 
         if (notifyTime > now && notificationsEnabled && 'serviceWorker' in navigator) {
@@ -1370,7 +1375,7 @@
                                   {item.metric_type === 'weight' ? '⚖️ משקל' : item.metric_type === 'height' ? '📏 גובה' : '⭕ היקף'}
                                 </span>
                                 <span className={`text-xs px-2.5 py-0.5 rounded-md font-bold ${getTagColor(item)}`}>
-                                  {item.value} {item.unit === 'kg' ? 'ק"ג' : 'ס"מ' }
+                                  {item.value} {item.unit === 'kg' ? 'ק"ג' : 'ס"מ'}
                                 </span>
                               </div>
                               <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mt-1">
