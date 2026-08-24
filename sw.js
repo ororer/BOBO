@@ -1,31 +1,12 @@
-self.addEventListener('install', (event) => {
-  self.skipWaiting();
-});
+self.addEventListener('install', (e) => { self.skipWaiting(); });
+self.addEventListener('activate', (e) => { e.waitUntil(clients.claim()); });
 
-self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
-});
-
-// מאזין לפקודת תזמון מהאפליקציה
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SCHEDULE_NOTIFICATION') {
-    const { delay, title, options } = event.data;
-    
-    setTimeout(() => {
-      self.registration.showNotification(title, options);
-    }, delay);
-  }
-});
-
-// לחיצה על ההתראה מחזירה את המשתמש לאפליקציה
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
+self.addEventListener('push', (event) => {
+  const data = event.data ? event.data.json() : { title: 'בובו - מעקב תינוקות', body: 'זמן האכלה!' };
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      if (clientList.length > 0) {
-        return clientList[0].focus();
-      }
-      return clients.openWindow('./');
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🍼</text></svg>'
     })
   );
 });
