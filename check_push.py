@@ -3,12 +3,10 @@ import requests
 from datetime import datetime, timezone
 from pywebpush import webpush, WebPushException
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
+# כתובת Supabase מוטמעת ישירות
+SUPABASE_URL = "https://zyejobjucmjpumdiczbt.supabase.co"
 SUPABASE_KEY = os.environ.get("SUPABASE_ANON_KEY")
 
-# VAPID keys עבור שליחת הפוש
-VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "YOUR_VAPID_PRIVATE_KEY") 
-# לח לחלופין נשתמש במפתח ציבורי שמוגדר כבר באפליקציה שלך
 VAPID_CLAIM_EMAIL = "mailto:admin@bobo.com"
 
 headers = {
@@ -18,8 +16,8 @@ headers = {
 }
 
 def check_and_send_push():
-    if not SUPABASE_URL or not SUPABASE_KEY:
-        print("Missing Supabase credentials")
+    if not SUPABASE_KEY:
+        print("Missing Supabase Anon Key")
         return
 
     res = requests.get(f"{SUPABASE_URL}/rest/v1/feedings?select=*&order=created_at.desc&limit=1", headers=headers)
@@ -63,9 +61,8 @@ def check_and_send_push():
                             "auth": auth
                         }
                     }
-                    payload = '{"title": "בובו - מעקב תינוקות", "body": "הגיע הזמן להתכונן להאכלה הבאה בעוד מספר דקות!"}'
+                    payload = '{"title": "בובו - מעקב תינוקות", "body": "הגיע הזמן להתכונן להאכלה הבאה!"}'
                     try:
-                        # שליחת ההתראה דרך Web Push
                         webpush(
                             subscription_info=push_info,
                             data=payload,
