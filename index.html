@@ -44,11 +44,41 @@
     html.dark .text-gray-800, html.dark .text-gray-900, html.dark .text-gray-700, html.dark .text-gray-950 { color: #f3f4f6 !important; }
     html.dark .text-gray-600, html.dark .text-gray-500 { color: #a1a1aa !important; }
     html.dark header, html.dark nav { border-color: #27272a !important; }
+
+    /* Deep Night / Red OLED Mode */
+    html.deep-night body {
+      background-image: none !important;
+      background-color: #000000 !important;
+      color: #ef4444 !important;
+    }
+    html.deep-night div, html.deep-night header, html.deep-night nav, html.deep-night main, html.deep-night section {
+      background-color: #000000 !important;
+      border-color: #450a0a !important;
+      color: #ef4444 !important;
+    }
+    html.deep-night .bg-gradient-to-br, html.deep-night .bg-gradient-to-r, html.deep-night .bg-gradient-to-tr {
+      background-image: none !important;
+      background-color: #1a0505 !important;
+      border: 1px solid #7f1d1d !important;
+      color: #f87171 !important;
+    }
+    html.deep-night button {
+      background-color: #1c0606 !important;
+      border-color: #7f1d1d !important;
+      color: #ef4444 !important;
+    }
+    html.deep-night input, html.deep-night select {
+      background-color: #0a0202 !important;
+      border-color: #7f1d1d !important;
+      color: #fca5a5 !important;
+    }
+    html.deep-night span, html.deep-night p, html.deep-night h1, html.deep-night h2, html.deep-night h3, html.deep-night h4 {
+      color: #ef4444 !important;
+    }
     
     .hide-scrollbar::-webkit-scrollbar { display: none; }
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-    /* Custom Animations */
     @keyframes successPop {
       0% { transform: scale(0.95); opacity: 0.8; }
       50% { transform: scale(1.05); }
@@ -60,19 +90,14 @@
       0% { opacity: 0; transform: translateY(20px) scale(0.98); }
       100% { opacity: 1; transform: translateY(0) scale(1); }
     }
-    .animate-tab {
-      animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    }
+    .animate-tab { animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
     @keyframes softPulse {
       0%, 100% { opacity: 1; transform: scale(1); }
       50% { opacity: 0.7; transform: scale(1.02); }
     }
-    .animate-soft-pulse {
-      animation: softPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-    }
+    .animate-soft-pulse { animation: softPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
 
-    /* Print styling */
     @media print {
       body * { visibility: hidden; }
       .no-print { display: none !important; }
@@ -135,7 +160,6 @@
         try { return typeof window !== 'undefined' && 'Notification' in window && window.Notification.permission === 'granted'; } catch(e) { return false; }
       });
 
-      // PWA Install Prompt State
       const [showInstallPrompt, setShowInstallPrompt] = useState(false);
       const [installDeviceType, setInstallDeviceType] = useState('unknown');
 
@@ -149,6 +173,22 @@
       const [timeline, setTimeline] = useState([]);
 
       const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('bobo_dark') === 'true');
+      const [isDeepNight, setIsDeepNight] = useState(() => localStorage.getItem('bobo_deep_night') === 'true');
+      const [activeCaregiver, setActiveCaregiver] = useState(() => localStorage.getItem('bobo_caregiver') || 'אבא');
+      const [stickyNote, setStickyNote] = useState(() => localStorage.getItem('bobo_sticky_note') || '');
+      const [isEditingSticky, setIsEditingSticky] = useState(false);
+      const [tempSticky, setTempSticky] = useState('');
+
+      const [showNoisePlayer, setShowNoisePlayer] = useState(false);
+      const [noiseType, setNoiseType] = useState('white');
+      const [isNoisePlaying, setIsNoisePlaying] = useState(false);
+      const [noiseTimerMin, setNoiseTimerMin] = useState(30);
+      const [noiseTimerRemain, setNoiseTimerRemain] = useState(null);
+      const audioCtxRef = useRef(null);
+      const noiseSourceNodeRef = useRef(null);
+      const noiseGainNodeRef = useRef(null);
+      const noiseIntervalRef = useRef(null);
+
       const [defaultMl, setDefaultMl] = useState(() => parseInt(localStorage.getItem('bobo_def_ml') || '150'));
       const [targetFeeds, setTargetFeeds] = useState(() => parseInt(localStorage.getItem('bobo_target_feeds') || '8'));
       const [targetDiapers, setTargetDiapers] = useState(() => parseInt(localStorage.getItem('bobo_target_diapers') || '6'));
@@ -211,25 +251,28 @@
 
       const quickSolids = ['בטטה', 'גזר', 'קישוא', 'דלעת', 'בננה', 'אבוקדו', 'טחינה', 'תפוח'];
 
-      // Theme Color Effect
       useEffect(() => {
         const metaTheme = document.querySelector('meta[name="theme-color"]');
-        if (isDarkMode) {
+        if (isDeepNight) {
+          document.documentElement.classList.add('deep-night');
+          document.documentElement.classList.remove('dark');
+          if (metaTheme) metaTheme.setAttribute('content', '#000000');
+        } else if (isDarkMode) {
+          document.documentElement.classList.remove('deep-night');
           document.documentElement.classList.add('dark');
           if (metaTheme) metaTheme.setAttribute('content', '#121212');
         } else {
+          document.documentElement.classList.remove('deep-night');
           document.documentElement.classList.remove('dark');
           if (metaTheme) metaTheme.setAttribute('content', '#ffffff');
         }
         localStorage.setItem('bobo_dark', isDarkMode);
-      }, [isDarkMode]);
+        localStorage.setItem('bobo_deep_night', isDeepNight);
+      }, [isDarkMode, isDeepNight]);
 
-      // Install Prompt Logic
       useEffect(() => {
         const checkInstallPrompt = () => {
           if (typeof window === 'undefined') return;
-          
-          // בדיקה האם האפליקציה רצה במצב Standalone
           const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
           const hasDismissedPrompt = localStorage.getItem('bobo_hide_install') === 'true';
 
@@ -237,24 +280,158 @@
             const ua = window.navigator.userAgent;
             const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
             const isAndroid = /android/i.test(ua);
-            
             if (isIOS) setInstallDeviceType('ios');
             else if (isAndroid) setInstallDeviceType('android');
             else setInstallDeviceType('desktop');
-            
-            // עיכוב קל להצגת הפופאפ כדי לא להציף מיד בפתיחה
-            setTimeout(() => {
-              setShowInstallPrompt(true);
-            }, 3000);
+            setTimeout(() => { setShowInstallPrompt(true); }, 3000);
           }
         };
-        
         checkInstallPrompt();
       }, []);
 
       useEffect(() => { 
         setAmount(defaultMl); setBottleType(defaultBottleType); setDuration(defaultBreastDuration); 
       }, [defaultMl, defaultBottleType, defaultBreastDuration]);
+
+      const stopNoiseSound = () => {
+        if (noiseSourceNodeRef.current) {
+          try { noiseSourceNodeRef.current.stop(); } catch(e) {}
+          noiseSourceNodeRef.current.disconnect();
+          noiseSourceNodeRef.current = null;
+        }
+        if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+          try { audioCtxRef.current.close(); } catch(e) {}
+          audioCtxRef.current = null;
+        }
+        if (noiseIntervalRef.current) {
+          clearInterval(noiseIntervalRef.current);
+          noiseIntervalRef.current = null;
+        }
+        setIsNoisePlaying(false);
+        setNoiseTimerRemain(null);
+      };
+
+      const startNoiseSound = (type = noiseType) => {
+        stopNoiseSound();
+        try {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          const ctx = new AudioContext();
+          audioCtxRef.current = ctx;
+
+          const bufferSize = 2 * ctx.sampleRate;
+          const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+          const output = noiseBuffer.getChannelData(0);
+
+          if (type === 'white') {
+            for (let i = 0; i < bufferSize; i++) {
+              output[i] = Math.random() * 2 - 1;
+            }
+          } else if (type === 'pink') {
+            let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+            for (let i = 0; i < bufferSize; i++) {
+              const white = Math.random() * 2 - 1;
+              b0 = 0.99886 * b0 + white * 0.0555179;
+              b1 = 0.99332 * b1 + white * 0.0750759;
+              b2 = 0.96900 * b2 + white * 0.1538520;
+              b3 = 0.86650 * b3 + white * 0.3104856;
+              b4 = 0.55000 * b4 + white * 0.5329522;
+              b5 = -0.7616 * b5 - white * 0.0168980;
+              output[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.11;
+              b6 = white * 0.115926;
+            }
+          } else if (type === 'shh') {
+            for (let i = 0; i < bufferSize; i++) {
+              const env = Math.sin((i / bufferSize) * Math.PI * 4);
+              output[i] = (Math.random() * 2 - 1) * Math.max(0, env) * 0.8;
+            }
+          } else if (type === 'heart') {
+            for (let i = 0; i < bufferSize; i++) {
+              const t = (i / ctx.sampleRate) % 1.0;
+              const beat = (t < 0.1 || (t > 0.25 && t < 0.35)) ? Math.sin(t * Math.PI * 20) * 0.9 : 0;
+              output[i] = beat + (Math.random() * 0.04 - 0.02);
+            }
+          }
+
+          const whiteNoise = ctx.createBufferSource();
+          whiteNoise.buffer = noiseBuffer;
+          whiteNoise.loop = true;
+
+          const gainNode = ctx.createGain();
+          gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+
+          if (type === 'pink' || type === 'heart') {
+            const filter = ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(type === 'heart' ? 180 : 800, ctx.currentTime);
+            whiteNoise.connect(filter);
+            filter.connect(gainNode);
+          } else {
+            whiteNoise.connect(gainNode);
+          }
+
+          gainNode.connect(ctx.destination);
+          whiteNoise.start(0);
+
+          noiseSourceNodeRef.current = whiteNoise;
+          noiseGainNodeRef.current = gainNode;
+          setIsNoisePlaying(true);
+
+          if (noiseTimerMin > 0) {
+            let remain = noiseTimerMin * 60;
+            setNoiseTimerRemain(remain);
+            noiseIntervalRef.current = setInterval(() => {
+              remain -= 1;
+              setNoiseTimerRemain(remain);
+              if (remain <= 0) {
+                stopNoiseSound();
+              }
+            }, 1000);
+          }
+        } catch(e) {
+          console.error("Audio error", e);
+        }
+      };
+
+      const handleToggleNoise = () => {
+        triggerVibration(10);
+        if (isNoisePlaying) {
+          stopNoiseSound();
+        } else {
+          startNoiseSound(noiseType);
+        }
+      };
+
+      const handleSaveStickyNote = () => {
+        triggerVibration(10);
+        setStickyNote(tempSticky);
+        localStorage.setItem('bobo_sticky_note', tempSticky);
+        setIsEditingSticky(false);
+      };
+
+      const shareDayToWhatsApp = () => {
+        triggerVibration(15);
+        const todayStr = new Date().toLocaleDateString('he-IL');
+        const bottleMl = actualFeedingsToday.filter(f => f.type === 'bottle').reduce((a, c) => a + (c.amount_ml || 0), 0);
+        const breastMins = actualFeedingsToday.filter(f => f.type === 'breastfeeding').reduce((a, c) => a + (c.duration_minutes || 0), 0);
+        const pumpingMl = timeline.filter(l => l.logType === 'pumping' && isToday(l.timestamp)).reduce((a, c) => a + (c.amount_ml || 0), 0);
+        const wetDiapers = todaysDiapers.filter(d => d.type === 'wet' || d.type === 'both').length;
+        const dirtyDiapers = todaysDiapers.filter(d => d.type === 'dirty' || d.type === 'both').length;
+        const todaySolids = solids.filter(s => isToday(s.created_at)).map(s => s.food_name).join(', ');
+
+        let msg = `👶 *סיכום יום עבור ${babyName} (${todayStr})*\n\n`;
+        msg += `🍼 *אכילות:* ${actualFeedingsToday.length} ארוחות`;
+        if (bottleMl > 0 || breastMins > 0) {
+          msg += ` (${bottleMl > 0 ? `${bottleMl} מ"ל` : ''}${bottleMl > 0 && breastMins > 0 ? ' + ' : ''}${breastMins > 0 ? `${breastMins} דק' הנקה` : ''})`;
+        }
+        msg += `\n🚼 *חיתולים:* ${todaysDiapers.length} (${wetDiapers} פיפי, ${dirtyDiapers} קקי)\n`;
+        if (pumpingMl > 0) msg += `🥛 *שאיבות היום:* ${pumpingMl} מ"ל\n`;
+        if (todaySolids) msg += `🥑 *טעימות היום:* ${todaySolids}\n`;
+        if (stickyNote) msg += `📝 *פתקית:* ${stickyNote}\n`;
+        msg += `\n_נשלח מאפליקציית בובו_ 👶❤️`;
+
+        const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+        window.open(url, '_blank');
+      };
 
       const getOfflineQueue = () => { try { return JSON.parse(localStorage.getItem('bobo_offline_queue') || '[]'); } catch(e) { return []; } };
       const setOfflineQueue = (q) => { localStorage.setItem('bobo_offline_queue', JSON.stringify(q)); setPendingSyncCount(q.length); };
@@ -315,14 +492,15 @@
       }, [user]);
 
       const performInsert = async (table, payload) => {
+        const payloadWithCaregiver = { ...payload, caregiver: activeCaregiver };
         if (!navigator.onLine) {
-          const queue = getOfflineQueue(); queue.push({ table, payload, client_id: Date.now() }); setOfflineQueue(queue); return { offline: true };
+          const queue = getOfflineQueue(); queue.push({ table, payload: payloadWithCaregiver, client_id: Date.now() }); setOfflineQueue(queue); return { offline: true };
         }
         try {
-          const res = await supabaseClient.from(table).insert(payload);
+          const res = await supabaseClient.from(table).insert(payloadWithCaregiver);
           if (res.error) throw res.error; return { success: true };
         } catch (e) {
-          const queue = getOfflineQueue(); queue.push({ table, payload, client_id: Date.now() }); setOfflineQueue(queue); return { offline: true };
+          const queue = getOfflineQueue(); queue.push({ table, payload: payloadWithCaregiver, client_id: Date.now() }); setOfflineQueue(queue); return { offline: true };
         }
       };
 
@@ -612,13 +790,14 @@
 
       const exportToCSV = () => {
         if (timeline.length === 0) return alert("אין נתונים לייצוא");
-        let csvContent = "\uFEFFסוג פעולה,פירוט,כמות/משך,צד/החזקה,תאריך,שעה,הערות\n";
+        let csvContent = "\uFEFFסוג פעולה,פירוט,כמות/משך,צד/החזקה,הורה מתעד,תאריך,שעה,הערות\n";
         timeline.forEach(item => {
           const type = item.logType === 'vitamin_d' ? 'ויטמין D' : item.logType === 'pumping' ? 'שאיבה' : item.logType === 'feeding' ? (item.type === 'breastfeeding' ? 'הנקה' : 'בקבוק') : item.logType === 'diaper' ? 'חיתול' : item.logType === 'solid' ? 'טעימות מוצקים' : 'גדילה';
           const subType = item.logType === 'vitamin_d' ? 'תוסף תזונה' : item.logType === 'pumping' ? 'שאיבת חלב' : item.logType === 'feeding' ? (item.type === 'breastfeeding' ? 'הנקה' : 'האכלה') : item.logType === 'diaper' ? (item.type === 'wet' ? 'פיפי' : item.type === 'dirty' ? 'קקי' : 'שניהם') : item.logType === 'solid' ? item.food_name : (item.metric_type === 'weight' ? 'משקל' : 'גובה');
           const value = item.logType === 'vitamin_d' ? '2 טיפות' : item.logType === 'pumping' ? `${item.amount_ml} מ"ל` : item.logType === 'feeding' ? (item.duration_minutes ? `${item.duration_minutes} דקות` : `${item.amount_ml} מ"ל`) : item.logType === 'diaper' ? '' : item.logType === 'solid' ? (item.reaction === 'liked' ? 'אהב' : item.reaction === 'neutral' ? 'נייטרלי' : item.reaction === 'disliked' ? 'לא אהב' : 'חשש לאלרגיה') : `${item.value} ${item.unit === 'kg' ? 'ק"ג' : 'ס"מ'}`;
           const side = item.side === 'left' ? 'שמאל' : item.side === 'right' ? 'ימין' : item.side === 'both' && item.logType !== 'vitamin_d' ? 'שניהם' : '';
-          csvContent += `${type},${subType},${value},${side},${new Date(item.timestamp).toLocaleDateString('he-IL')},${new Date(item.timestamp).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'})},${item.notes ? item.notes.replace(/,/g, " ") : ""}\n`;
+          const caregiverStr = item.caregiver || '';
+          csvContent += `${type},${subType},${value},${side},${caregiverStr},${new Date(item.timestamp).toLocaleDateString('he-IL')},${new Date(item.timestamp).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'})},${item.notes ? item.notes.replace(/,/g, " ") : ""}\n`;
         });
         const link = document.createElement("a"); link.setAttribute("href", URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }))); link.setAttribute("download", `יומן_בובו_${babyName}.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link);
       };
@@ -745,7 +924,6 @@
       return (
         <div className="max-w-lg mx-auto min-h-screen flex flex-col pb-28 text-gray-800 dark:text-gray-100 relative">
           
-          {/* Custom Install Prompt Banner */}
           {showInstallPrompt && (
             <div className="fixed top-4 left-4 right-4 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md p-4 rounded-3xl shadow-2xl z-[100] border border-rose-100 dark:border-gray-700 animate-in slide-in-from-top-4 flex flex-col gap-3 max-w-md mx-auto">
               <div className="flex justify-between items-start">
@@ -784,15 +962,159 @@
                 </p>
               </div>
             </div>
-            <button onClick={() => { triggerVibration(10); supabaseClient.auth.signOut(); }} className="text-xs font-bold text-red-500 bg-red-50 dark:bg-red-950/40 px-3 py-1.5 rounded-xl transition hover:bg-red-100 dark:hover:bg-red-900/60 active:scale-95 shadow-sm border border-red-100 dark:border-red-900/50">התנתק</button>
+
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => { triggerVibration(10); setIsDeepNight(!isDeepNight); }}
+                title="מצב לילה עמוק"
+                className={`p-2 rounded-xl text-xs font-bold border transition active:scale-95 flex items-center gap-1 ${
+                  isDeepNight ? 'bg-red-950 border-red-800 text-red-400 shadow-inner' : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700'
+                }`}
+              >
+                <span>🌙🔴</span>
+              </button>
+
+              <button 
+                onClick={() => { triggerVibration(10); setShowNoisePlayer(!showNoisePlayer); }}
+                title="רעש לבן מרגיע"
+                className={`p-2 rounded-xl text-xs font-bold border transition active:scale-95 flex items-center gap-1 ${
+                  isNoisePlaying ? 'bg-teal-500 border-teal-500 text-white shadow-md shadow-teal-200/50 animate-pulse' : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700'
+                }`}
+              >
+                <span>🎧</span>
+              </button>
+
+              <button onClick={() => { triggerVibration(10); supabaseClient.auth.signOut(); }} className="text-xs font-bold text-red-500 bg-red-50 dark:bg-red-950/40 px-3 py-1.5 rounded-xl transition hover:bg-red-100 dark:hover:bg-red-900/60 active:scale-95 shadow-sm border border-red-100 dark:border-red-900/50">התנתק</button>
+            </div>
           </header>
+
+          {showNoisePlayer && (
+            <div className="bg-white/95 dark:bg-gray-800/95 p-4 mx-4 mt-3 rounded-3xl border border-teal-100 dark:border-gray-700 shadow-xl space-y-3 animate-in slide-in-from-top-2">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xs font-black text-teal-600 dark:text-teal-400 flex items-center gap-1.5">
+                  <span>🎧</span> נגן צלילים מרגיעים (שינה והרגעה)
+                </h3>
+                <button onClick={() => setShowNoisePlayer(false)} className="text-xs font-bold text-gray-400">✕</button>
+              </div>
+              <div className="grid grid-cols-4 gap-1.5 text-xs">
+                {[
+                  { id: 'white', label: 'רעש לבן', icon: '💨' },
+                  { id: 'pink', label: 'רעש ורוד', icon: '🌊' },
+                  { id: 'shh', label: 'ששש...', icon: '🤫' },
+                  { id: 'heart', label: 'פעימות רחם', icon: '💓' }
+                ].map(n => (
+                  <button 
+                    key={n.id} 
+                    onClick={() => {
+                      triggerVibration(10);
+                      setNoiseType(n.id);
+                      if (isNoisePlaying) startNoiseSound(n.id);
+                    }}
+                    className={`py-2 rounded-xl font-bold border flex flex-col items-center gap-1 transition ${
+                      noiseType === n.id ? 'bg-teal-500 text-white border-teal-500 shadow-sm' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-600'
+                    }`}
+                  >
+                    <span>{n.icon}</span>
+                    <span className="text-[10px]">{n.label}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center justify-between pt-1 text-xs">
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] font-bold text-gray-500">טיימר כיבוי:</span>
+                  {[15, 30, 60, 0].map(m => (
+                    <button 
+                      key={m} 
+                      onClick={() => { triggerVibration(10); setNoiseTimerMin(m); }}
+                      className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border ${
+                        noiseTimerMin === m ? 'bg-teal-500 text-white border-teal-500' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600'
+                      }`}
+                    >
+                      {m === 0 ? 'ללא' : `${m} דק'`}
+                    </button>
+                  ))}
+                </div>
+                <button 
+                  onClick={handleToggleNoise}
+                  className={`px-4 py-1.5 rounded-xl font-black text-xs transition active:scale-95 shadow-md ${
+                    isNoisePlaying ? 'bg-red-500 text-white shadow-red-200/50' : 'bg-teal-500 text-white shadow-teal-200/50'
+                  }`}
+                >
+                  {isNoisePlaying ? `עצור ${noiseTimerRemain ? `(${Math.floor(noiseTimerRemain / 60)}:${String(noiseTimerRemain % 60).padStart(2, '0')})` : ''}` : 'הפעל צליל'}
+                </button>
+              </div>
+            </div>
+          )}
 
           <main className="p-4 space-y-5 flex-1 relative overflow-hidden">
             
             {activeTab === 'home' && (
               <div className="animate-tab space-y-5">
                 
-                {/* KPI Cards with Progress Bars */}
+                <div className="bg-amber-50/80 dark:bg-amber-950/30 p-3.5 rounded-3xl border border-amber-200/70 dark:border-amber-900/50 shadow-sm flex items-center justify-between gap-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-sm">📌</span>
+                      <span className="text-[11px] font-black text-amber-800 dark:text-amber-300">פתקית מקרר משפחתית</span>
+                    </div>
+                    {isEditingSticky ? (
+                      <div className="flex gap-2 mt-1.5">
+                        <input 
+                          type="text" 
+                          value={tempSticky} 
+                          onChange={e => setTempSticky(e.target.value)} 
+                          placeholder="רשמו הודעה קצרה בין המשמרות..."
+                          className="flex-1 px-3 py-1.5 bg-white dark:bg-gray-800 text-xs font-bold rounded-xl border border-amber-300 dark:border-amber-700 focus:outline-none dark:text-white"
+                        />
+                        <button onClick={handleSaveStickyNote} className="bg-amber-500 text-white px-3 py-1.5 rounded-xl text-xs font-bold">שמור</button>
+                      </div>
+                    ) : (
+                      <p className="text-xs font-medium text-amber-900 dark:text-amber-200">
+                        {stickyNote || 'לחצו כדי להשאיר הודעה קצרה אחד לשנייה...'}
+                      </p>
+                    )}
+                  </div>
+                  {!isEditingSticky && (
+                    <button 
+                      onClick={() => { triggerVibration(10); setTempSticky(stickyNote); setIsEditingSticky(true); }}
+                      className="text-xs bg-amber-200/60 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 px-2.5 py-1.5 rounded-xl font-bold"
+                    >
+                      ✏️
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex justify-between items-center bg-white dark:bg-gray-800 p-2.5 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-gray-500 dark:text-gray-400">מתעד כרגע:</span>
+                    <div className="flex gap-1">
+                      {['אבא', 'אמא'].map(c => (
+                        <button 
+                          key={c} 
+                          onClick={() => {
+                            triggerVibration(10);
+                            setActiveCaregiver(c);
+                            localStorage.setItem('bobo_caregiver', c);
+                          }}
+                          className={`px-3 py-1 rounded-xl text-xs font-black transition ${
+                            activeCaregiver === c ? 'bg-rose-500 text-white shadow-sm' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600'
+                          }`}
+                        >
+                          {c}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={shareDayToWhatsApp}
+                    className="flex items-center gap-1.5 bg-emerald-500 text-white px-3 py-1.5 rounded-xl text-xs font-black shadow-md shadow-emerald-200/50 active:scale-95 transition"
+                  >
+                    <span>💬</span>
+                    <span>סיכום לוואטסאפ</span>
+                  </button>
+                </div>
+
                 <div className={`grid ${statColsCount} gap-3 text-white`}>
                   <div className="bg-gradient-to-br from-rose-400 to-rose-500 p-4 rounded-3xl shadow-lg shadow-rose-200/50 dark:shadow-none relative overflow-hidden border border-rose-300/30">
                     <div className="flex justify-between items-center z-10 relative">
@@ -1040,6 +1362,11 @@
                                 <span className="text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 font-bold px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap">
                                   {getTimeAgo(item.timestamp)}
                                 </span>
+                                {item.caregiver && (
+                                  <span className="text-[10px] bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300 font-bold px-2 py-0.5 rounded-full shadow-sm">
+                                    ע״י {item.caregiver}
+                                  </span>
+                                )}
                                 {item.isOfflinePending && <span className="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 font-bold px-2 py-0.5 rounded-full shadow-sm">⏳ ממתין לסנכרון</span>}
                               </div>
                               <div className="flex items-center gap-2 mb-1">
@@ -1136,6 +1463,11 @@
                               <span className="text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 font-bold px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap">
                                 {getTimeAgo(item.timestamp)}
                               </span>
+                              {item.caregiver && (
+                                <span className="text-[10px] bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300 font-bold px-2 py-0.5 rounded-full shadow-sm">
+                                  ע״י {item.caregiver}
+                                </span>
+                              )}
                               {item.isOfflinePending && <span className="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 font-bold px-2 py-0.5 rounded-full shadow-sm">⏳ ממתין לסנכרון</span>}
                             </div>
                             <div className="flex items-center gap-2 mb-1">
@@ -1432,8 +1764,16 @@
                   <h2 className="text-lg font-black pb-3 border-b border-gray-100 dark:border-gray-700/60 dark:text-white flex items-center gap-2"><span className="text-2xl drop-shadow-sm">⚙️</span> הגדרות האפליקציה</h2>
                   
                   <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-600 shadow-sm">
-                    <span className="text-sm font-black dark:text-white flex items-center gap-2"><span className="text-lg">🌙</span> מצב לילה (Dark Mode)</span>
-                    <input type="checkbox" checked={isDarkMode} onChange={e => {triggerVibration(10); setIsDarkMode(e.target.checked)}} className="w-5 h-5 accent-rose-500 cursor-pointer" />
+                    <span className="text-sm font-black dark:text-white flex items-center gap-2"><span className="text-lg">🌙</span> מצב לילה רגיל (Dark Mode)</span>
+                    <input type="checkbox" checked={isDarkMode} onChange={e => {triggerVibration(10); setIsDarkMode(e.target.checked); if (e.target.checked) setIsDeepNight(false);}} className="w-5 h-5 accent-rose-500 cursor-pointer" />
+                  </div>
+
+                  <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-600 shadow-sm">
+                    <div>
+                      <span className="text-sm font-black dark:text-white flex items-center gap-2"><span className="text-lg">🌙🔴</span> מצב לילה עמוק (Deep Red OLED)</span>
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium leading-tight block max-w-[200px]">גווני אדום ושחור מוחלט שלא מסנוורים בלילה</span>
+                    </div>
+                    <input type="checkbox" checked={isDeepNight} onChange={e => {triggerVibration(10); setIsDeepNight(e.target.checked); if (e.target.checked) setIsDarkMode(false);}} className="w-5 h-5 accent-red-600 cursor-pointer" />
                   </div>
 
                   <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-600 shadow-sm">
@@ -1542,7 +1882,6 @@
 
           </main>
 
-          {/* Floating Bottom Navigation (iOS Style) */}
           <div className="fixed bottom-6 left-0 right-0 z-50 flex justify-center pointer-events-none px-4 no-print">
             <nav className="w-full max-w-lg bg-white/85 dark:bg-gray-900/85 backdrop-blur-xl border border-white/60 dark:border-gray-700/50 flex justify-around items-center px-2 py-2.5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.5)] rounded-full pointer-events-auto transition-colors duration-300">
               {[
@@ -1575,7 +1914,6 @@
             </nav>
           </div>
 
-          {/* Edit Modal */}
           {editingItem && (
             <div className="fixed inset-0 bg-gray-900/40 dark:bg-black/60 backdrop-blur-md z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200 no-print">
               <div className="bg-white dark:bg-gray-800 w-full max-w-sm rounded-[2rem] p-6 shadow-2xl shadow-black/20 space-y-5 border border-white/60 dark:border-gray-700 text-gray-800 dark:text-white">
@@ -1690,7 +2028,6 @@
             </div>
           )}
 
-          {/* Report Modal */}
           {showReportModal && (() => {
             const weeklyData = getWeeklyMedicalSummary();
             return (
