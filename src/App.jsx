@@ -14,8 +14,8 @@ function urlBase64ToUint8Array(base64String) {
   return outputArray;
 }
 
-const supabaseUrl = "https://zyejobjucmjpumdiczbt.supabase.co";
-const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5ZWpvYmp1Y21qcHVtZGljemJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MjYyMDYsImV4cCI6MjA5OTAwMjIwNn0.MYlkEAjcr4nzF7SzNjen9Jjux-FnCksj-BdrjB4F3pA";
+const supabaseUrl = "https://zebyzpsffpvdaoqrhonq.supabase.co";
+const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InplYnl6cHNmZnB2ZGFvcXJob25xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MjYyMDYsImV4cCI6MjA5OTAwMjIwNn0.MYlkEAjcr4nzF7SzNjen9Jjux-FnCksj-BdrjB4F3pA";
 const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
   auth: { persistSession: true, autoRefreshToken: true }
 });
@@ -581,8 +581,8 @@ export default function App() {
       } else if (item.notes && item.notes.includes('[שאיבת_חלב]')) {
         setEditNotes(item.notes.replace('[שאיבת_חלב]', '').trim());
       } else { 
-            setEditSelect2('formula'); 
-          }
+        setEditSelect2('formula'); 
+      }
     } else if (item.logType === 'diaper') { setEditSelect1(item.type); } 
     else if (item.logType === 'solid') { setEditValue1(item.food_name); setEditSelect1(item.reaction); }
     else if (item.logType === 'growth') { setEditValue1(item.value); }
