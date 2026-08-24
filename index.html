@@ -215,41 +215,41 @@
         return outputArray;
       };
 
-      const requestNotificationPermission = async () => {
-        if (typeof window !== 'undefined' && 'Notification' in window && 'serviceWorker' in navigator) {
-          try {
+  const requestNotificationPermission = async () => {
+    if (typeof window !== 'undefined' && 'Notification' in window && 'serviceWorker' in navigator) {
+        try {
             const perm = await window.Notification.requestPermission();
             setNotificationsEnabled(perm === 'granted');
             if (perm === 'granted') {
-              const registration = await navigator.serviceWorker.ready;
-              const vapidPublicKey = 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYUW5NxhIo';
-              const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
-              
-              let subscription = await registration.pushManager.getSubscription();
-              if (!subscription) {
-                subscription = await registration.pushManager.subscribe({
-                  userVisibleOnly: true,
-                  applicationServerKey: convertedVapidKey
-                });
-              }
+                const registration = await navigator.serviceWorker.ready;
+                const vapidPublicKey = 'BN1b6W0JbK6XvR4Z9x2N5p8Q3s7t2v1w5x9y4z3A2B1C6D7E8F9G0H1I2J3K4L5M6N7O8P9Q0R1S2T3U4V5W6X7Y8Z9';
+                const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
 
-              const subJson = subscription.toJSON();
-              await supabaseClient.from('push_subscriptions').upsert({
-                endpoint: subJson.endpoint,
-                p256dh: subJson.keys.p256dh,
-                auth: subJson.keys.auth
-              }, { onConflict: 'endpoint' });
+                let subscription = await registration.pushManager.getSubscription();
+                if (!subscription) {
+                    subscription = await registration.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: convertedVapidKey
+                    });
+                }
 
-              alert('התראות הפוש הופקו ונרשמו בהצלחה למכשיר!');
+                const subJson = subscription.toJSON();
+                await supabaseClient.from('push_subscriptions').upsert({
+                    endpoint: subJson.endpoint,
+                    p256dh: subJson.keys.p256dh,
+                    auth: subJson.keys.auth
+                }, { onConflict: 'endpoint' });
+
+                alert('התראות הפוש הופעלו ונרשמו בהצלחה למכשיר!');
             }
-          } catch(e) {
+        } catch (e) {
             console.error('Push subscription error details:', e);
             alert('שגיאה ברישום ההתראות: ' + (e.message || e));
-          }
-        } else {
-          alert('הדפדפן שלך אינו תומך בהתראות פוש.');
         }
-      };
+    } else {
+        alert('הדפדפן שלך אינו תומך בהתראות פוש.');
+    }
+};
 
       const syncOfflineData = async () => {
         const queue = getOfflineQueue();
