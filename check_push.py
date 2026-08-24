@@ -1,9 +1,15 @@
 import os
 import requests
 from datetime import datetime, timezone
+from pywebpush import webpush, WebPushException
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_ANON_KEY")
+
+# VAPID keys עבור שליחת הפוש
+VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "YOUR_VAPID_PRIVATE_KEY") 
+# לח לחלופין נשתמש במפתח ציבורי שמוגדר כבר באפליקציה שלך
+VAPID_CLAIM_EMAIL = "mailto:admin@bobo.com"
 
 headers = {
     "apikey": SUPABASE_KEY,
@@ -45,7 +51,30 @@ def check_and_send_push():
         subs_res = requests.get(f"{SUPABASE_URL}/rest/v1/push_subscriptions?select=*", headers=headers)
         if subs_res.status_code == 200:
             for sub in subs_res.json():
-                print(f"Triggering push for endpoint: {sub.get('endpoint')}")
+                endpoint = sub.get('endpoint')
+                p256dh = sub.get('p256dh')
+                auth = sub.get('auth')
+                
+                if endpoint and p256dh and auth:
+                    push_info = {
+                        "endpoint": endpoint,
+                        "keys": {
+                            "p256dh": p256dh,
+                            "auth": auth
+                        }
+                    }
+                    payload = '{"title": "בובו - מעקב תינוקות", "body": "הגיע הזמן להתכונן להאכלה הבאה בעוד מספר דקות!"}'
+                    try:
+                        # שליחת ההתראה דרך Web Push
+                        webpush(
+                            subscription_info=push_info,
+                            data=payload,
+                            vapid_private_key=os.environ.get("VAPID_PRIVATE_KEY", ""),
+                            vapid_claims={"sub": VAPID_CLAIM_EMAIL}
+                        )
+                        print(f"Push sent successfully to {endpoint}")
+                    except Exception as e:
+                        print(f"Error sending push: {e}")
     else:
         print("Not time yet.")
 
