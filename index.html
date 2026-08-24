@@ -1,6 +1,4 @@
-<!DOCTYPE html>
-<html lang="he" dir="rtl">
-<head>
+<!DOCTYPE html><html lang="he" dir="rtl"><head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>בובו - מעקב תינוק משפחתי</title>
@@ -73,9 +71,7 @@
       }
       .print-bg { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     }
-  </style>
-</head>
-<body class="bg-gradient-to-br from-rose-50/80 via-orange-50/40 to-teal-50/50 min-h-screen font-sans antialiased transition-colors duration-300">
+  </style></head><body class="bg-gradient-to-br from-rose-50/80 via-orange-50/40 to-teal-50/50 min-h-screen font-sans antialiased transition-colors duration-300">
 
   <div id="root">
     <div style="display:flex;height:100vh;align-items:center;justify-content:center;font-family:sans-serif;font-weight:bold;color:#fb7185;font-size:20px;">
@@ -193,6 +189,8 @@
       const [selectedTimelineDate, setSelectedTimelineDate] = useState('');
 
       const [showReportModal, setShowReportModal] = useState(false);
+      const [trendsDaysRange, setTrendsDaysRange] = useState(7);
+      const [activeTrendTooltip, setActiveTrendTooltip] = useState(null);
 
       const quickSolids = ['בטטה', 'גזר', 'קישוא', 'דלעת', 'בננה', 'אבוקדו', 'טחינה', 'תפוח'];
 
@@ -396,7 +394,6 @@
         }
       }, [feedings]);
 
-      // תזמון התראה ל-Service Worker לפי מספר הדקות שנבחר
       useEffect(() => {
         if (!lastFeedTime) {
           setTimeToNextFeed(null);
@@ -662,25 +659,70 @@
         return result;
       };
 
-      const getLast7DaysStats = () => {
+      // מחולל נתוני מגמות דינמי לפי מספר ימים שנבחר + ממוצעים
+      const getTrendsData = (daysCount = 7) => {
         const stats = [];
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        for (let i = 6; i >= 0; i--) {
+
+        let totalBottle = 0;
+        let totalPumping = 0;
+        let totalBreast = 0;
+        let totalDiapers = 0;
+
+        for (let i = daysCount - 1; i >= 0; i--) {
           const d = new Date(today);
           d.setDate(d.getDate() - i);
           const daysNames = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
           const dateStr = `${daysNames[d.getDay()]} ${d.getDate()}`;
+          const fullDateStr = d.toLocaleDateString('he-IL');
+          
           const dayLogs = timeline.filter(log => {
             const logDate = new Date(log.timestamp);
             return logDate.getDate() === d.getDate() && logDate.getMonth() === d.getMonth() && logDate.getFullYear() === d.getFullYear();
           });
+          
           const bottleMl = dayLogs.filter(l => l.logType === 'feeding' && l.type === 'bottle').reduce((sum, l) => sum + (l.amount_ml || 0), 0);
+          const bottleCount = dayLogs.filter(l => l.logType === 'feeding' && l.type === 'bottle').length;
+          
           const pumpingMl = dayLogs.filter(l => l.logType === 'pumping').reduce((sum, l) => sum + (l.amount_ml || 0), 0);
+          const pumpingCount = dayLogs.filter(l => l.logType === 'pumping').length;
+          
           const breastMins = dayLogs.filter(l => l.logType === 'feeding' && l.type === 'breastfeeding').reduce((sum, l) => sum + (l.duration_minutes || 0), 0);
-          stats.push({ dateStr, bottleMl, pumpingMl, breastMins });
+          const breastCount = dayLogs.filter(l => l.logType === 'feeding' && l.type === 'breastfeeding').length;
+          
+          const diapersLogs = dayLogs.filter(l => l.logType === 'diaper');
+          const diaperWet = diapersLogs.filter(d => d.type === 'wet' || d.type === 'both').length;
+          const diaperDirty = diapersLogs.filter(d => d.type === 'dirty' || d.type === 'both').length;
+          const diaperTotal = diapersLogs.length;
+
+          totalBottle += bottleMl;
+          totalPumping += pumpingMl;
+          totalBreast += breastMins;
+          totalDiapers += diaperTotal;
+
+          stats.push({ 
+            dateStr, 
+            fullDateStr, 
+            isToday: i === 0,
+            bottleMl, 
+            bottleCount, 
+            pumpingMl, 
+            pumpingCount, 
+            breastMins, 
+            breastCount, 
+            diaperWet, 
+            diaperDirty, 
+            diaperTotal 
+          });
         }
-        return stats;
+
+        const avgBottle = Math.round(totalBottle / daysCount);
+        const avgPumping = Math.round(totalPumping / daysCount);
+        const avgBreast = Math.round(totalBreast / daysCount);
+        const avgDiapers = (totalDiapers / daysCount).toFixed(1);
+
+        return { stats, avgBottle, avgPumping, avgBreast, avgDiapers };
       };
 
       const getWeeklyMedicalSummary = () => {
@@ -1024,7 +1066,7 @@
                                 {item.logType === 'vitamin_d' ? '💊 ויטמין D' : item.logType === 'pumping' ? '🥛 שאיבה' : item.logType === 'feeding' ? (item.type === 'breastfeeding' ? '🤱 הנקה' : '🍼 בקבוק') : item.logType === 'solid' ? '🥑 טעימה' : item.logType === 'diaper' ? '🚼 חיתול' : '📈 גדילה'}
                               </span>
                               <span className={`text-xs px-2.5 py-0.5 rounded-md font-bold ${getTagColor(item)}`}>
-                                {item.logType === 'vitamin_d' ? '2 טיפות' : item.logType === 'pumping' ? `${item.amount_ml} מ"ל` : item.logType === 'feeding' ? (item.duration_minutes ? `${item.duration_minutes} דק'` : `${item.amount_ml} מ"ל`) : item.logType === 'solid' ? `${item.food_name}` : item.logType === 'diaper' ? (item.type === 'wet' ? 'פיפי' : item.type === 'dirty' ? 'קקי' : 'שניהם') : `${item.value} ${item.unit === 'kg' ? 'ק"ג' : 'ס"מ'}`}
+                                {item.logType === 'vitamin_d' ? '2 טיפות' : item.logType === 'pumping' ? `${item.amount_ml} מ"ל` : item.logType === 'feeding' ? (item.duration_minutes ? `${item.duration_minutes} דק'` : `${item.amount_ml} מ"ל`) : item.logType === 'solid' ? `${item.food_name}` : (item.type === 'wet' ? 'פיפי' : item.type === 'dirty' ? 'קקי' : 'שניהם')}
                               </span>
                               {item.isOfflinePending && <span className="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 font-bold px-2 py-0.5 rounded-md">⏳ ממתין לסנכרון</span>}
                             </div>
@@ -1245,63 +1287,204 @@
               </div>
             )}
 
+            {/* טאב מגמות משודרג עם ממוצעים ו-UX מתקדם */}
             {activeTab === 'trends' && (() => {
-              const stats7Days = getLast7DaysStats();
-              const maxBottle = Math.max(...stats7Days.map(s => s.bottleMl), 50);
-              const maxPumping = Math.max(...stats7Days.map(s => s.pumpingMl), 50);
-              const maxBreast = Math.max(...stats7Days.map(s => s.breastMins), 30);
+              const { stats, avgBottle, avgPumping, avgBreast, avgDiapers } = getTrendsData(trendsDaysRange);
+              const maxBottle = Math.max(...stats.map(s => s.bottleMl), 50);
+              const maxPumping = Math.max(...stats.map(s => s.pumpingMl), 50);
+              const maxBreast = Math.max(...stats.map(s => s.breastMins), 30);
+              const maxDiaper = Math.max(...stats.map(s => s.diaperTotal), 5);
 
               return (
                 <div className="space-y-4 animate-in fade-in duration-200">
-                  <div className="bg-gradient-to-r from-blue-500 to-cyan-400 p-4 rounded-3xl shadow-md text-white flex justify-between items-center">
-                    <div>
-                      <h2 className="text-base font-bold">📊 תובנות ומגמות</h2>
-                      <p className="text-xs font-medium opacity-90 mt-0.5">סיכום 7 הימים האחרונים</p>
-                    </div>
-                    <div className="text-3xl">📈</div>
-                  </div>
                   
-                  <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm">
-                    <h3 className="text-xs font-bold mb-5 text-cyan-600 dark:text-cyan-400">🍼 סה"כ בקבוקים (מ"ל ליום)</h3>
-                    <div className="flex items-end justify-between h-32 gap-2 relative">
-                      <div className="absolute w-full border-t border-dashed border-gray-200 dark:border-gray-700 bottom-0"></div>
-                      {stats7Days.map((item, idx) => (
-                        <div key={idx} className="flex flex-col items-center flex-1 h-full justify-end relative z-10">
-                          <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1">{item.bottleMl > 0 ? item.bottleMl : ''}</span>
-                          <div className={`w-full max-w-[28px] rounded-t-lg transition-all duration-700 ${item.bottleMl > 0 ? 'bg-cyan-400 dark:bg-cyan-500 shadow-sm' : 'bg-transparent'}`} style={{ height: item.bottleMl > 0 ? `${(item.bottleMl / maxBottle) * 100}%` : '0%' }}></div>
-                          <span className="text-[9px] font-medium text-gray-400 dark:text-gray-500 mt-2">{item.dateStr}</span>
+                  {/* בורר טווחי זמן */}
+                  <div className="flex items-center justify-between bg-white dark:bg-gray-800 p-2 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                    <span className="text-xs font-bold text-gray-500 dark:text-gray-400 mr-2">טווח ניתוח:</span>
+                    <div className="flex gap-1.5">
+                      {[
+                        { label: '7 ימים', days: 7 },
+                        { label: '14 ימים', days: 14 },
+                        { label: '30 יום', days: 30 }
+                      ].map(r => (
+                        <button
+                          key={r.days}
+                          onClick={() => { setTrendsDaysRange(r.days); setActiveTrendTooltip(null); }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                            trendsDaysRange === r.days
+                              ? 'bg-blue-500 text-white shadow-sm'
+                              : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                          }`}
+                        >
+                          {r.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* כרטיסי ממוצעים יומיים (KPIs) */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    <div className="bg-gradient-to-br from-cyan-500 to-blue-600 p-3.5 rounded-2xl text-white shadow-md shadow-cyan-100/50 dark:shadow-none">
+                      <div className="text-[11px] font-bold opacity-90">ממוצע בקבוקים</div>
+                      <div className="text-xl font-black mt-1">{avgBottle} <span className="text-xs font-medium">מ"ל/יום</span></div>
+                    </div>
+                    <div className="bg-gradient-to-br from-purple-500 to-indigo-600 p-3.5 rounded-2xl text-white shadow-md shadow-purple-100/50 dark:shadow-none">
+                      <div className="text-[11px] font-bold opacity-90">ממוצע שאיבות</div>
+                      <div className="text-xl font-black mt-1">{avgPumping} <span className="text-xs font-medium">מ"ל/יום</span></div>
+                    </div>
+                    <div className="bg-gradient-to-br from-rose-500 to-pink-600 p-3.5 rounded-2xl text-white shadow-md shadow-rose-100/50 dark:shadow-none">
+                      <div className="text-[11px] font-bold opacity-90">ממוצע הנקה</div>
+                      <div className="text-xl font-black mt-1">{avgBreast} <span className="text-xs font-medium">דק'/יום</span></div>
+                    </div>
+                    <div className="bg-gradient-to-br from-amber-500 to-orange-600 p-3.5 rounded-2xl text-white shadow-md shadow-amber-100/50 dark:shadow-none">
+                      <div className="text-[11px] font-bold opacity-90">ממוצע חיתולים</div>
+                      <div className="text-xl font-black mt-1">{avgDiapers} <span className="text-xs font-medium">ביום</span></div>
+                    </div>
+                  </div>
+
+                  {/* בועית מידע אינטראקטיבית (Tooltip) */}
+                  {activeTrendTooltip && (
+                    <div className="bg-gray-900 text-white p-3 rounded-2xl text-xs flex justify-between items-center animate-in fade-in duration-150">
+                      <div>
+                        <span className="font-bold text-teal-300">{activeTrendTooltip.fullDateStr}</span>
+                        <span className="mr-2 opacity-80">
+                          {activeTrendTooltip.type === 'bottle' && `🍼 בקבוק: ${activeTrendTooltip.data.bottleMl} מ"ל (${activeTrendTooltip.data.bottleCount} האכלות)`}
+                          {activeTrendTooltip.type === 'pumping' && `🥛 שאיבה: ${activeTrendTooltip.data.pumpingMl} מ"ל (${activeTrendTooltip.data.pumpingCount} שאיבות)`}
+                          {activeTrendTooltip.type === 'breast' && `🤱 הנקה: ${activeTrendTooltip.data.breastMins} דקות (${activeTrendTooltip.data.breastCount} הנקות)`}
+                          {activeTrendTooltip.type === 'diaper' && `🚼 חיתולים: ${activeTrendTooltip.data.diaperTotal} (פיפי: ${activeTrendTooltip.data.diaperWet}, קקי: ${activeTrendTooltip.data.diaperDirty})`}
+                        </span>
+                      </div>
+                      <button onClick={() => setActiveTrendTooltip(null)} className="text-gray-400 font-bold hover:text-white px-2">✕</button>
+                    </div>
+                  )}
+
+                  {/* גרף בקבוקים */}
+                  <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-3">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-xs font-bold text-cyan-600 dark:text-cyan-400">🍼 סה"כ בקבוקים (מ"ל ליום)</h3>
+                      <span className="text-[10px] font-bold bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 px-2 py-0.5 rounded-md">ממוצע: {avgBottle} מ"ל</span>
+                    </div>
+                    <div className="flex items-end justify-between h-32 gap-1.5 relative pt-4 overflow-x-auto hide-scrollbar">
+                      {/* קו ממוצע מקווקו */}
+                      {avgBottle > 0 && maxBottle > 0 && (
+                        <div 
+                          className="absolute w-full border-t border-dashed border-cyan-400/60 z-0 flex justify-end" 
+                          style={{ bottom: `${(avgBottle / maxBottle) * 100}%` }}
+                        ></div>
+                      )}
+                      <div className="absolute w-full border-t border-gray-200 dark:border-gray-700 bottom-0"></div>
+                      {stats.map((item, idx) => (
+                        <div 
+                          key={idx} 
+                          onClick={() => setActiveTrendTooltip({ type: 'bottle', data: item, fullDateStr: item.fullDateStr })}
+                          className={`flex flex-col items-center flex-1 min-w-[22px] h-full justify-end relative z-10 cursor-pointer group`}
+                        >
+                          <span className="text-[9px] font-bold text-gray-500 dark:text-gray-400 mb-1">{item.bottleMl > 0 ? item.bottleMl : ''}</span>
+                          <div 
+                            className={`w-full max-w-[24px] rounded-t-lg transition-all duration-500 ${
+                              item.isToday ? 'ring-2 ring-cyan-500 ring-offset-1' : ''
+                            } ${item.bottleMl > 0 ? 'bg-cyan-400 dark:bg-cyan-500 group-hover:bg-cyan-500 shadow-sm' : 'bg-transparent'}`} 
+                            style={{ height: item.bottleMl > 0 ? `${(item.bottleMl / maxBottle) * 100}%` : '0%' }}
+                          ></div>
+                          <span className={`text-[8px] font-bold mt-2 truncate ${item.isToday ? 'text-cyan-500' : 'text-gray-400 dark:text-gray-500'}`}>{item.dateStr}</span>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm">
-                    <h3 className="text-xs font-bold mb-5 text-purple-600 dark:text-purple-400">🥛 סה"כ שאיבות (מ"ל ליום)</h3>
-                    <div className="flex items-end justify-between h-32 gap-2 relative">
-                      <div className="absolute w-full border-t border-dashed border-gray-200 dark:border-gray-700 bottom-0"></div>
-                      {stats7Days.map((item, idx) => (
-                        <div key={idx} className="flex flex-col items-center flex-1 h-full justify-end relative z-10">
-                          <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1">{item.pumpingMl > 0 ? item.pumpingMl : ''}</span>
-                          <div className={`w-full max-w-[28px] rounded-t-lg transition-all duration-700 delay-100 ${item.pumpingMl > 0 ? 'bg-purple-400 dark:bg-purple-500 shadow-sm' : 'bg-transparent'}`} style={{ height: item.pumpingMl > 0 ? `${(item.pumpingMl / maxPumping) * 100}%` : '0%' }}></div>
-                          <span className="text-[9px] font-medium text-gray-400 dark:text-gray-500 mt-2">{item.dateStr}</span>
+                  {/* גרף שאיבות */}
+                  <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-3">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-xs font-bold text-purple-600 dark:text-purple-400">🥛 סה"כ שאיבות (מ"ל ליום)</h3>
+                      <span className="text-[10px] font-bold bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded-md">ממוצע: {avgPumping} מ"ל</span>
+                    </div>
+                    <div className="flex items-end justify-between h-32 gap-1.5 relative pt-4 overflow-x-auto hide-scrollbar">
+                      {avgPumping > 0 && maxPumping > 0 && (
+                        <div 
+                          className="absolute w-full border-t border-dashed border-purple-400/60 z-0" 
+                          style={{ bottom: `${(avgPumping / maxPumping) * 100}%` }}
+                        ></div>
+                      )}
+                      <div className="absolute w-full border-t border-gray-200 dark:border-gray-700 bottom-0"></div>
+                      {stats.map((item, idx) => (
+                        <div 
+                          key={idx} 
+                          onClick={() => setActiveTrendTooltip({ type: 'pumping', data: item, fullDateStr: item.fullDateStr })}
+                          className="flex flex-col items-center flex-1 min-w-[22px] h-full justify-end relative z-10 cursor-pointer group"
+                        >
+                          <span className="text-[9px] font-bold text-gray-500 dark:text-gray-400 mb-1">{item.pumpingMl > 0 ? item.pumpingMl : ''}</span>
+                          <div 
+                            className={`w-full max-w-[24px] rounded-t-lg transition-all duration-500 ${
+                              item.isToday ? 'ring-2 ring-purple-500 ring-offset-1' : ''
+                            } ${item.pumpingMl > 0 ? 'bg-purple-400 dark:bg-purple-500 group-hover:bg-purple-500 shadow-sm' : 'bg-transparent'}`} 
+                            style={{ height: item.pumpingMl > 0 ? `${(item.pumpingMl / maxPumping) * 100}%` : '0%' }}
+                          ></div>
+                          <span className={`text-[8px] font-bold mt-2 truncate ${item.isToday ? 'text-purple-500' : 'text-gray-400 dark:text-gray-500'}`}>{item.dateStr}</span>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm">
-                    <h3 className="text-xs font-bold mb-5 text-rose-600 dark:text-rose-400">🤱 סה"כ הנקה (דקות ליום)</h3>
-                    <div className="flex items-end justify-between h-32 gap-2 relative">
-                      <div className="absolute w-full border-t border-dashed border-gray-200 dark:border-gray-700 bottom-0"></div>
-                      {stats7Days.map((item, idx) => (
-                        <div key={idx} className="flex flex-col items-center flex-1 h-full justify-end relative z-10">
-                          <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1">{item.breastMins > 0 ? item.breastMins : ''}</span>
-                          <div className={`w-full max-w-[28px] rounded-t-lg transition-all duration-700 delay-200 ${item.breastMins > 0 ? 'bg-rose-400 dark:bg-rose-500 shadow-sm' : 'bg-transparent'}`} style={{ height: item.breastMins > 0 ? `${(item.breastMins / maxBreast) * 100}%` : '0%' }}></div>
-                          <span className="text-[9px] font-medium text-gray-400 dark:text-gray-500 mt-2">{item.dateStr}</span>
+                  {/* גרף הנקה */}
+                  <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-3">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-xs font-bold text-rose-600 dark:text-rose-400">🤱 סה"כ הנקה (דקות ליום)</h3>
+                      <span className="text-[10px] font-bold bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 px-2 py-0.5 rounded-md">ממוצע: {avgBreast} דק'</span>
+                    </div>
+                    <div className="flex items-end justify-between h-32 gap-1.5 relative pt-4 overflow-x-auto hide-scrollbar">
+                      {avgBreast > 0 && maxBreast > 0 && (
+                        <div 
+                          className="absolute w-full border-t border-dashed border-rose-400/60 z-0" 
+                          style={{ bottom: `${(avgBreast / maxBreast) * 100}%` }}
+                        ></div>
+                      )}
+                      <div className="absolute w-full border-t border-gray-200 dark:border-gray-700 bottom-0"></div>
+                      {stats.map((item, idx) => (
+                        <div 
+                          key={idx} 
+                          onClick={() => setActiveTrendTooltip({ type: 'breast', data: item, fullDateStr: item.fullDateStr })}
+                          className="flex flex-col items-center flex-1 min-w-[22px] h-full justify-end relative z-10 cursor-pointer group"
+                        >
+                          <span className="text-[9px] font-bold text-gray-500 dark:text-gray-400 mb-1">{item.breastMins > 0 ? item.breastMins : ''}</span>
+                          <div 
+                            className={`w-full max-w-[24px] rounded-t-lg transition-all duration-500 ${
+                              item.isToday ? 'ring-2 ring-rose-500 ring-offset-1' : ''
+                            } ${item.breastMins > 0 ? 'bg-rose-400 dark:bg-rose-500 group-hover:bg-rose-500 shadow-sm' : 'bg-transparent'}`} 
+                            style={{ height: item.breastMins > 0 ? `${(item.breastMins / maxBreast) * 100}%` : '0%' }}
+                          ></div>
+                          <span className={`text-[8px] font-bold mt-2 truncate ${item.isToday ? 'text-rose-500' : 'text-gray-400 dark:text-gray-500'}`}>{item.dateStr}</span>
                         </div>
                       ))}
                     </div>
                   </div>
+
+                  {/* גרף יציאות וחיתולים */}
+                  <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-3">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-xs font-bold text-amber-600 dark:text-amber-400">🚼 כמות חיתולים ליום</h3>
+                      <span className="text-[10px] font-bold bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-md">ממוצע: {avgDiapers}</span>
+                    </div>
+                    <div className="flex items-end justify-between h-32 gap-1.5 relative pt-4 overflow-x-auto hide-scrollbar">
+                      <div className="absolute w-full border-t border-gray-200 dark:border-gray-700 bottom-0"></div>
+                      {stats.map((item, idx) => (
+                        <div 
+                          key={idx} 
+                          onClick={() => setActiveTrendTooltip({ type: 'diaper', data: item, fullDateStr: item.fullDateStr })}
+                          className="flex flex-col items-center flex-1 min-w-[22px] h-full justify-end relative z-10 cursor-pointer group"
+                        >
+                          <span className="text-[9px] font-bold text-gray-500 dark:text-gray-400 mb-1">{item.diaperTotal > 0 ? item.diaperTotal : ''}</span>
+                          <div 
+                            className={`w-full max-w-[24px] rounded-t-lg transition-all duration-500 ${
+                              item.isToday ? 'ring-2 ring-amber-500 ring-offset-1' : ''
+                            } ${item.diaperTotal > 0 ? 'bg-amber-400 dark:bg-amber-500 group-hover:bg-amber-500 shadow-sm' : 'bg-transparent'}`} 
+                            style={{ height: item.diaperTotal > 0 ? `${(item.diaperTotal / maxDiaper) * 100}%` : '0%' }}
+                          ></div>
+                          <span className={`text-[8px] font-bold mt-2 truncate ${item.isToday ? 'text-amber-500' : 'text-gray-400 dark:text-gray-500'}`}>{item.dateStr}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
                 </div>
               );
             })()}
@@ -1714,6 +1897,4 @@
 
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<App/>);
-  </script>
-</body>
-</html>
+  </script></body></html>
