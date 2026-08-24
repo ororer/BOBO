@@ -1,17 +1,32 @@
-const CACHE_NAME = 'bobo-cache-v17';
-
 self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(clients.claim());
+  event.waitUntil(self.clients.claim());
 });
 
-self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    fetch(event.request).catch(() => {
-      return new Response('בובו - במצב אופליין. אנא התחבר לאינטרנט.');
+// מאזין לפקודת תזמון מהאפליקציה
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SCHEDULE_NOTIFICATION') {
+    const { delay, title, options } = event.data;
+    
+    // מפעיל את ההתראה אחרי הזמן שהוגדר (10 דקות לפני היעד)
+    setTimeout(() => {
+      self.registration.showNotification(title, options);
+    }, delay);
+  }
+});
+
+// לחיצה על ההתראה מחזירה את המשתמש לאפליקציה
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      if (clientList.length > 0) {
+        return clientList[0].focus();
+      }
+      return clients.openWindow('./');
     })
   );
 });
