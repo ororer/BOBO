@@ -12,21 +12,19 @@
   <meta name="apple-mobile-web-app-title" content="בובו">
   <meta name="application-name" content="בובו">
   
-  <!-- אייקון ייעודי לאייפון למסך הבית (מחזיר את פרצוף התינוק) -->
   <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23fb7185'/><text x='50' y='68' font-size='60' text-anchor='middle'>👶</text></svg>">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23fb7185'/><text x='50' y='68' font-size='60' text-anchor='middle'>👶</text></svg>">
 
-  <!-- Manifest תקני -->
   <link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22%D7%91%D7%95%D7%91%D7%95%20-%20%D7%9E%D7%A2%D7%A7%D7%91%20%D7%AA%D7%99%D7%A0%D7%95%D7%A7%D7%95%D7%AA%22%2C%22short_name%22%3A%22%D7%91%D7%95%D7%91%D7%95%22%2C%22start_url%22%3A%22.%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23ffffff%22%2C%22theme_color%22%3A%22%23fb7185%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%2C%253Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20100%20100'%253E%253Crect%20width%3D'100'%20height%3D'100'%20rx%3D'22'%20fill%3D'%2523fb7185'%2F%253E%253Ctext%20x%3D'50'%20y%3D'68'%20font-size%3D'60'%20text-anchor%3D'middle'%253E%25F0%259F%2591%25B6%253C%2Ftext%253E%253C%2Fsvg%253E%22%2C%22sizes%22%3A%22192x192%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%7D%5D%7D">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800;900&display=swap" rel="stylesheet">
   
-  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.24.0/babel.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   
   <style>
@@ -79,25 +77,30 @@
 </head>
 <body class="bg-gradient-to-br from-rose-50/80 via-orange-50/40 to-teal-50/50 min-h-screen font-sans antialiased transition-colors duration-300">
 
-  <div id="root"></div>
+  <div id="root">
+    <div style="display:flex;height:100vh;align-items:center;justify-content:center;font-family:sans-serif;font-weight:bold;color:#fb7185;font-size:20px;">
+      👶 בובו עולה...
+    </div>
+  </div>
 
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
-    // רישום ה-Service Worker של בובו
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js')
-        .then(reg => console.log('BOBO SW רשום'))
-        .catch(err => console.error('SW Reg Error:', err));
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW:', err));
+      });
     }
 
     const supabaseUrl = "https://zyejobjucmjpumdiczbt.supabase.co";
     const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5ZWpvYmp1Y21qcHVtZGljemJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MjYyMDYsImV4cCI6MjA5OTAwMjIwNn0.MYlkEAjcr4nzF7SzNjen9Jjux-FnCksj-BdrjB4F3pA";
-    const supabaseClient = supabase.createClient(supabaseUrl, supabaseAnonKey);
+    const supabaseClient = supabase.createClient(supabaseUrl, supabaseAnonKey, {
+      auth: { persistSession: true, autoRefreshToken: true }
+    });
 
     function App() {
-      const [user, setUser] = useState(null);
-      const [authLoading, setAuthLoading] = useState(true);
+      const [user, setUser] = useState(() => supabaseClient.auth.getSession()?.data?.session?.user || null);
+      const [authLoading, setAuthLoading] = useState(!user);
       const [email, setEmail] = useState('');
       const [password, setPassword] = useState('');
       const [authError, setAuthError] = useState('');
@@ -115,18 +118,26 @@
       const [activeTab, setActiveTab] = useState('home');
       const [activeSection, setActiveSection] = useState(null); 
       
-      const [feedings, setFeedings] = useState([]);
-      const [diapers, setDiapers] = useState([]);
-      const [solids, setSolids] = useState([]);
-      const [growthMetrics, setGrowthMetrics] = useState([]);
+      const [feedings, setFeedings] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('bobo_cache_feedings') || '[]'); } catch(e) { return []; }
+      });
+      const [diapers, setDiapers] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('bobo_cache_diapers') || '[]'); } catch(e) { return []; }
+      });
+      const [solids, setSolids] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('bobo_cache_solids') || '[]'); } catch(e) { return []; }
+      });
+      const [growthMetrics, setGrowthMetrics] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('bobo_cache_growth') || '[]'); } catch(e) { return []; }
+      });
       const [timeline, setTimeline] = useState([]);
-      const [dataLoading, setDataLoading] = useState(false);
 
       const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('bobo_dark') === 'true');
       const [defaultMl, setDefaultMl] = useState(() => parseInt(localStorage.getItem('bobo_def_ml') || '150'));
       const [targetFeeds, setTargetFeeds] = useState(() => parseInt(localStorage.getItem('bobo_target_feeds') || '8'));
       const [targetDiapers, setTargetDiapers] = useState(() => parseInt(localStorage.getItem('bobo_target_diapers') || '6'));
       const [feedIntervalHours, setFeedIntervalHours] = useState(() => parseFloat(localStorage.getItem('bobo_feed_interval')) || 3);
+      const [notifyLeadMinutes, setNotifyLeadMinutes] = useState(() => parseInt(localStorage.getItem('bobo_notify_lead') || '10'));
 
       const [defaultBottleType, setDefaultBottleType] = useState(() => localStorage.getItem('bobo_def_bottle_type') || 'formula');
       const [defaultBreastDuration, setDefaultBreastDuration] = useState(() => parseInt(localStorage.getItem('bobo_def_breast_dur') || '10'));
@@ -186,11 +197,7 @@
       const quickSolids = ['בטטה', 'גזר', 'קישוא', 'דלעת', 'בננה', 'אבוקדו', 'טחינה', 'תפוח'];
 
       const getOfflineQueue = () => {
-        try {
-          return JSON.parse(localStorage.getItem('bobo_offline_queue') || '[]');
-        } catch(e) {
-          return [];
-        }
+        try { return JSON.parse(localStorage.getItem('bobo_offline_queue') || '[]'); } catch(e) { return []; }
       };
       const setOfflineQueue = (q) => {
         localStorage.setItem('bobo_offline_queue', JSON.stringify(q));
@@ -205,12 +212,10 @@
             if (perm === 'granted' && 'serviceWorker' in navigator) {
               const reg = await navigator.serviceWorker.ready;
               reg.showNotification(`בובו - התראות פעילות! 👶`, { 
-                body: 'תקבל תזכורת כ-10 דקות לפני מועד ההאכלה הבא.' 
+                body: `תקבל תזכורת כ-${notifyLeadMinutes} דקות לפני מועד ההאכלה הבא.` 
               });
             }
-          } catch(e) {
-            console.error(e);
-          }
+          } catch(e) { console.error(e); }
         }
       };
 
@@ -223,14 +228,10 @@
           try {
             const { error } = await supabaseClient.from(item.table).insert(item.payload);
             if (error) remaining.push(item);
-          } catch (e) {
-            remaining.push(item);
-          }
+          } catch (e) { remaining.push(item); }
         }
         setOfflineQueue(remaining);
-        if (remaining.length === 0) {
-          loadAllDataRef.current();
-        }
+        if (remaining.length === 0) { loadAllDataRef.current(); }
       };
 
       useEffect(() => {
@@ -322,50 +323,47 @@
 
       const loadAllData = async () => {
         if (!user) return;
-        setDataLoading(true);
         try {
-          const { data: fData } = await supabaseClient.from('feedings').select('*').order('created_at', { ascending: false });
-          const { data: dData } = await supabaseClient.from('diapers').select('*').order('created_at', { ascending: false });
-          
-          let sData = [];
-          try {
-            const { data } = await supabaseClient.from('solids').select('*').order('created_at', { ascending: false });
-            sData = data || [];
-          } catch(e) {}
+          const [{ data: fData }, { data: dData }, { data: sData }, { data: gData }] = await Promise.all([
+            supabaseClient.from('feedings').select('*').order('created_at', { ascending: false }),
+            supabaseClient.from('diapers').select('*').order('created_at', { ascending: false }),
+            supabaseClient.from('solids').select('*').order('created_at', { ascending: false }),
+            supabaseClient.from('growth_metrics').select('*').order('measured_at', { ascending: false })
+          ]);
 
-          const { data: gData } = await supabaseClient.from('growth_metrics').select('*').order('measured_at', { ascending: false });
+          if (fData) { setFeedings(fData); localStorage.setItem('bobo_cache_feedings', JSON.stringify(fData)); }
+          if (dData) { setDiapers(dData); localStorage.setItem('bobo_cache_diapers', JSON.stringify(dData)); }
+          if (sData) { setSolids(sData); localStorage.setItem('bobo_cache_solids', JSON.stringify(sData)); }
+          if (gData) { setGrowthMetrics(gData); localStorage.setItem('bobo_cache_growth', JSON.stringify(gData)); }
 
-          setFeedings(fData || []);
-          setDiapers(dData || []);
-          setSolids(sData);
-          setGrowthMetrics(gData || []);
+          buildCombinedTimeline(fData || [], dData || [], sData || [], gData || []);
+        } catch (e) { console.error(e); }
+      };
 
-          const offlineQueue = getOfflineQueue();
-          const offlineItems = offlineQueue.map(item => {
-            return {
-              ...item.payload,
-              id: item.client_id,
-              isOfflinePending: true,
-              logType: item.table === 'feedings' ? (item.payload.notes?.includes('ויטמין D') ? 'vitamin_d' : item.payload.notes?.includes('[שאיבת_חלב]') ? 'pumping' : 'feeding') : item.table === 'diapers' ? 'diaper' : item.table === 'solids' ? 'solid' : 'growth',
-              timestamp: item.payload.created_at || item.payload.measured_at || new Date().toISOString()
-            };
-          });
+      const buildCombinedTimeline = (fData, dData, sData, gData) => {
+        const offlineQueue = getOfflineQueue();
+        const offlineItems = offlineQueue.map(item => ({
+          ...item.payload,
+          id: item.client_id,
+          isOfflinePending: true,
+          logType: item.table === 'feedings' ? (item.payload.notes?.includes('ויטמין D') ? 'vitamin_d' : item.payload.notes?.includes('[שאיבת_חלב]') ? 'pumping' : 'feeding') : item.table === 'diapers' ? 'diaper' : item.table === 'solids' ? 'solid' : 'growth',
+          timestamp: item.payload.created_at || item.payload.measured_at || new Date().toISOString()
+        }));
 
-          const combined = [
-            ...(fData || []).map(f => {
-              let logType = 'feeding';
-              if (f.notes?.includes('ויטמין D')) logType = 'vitamin_d';
-              else if (f.type === 'pumping' || f.notes?.includes('[שאיבת_חלב]')) logType = 'pumping';
-              return { ...f, logType, timestamp: f.created_at };
-            }),
-            ...(dData || []).map(d => ({ ...d, logType: 'diaper', timestamp: d.created_at })),
-            ...sData.map(s => ({ ...s, logType: 'solid', timestamp: s.created_at })),
-            ...(gData || []).map(g => ({ ...g, logType: 'growth', timestamp: g.measured_at })),
-            ...offlineItems
-          ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        const combined = [
+          ...fData.map(f => {
+            let logType = 'feeding';
+            if (f.notes?.includes('ויטמין D')) logType = 'vitamin_d';
+            else if (f.type === 'pumping' || f.notes?.includes('[שאיבת_חלב]')) logType = 'pumping';
+            return { ...f, logType, timestamp: f.created_at };
+          }),
+          ...dData.map(d => ({ ...d, logType: 'diaper', timestamp: d.created_at })),
+          ...sData.map(s => ({ ...s, logType: 'solid', timestamp: s.created_at })),
+          ...gData.map(g => ({ ...g, logType: 'growth', timestamp: g.measured_at })),
+          ...offlineItems
+        ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-          setTimeline(combined);
-        } catch (e) { console.error(e); } finally { setDataLoading(false); }
+        setTimeline(combined);
       };
 
       const loadAllDataRef = useRef(loadAllData);
@@ -373,7 +371,7 @@
 
       useEffect(() => {
         if (!user) return;
-        loadAllDataRef.current();
+        loadAllData();
         const channel = supabaseClient
           .channel('family-realtime-channel')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'feedings' }, () => { loadAllDataRef.current(); })
@@ -398,7 +396,7 @@
         }
       }, [feedings]);
 
-      // תזמון התראה ל-Service Worker בדיוק 10 דקות לפני
+      // תזמון התראה ל-Service Worker לפי מספר הדקות שנבחר
       useEffect(() => {
         if (!lastFeedTime) {
           setTimeToNextFeed(null);
@@ -407,7 +405,7 @@
 
         const intervalMs = feedIntervalHours * 60 * 60 * 1000;
         const targetTime = lastFeedTime + intervalMs;
-        const notifyTime = targetTime - (10 * 60 * 1000);
+        const notifyTime = targetTime - (notifyLeadMinutes * 60 * 1000);
         const now = Date.now();
 
         if (notifyTime > now && notificationsEnabled && 'serviceWorker' in navigator) {
@@ -415,11 +413,10 @@
             registration.active?.postMessage({
               type: 'SCHEDULE_NOTIFICATION',
               delay: notifyTime - now,
-              title: `🍼 בעוד 10 דקות: זמן האכלה של ${babyName}!`,
+              title: `🍼 בעוד ${notifyLeadMinutes} דקות: זמן האכלה של ${babyName}!`,
               options: {
                 body: `עברו כמעט ${feedIntervalHours} שעות מהארוחה האחרונה. זמן טוב להתארגן!`,
-                icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🍼</text></svg>',
-                badge: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">👶</text></svg>'
+                icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🍼</text></svg>'
               }
             });
           });
@@ -434,7 +431,7 @@
         updateCountdown();
         const interval = setInterval(updateCountdown, 1000);
         return () => clearInterval(interval);
-      }, [lastFeedTime, feedIntervalHours, notificationsEnabled, babyName]);
+      }, [lastFeedTime, feedIntervalHours, notifyLeadMinutes, notificationsEnabled, babyName]);
 
       useEffect(() => {
         if (isTimerActive) {
@@ -612,6 +609,8 @@
       const toggleLastSideStat = (val) => { setShowLastSideStat(val); localStorage.setItem('bobo_show_last_side', val); };
       
       const updateFeedInterval = (val) => { setFeedIntervalHours(val); localStorage.setItem('bobo_feed_interval', val); };
+      const updateNotifyLead = (val) => { setNotifyLeadMinutes(val); localStorage.setItem('bobo_notify_lead', val); };
+      
       const updateTarget = (type, val) => {
         const num = parseInt(val || 1);
         if (type === 'feeds') { setTargetFeeds(num); localStorage.setItem('bobo_target_feeds', num); }
@@ -715,7 +714,7 @@
         return formattedTime;
       };
 
-      if (authLoading) return <div className="flex items-center justify-center h-screen font-bold text-gray-400 bg-gray-50 dark:bg-black">בובו מתעורר...</div>;
+      if (authLoading) return null;
 
       if (!user) {
         return (
@@ -786,9 +785,9 @@
                 </div>
                 <p className="text-[10px] font-bold flex items-center gap-1">
                   {isOnline ? (
-                    <span className="text-teal-500">● סנכרון פעיל בזמן אמת</span>
+                    <span className="text-teal-500">● סנכרון פעיל</span>
                   ) : (
-                    <span className="text-amber-500">○ מצב אופליין (שומר מקומית)</span>
+                    <span className="text-amber-500">○ מצב אופליין</span>
                   )}
                   {pendingSyncCount > 0 && <span className="bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-200 px-1.5 py-0.2 rounded-full text-[9px] font-bold">{pendingSyncCount} בהמתנה</span>}
                 </p>
@@ -850,7 +849,7 @@
                   <div onClick={requestNotificationPermission} className="bg-rose-50 dark:bg-rose-950/40 p-3 rounded-2xl border border-rose-200 dark:border-rose-800/50 flex justify-between items-center cursor-pointer">
                     <div className="flex items-center gap-2 text-xs font-bold text-rose-700 dark:text-rose-300">
                       <span>🔔</span>
-                      <span>הפעל התראות בנייד לתזכורת 10 דק' לפני הזמן</span>
+                      <span>הפעל התראות בנייד לתזכורת {notifyLeadMinutes} דק' מראש</span>
                     </div>
                     <span className="text-[10px] bg-rose-500 text-white font-bold px-2.5 py-1 rounded-lg">הפעל</span>
                   </div>
@@ -1408,7 +1407,7 @@
                 <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700 p-3 rounded-xl border border-gray-100 dark:border-gray-600">
                   <div>
                     <span className="text-sm font-bold dark:text-white block">🔔 התראות דחיפה לנייד</span>
-                    <span className="text-[10px] text-gray-400">תזכורת בזמן אמת כ-10 דקות לפני ההאכלה</span>
+                    <span className="text-[10px] text-gray-400">תזכורת בזמן אמת לפני הארוחה הבאה</span>
                   </div>
                   <button onClick={requestNotificationPermission} className={`text-xs font-bold px-3 py-1.5 rounded-xl ${notificationsEnabled ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-200' : 'bg-rose-500 text-white'}`}>
                     {notificationsEnabled ? 'פעיל ✓' : 'הפעל'}
@@ -1442,9 +1441,9 @@
                   </div>
                 </div>
 
-                <div className="space-y-2 border-t border-gray-100 dark:border-gray-700 pt-3 text-xs">
-                  <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-2">יעדי מעקב יומיים:</h3>
-                  <div className="grid grid-cols-2 gap-4 mb-3">
+                <div className="space-y-3 border-t border-gray-100 dark:border-gray-700 pt-3 text-xs">
+                  <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-2">יעדי מעקב והתראות:</h3>
+                  <div className="grid grid-cols-2 gap-4 mb-2">
                     <div>
                       <label className="block font-bold mb-1.5 dark:text-gray-300">יעד ארוחות יומי:</label>
                       <input type="number" value={targetFeeds} onChange={e => updateTarget('feeds', e.target.value)} className="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-100 dark:border-gray-600 rounded-xl text-center font-bold focus:outline-none dark:text-white" />
@@ -1454,9 +1453,23 @@
                       <input type="number" value={targetDiapers} onChange={e => updateTarget('diapers', e.target.value)} className="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-100 dark:border-gray-600 rounded-xl text-center font-bold focus:outline-none dark:text-white" />
                     </div>
                   </div>
-                  <div>
-                    <label className="block font-bold mb-1.5 dark:text-gray-300 text-rose-500">התראת האכלה הבאה (שעות):</label>
-                    <input type="number" step="0.5" value={feedIntervalHours} onChange={e => updateFeedInterval(parseFloat(e.target.value || 3))} className="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-100 dark:border-gray-600 rounded-xl text-center font-bold focus:outline-none dark:text-white" />
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block font-bold mb-1.5 dark:text-gray-300 text-rose-500">מרווח האכלה (שעות):</label>
+                      <input type="number" step="0.5" value={feedIntervalHours} onChange={e => updateFeedInterval(parseFloat(e.target.value || 3))} className="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-100 dark:border-gray-600 rounded-xl text-center font-bold focus:outline-none dark:text-white" />
+                    </div>
+                    <div>
+                      <label className="block font-bold mb-1.5 dark:text-gray-300 text-teal-600 dark:text-teal-400">התראה מראש (בדקות):</label>
+                      <input type="number" step="1" min="1" max="60" value={notifyLeadMinutes} onChange={e => updateNotifyLead(parseInt(e.target.value || 10))} className="w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-100 dark:border-gray-600 rounded-xl text-center font-bold focus:outline-none dark:text-white" />
+                    </div>
+                  </div>
+                  <div className="flex gap-1.5 pt-1">
+                    {[5, 10, 15, 20, 30].map(m => (
+                      <button key={m} type="button" onClick={() => updateNotifyLead(m)} className={`flex-1 py-1 rounded-lg text-xs font-bold border transition ${notifyLeadMinutes === m ? 'bg-teal-500 text-white border-teal-500' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600'}`}>
+                        {m} דק'
+                      </button>
+                    ))}
                   </div>
                 </div>
 
@@ -1704,4 +1717,3 @@
   </script>
 </body>
 </html>
-
