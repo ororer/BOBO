@@ -311,12 +311,16 @@
         setNoiseTimerRemain(null);
       };
 
-      const startNoiseSound = (type = noiseType) => {
+      const startNoiseSound = async (type = noiseType) => {
         stopNoiseSound();
         try {
           const AudioContext = window.AudioContext || window.webkitAudioContext;
           const ctx = new AudioContext();
           audioCtxRef.current = ctx;
+
+          if (ctx.state === 'suspended') {
+            await ctx.resume();
+          }
 
           const bufferSize = 2 * ctx.sampleRate;
           const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
@@ -1371,7 +1375,7 @@
                               </div>
                               <div className="flex items-center gap-2 mb-1">
                                 <span className="text-base font-black text-gray-900 dark:text-white">
-                                  {item.logType === 'vitamin_d' ? '💊 ויטמין D' : item.logType === 'pumping' ? '🥛 שאיבה' : item.logType === 'feeding' ? (item.type === 'breastfeeding' ? '🤱 הנקה' : '🍼 בקבוק') : item.logType === 'solid' ? '🥑 טעימה' : item.logType === 'diaper' ? '🚼 חיתול' : '📈 גדילה'}
+                                  {item.logType === 'vitamin_d' ? '💊 ויטמין D' : item.logType === 'pumping' ? '🥛 שאיבה' : item.logType === 'feeding' ? (item.type === 'breastfeeding' ? '🤱 הנקה' : '🍼 בקבוק') : item.logType === 'solid' ? '🥑 טעימה' : '🚼 חיתול'}
                                 </span>
                                 <span className={`text-[11px] px-2.5 py-0.5 rounded-lg font-bold shadow-sm ${getTagColor(item)}`}>
                                   {item.logType === 'vitamin_d' ? '2 טיפות' : item.logType === 'pumping' ? `${item.amount_ml} מ"ל` : item.logType === 'feeding' ? (item.duration_minutes ? `${item.duration_minutes} דק'` : `${item.amount_ml} מ"ל`) : item.logType === 'solid' ? `${item.food_name}` : (item.type === 'wet' ? 'פיפי' : item.type === 'dirty' ? 'קקי' : 'שניהם')}
