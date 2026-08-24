@@ -14,8 +14,8 @@ function urlBase64ToUint8Array(base64String) {
   return outputArray;
 }
 
-const supabaseUrl = "https://zebyzpsffpvdaoqrhonq.supabase.co";
-const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InplYnl6cHNmZnB2ZGFvcXJob25xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc0MjYxMzQsImV4cCI6MjEwMzAwMjEzNH0.-Ng2_jvXWYLcdZoNaw3UUEfdPJqwqI5JPKpE_8WXUj4";
+const supabaseUrl = "https://zyejobjucmjpumdiczbt.supabase.co";
+const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5ZWpvYmp1Y21qcHVtZGljemJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MjYyMDYsImV4cCI6MjA5OTAwMjIwNn0.MYlkEAjcr4nzF7SzNjen9Jjux-FnCksj-BdrjB4F3pA";
 const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
   auth: { persistSession: true, autoRefreshToken: true }
 });
@@ -196,31 +196,26 @@ export default function App() {
   };
 
   const requestNotificationPermission = async () => {
-    if (typeof window === 'undefined' || !('Notification' in window)) {
-      alert('דפדפן זה אינו תומך בהתראות. ודא שהוספת את האפליקציה למסך הבית ב-iOS.');
-      return;
-    }
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      try {
+        const perm = await Notification.requestPermission();
+        setNotificationsEnabled(perm === 'granted');
 
-    try {
-      const perm = await Notification.requestPermission();
-      setNotificationsEnabled(perm === 'granted');
-
-      if (perm === 'granted') {
-        await registerPushSubscription();
-        if ('serviceWorker' in navigator) {
-          const reg = await navigator.serviceWorker.ready;
-          await reg.showNotification(`בובו - ההתראות הופעלו בהצלחה! 👶`, {
-            body: `תקבל תזכורת כ-${notifyLeadMinutes} דקות לפני כל האכלה (גם כשהמסך נעול).`,
-            icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🍼</text></svg>',
-            badge: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🍼</text></svg>',
-            tag: 'bobo-welcome'
-          });
+        if (perm === 'granted') {
+          await registerPushSubscription();
+          if ('serviceWorker' in navigator) {
+            const reg = await navigator.serviceWorker.ready;
+            await reg.showNotification(`בובו - ההתראות הופעלו בהצלחה! 👶`, {
+              body: `תקבל תזכורת כ-${notifyLeadMinutes} דקות לפני כל האכלה.`,
+              icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🍼</text></svg>',
+              badge: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🍼</text></svg>',
+              tag: 'bobo-welcome'
+            });
+          }
         }
-      } else if (perm === 'denied') {
-        alert('ההרשאה חסומה. יש לפתוח: הגדרות המכשיר > בובו > התראות > אפשר התראות.');
+      } catch (e) {
+        console.error('Notification error:', e);
       }
-    } catch (e) {
-      console.error('Notification error:', e);
     }
   };
 
