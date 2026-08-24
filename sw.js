@@ -1,5 +1,17 @@
-self.addEventListener('install', (e) => { self.skipWaiting(); });
-self.addEventListener('activate', (e) => { e.waitUntil(clients.claim()); });
+self.addEventListener('install', (e) => { 
+  self.skipWaiting(); 
+});
+
+self.addEventListener('activate', (e) => { 
+  e.waitUntil(self.clients.claim()); 
+});
+
+// חובה עבור אנדרואיד/Chrome כדי לאפשר התקנת אפליקציה
+self.addEventListener('fetch', (event) => {
+  event.respondWith(
+    fetch(event.request).catch(() => caches.match(event.request))
+  );
+});
 
 self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : { title: 'בובו - מעקב תינוקות', body: 'זמן האכלה!' };
