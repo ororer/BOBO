@@ -100,7 +100,7 @@
         name: 'ורוד בייבי',
         colorHex: '#fb7185',
         primaryBtn: 'bg-rose-400 text-white',
-        activeTab: 'text-rose-500 border-rose-400',
+        activeTab: 'text-rose-500 font-extrabold',
         badge: 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300',
         headerGrad: 'from-rose-400 via-orange-300 to-amber-300'
       },
@@ -109,7 +109,7 @@
         name: 'טורקיז מנטה',
         colorHex: '#14b8a6',
         primaryBtn: 'bg-teal-500 text-white',
-        activeTab: 'text-teal-500 border-teal-400',
+        activeTab: 'text-teal-500 font-extrabold',
         badge: 'bg-teal-100 text-teal-700 dark:bg-teal-950/60 dark:text-teal-300',
         headerGrad: 'from-teal-400 via-cyan-300 to-emerald-300'
       },
@@ -118,7 +118,7 @@
         name: 'סגול לבנדר',
         colorHex: '#a855f7',
         primaryBtn: 'bg-purple-500 text-white',
-        activeTab: 'text-purple-500 border-purple-400',
+        activeTab: 'text-purple-500 font-extrabold',
         badge: 'bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300',
         headerGrad: 'from-purple-400 via-fuchsia-300 to-indigo-300'
       },
@@ -127,7 +127,7 @@
         name: 'כתום שקיעה',
         colorHex: '#f59e0b',
         primaryBtn: 'bg-amber-500 text-white',
-        activeTab: 'text-amber-500 border-amber-400',
+        activeTab: 'text-amber-500 font-extrabold',
         badge: 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300',
         headerGrad: 'from-amber-400 via-orange-300 to-rose-300'
       }
@@ -327,16 +327,16 @@
         return 'text-gray-600 bg-gray-50 dark:text-gray-300 dark:bg-gray-800';
       };
 
-      const getCardBorderColor = (item) => {
-        if (item.logType === 'vitamin_d') return 'border-r-[6px] border-r-violet-400 dark:border-r-violet-500';
-        if (item.logType === 'pumping') return 'border-r-[6px] border-r-purple-400 dark:border-r-purple-500';
+      const getNodeColor = (item) => {
+        if (item.logType === 'vitamin_d') return 'bg-violet-400 ring-violet-100 dark:ring-violet-900';
+        if (item.logType === 'pumping') return 'bg-purple-400 ring-purple-100 dark:ring-purple-900';
         if (item.logType === 'feeding') {
-          return item.type === 'breastfeeding' ? 'border-r-[6px] border-r-rose-400 dark:border-r-rose-500' : 'border-r-[6px] border-r-cyan-400 dark:border-r-cyan-500';
+          return item.type === 'breastfeeding' ? 'bg-rose-400 ring-rose-100 dark:ring-rose-900' : 'bg-cyan-400 ring-cyan-100 dark:ring-cyan-900';
         }
-        if (item.logType === 'diaper') return 'border-r-[6px] border-r-amber-400 dark:border-r-amber-500';
-        if (item.logType === 'solid') return 'border-r-[6px] border-r-emerald-400 dark:border-r-emerald-500';
-        if (item.logType === 'growth') return 'border-r-[6px] border-r-teal-400 dark:border-r-teal-500';
-        return 'border-r-[6px] border-r-gray-300 dark:border-r-gray-600';
+        if (item.logType === 'diaper') return 'bg-amber-400 ring-amber-100 dark:ring-amber-900';
+        if (item.logType === 'solid') return 'bg-emerald-400 ring-emerald-100 dark:ring-emerald-900';
+        if (item.logType === 'growth') return 'bg-teal-400 ring-teal-100 dark:ring-teal-900';
+        return 'bg-gray-400 ring-gray-100 dark:ring-gray-800';
       };
 
       useEffect(() => { 
@@ -745,7 +745,6 @@
         document.body.removeChild(link);
       };
 
-      // מחולל שיתוף בוואטסאפ של סיכום היום
       const shareDailySummaryWhatsApp = () => {
         const todayDateStr = new Date().toLocaleDateString('he-IL');
         const todayFeedings = actualFeedingsToday;
@@ -968,16 +967,20 @@
       
       const statColsCount = showLastSideStat ? "grid-cols-3" : "grid-cols-2";
 
+      // חישוב אחוזי התקדמות
+      const feedProgressPercent = Math.min(100, Math.round((actualFeedingsToday.length / targetFeeds) * 100));
+      const diaperProgressPercent = Math.min(100, Math.round((todaysDiapers.length / targetDiapers) * 100));
+
       return (
-        <div className="max-w-lg mx-auto min-h-screen flex flex-col pb-12 text-gray-800 dark:text-gray-100 relative">
+        <div className="max-w-lg mx-auto min-h-screen flex flex-col pb-28 text-gray-800 dark:text-gray-100 relative">
           
-          <header className="bg-white/90 dark:bg-gray-800/95 backdrop-blur-md p-4 sticky top-0 z-50 flex justify-between items-center shadow-sm border-b border-gray-100 dark:border-gray-700">
+          <header className="bg-white/90 dark:bg-gray-800/95 backdrop-blur-md p-4 sticky top-0 z-40 flex justify-between items-center shadow-sm border-b border-gray-100 dark:border-gray-700">
             <div className="flex items-center gap-3">
-              <div className={`w-11 h-11 bg-gradient-to-tr ${currentTheme.headerGrad} text-white rounded-full flex items-center justify-center text-2xl shadow-inner`}>👶</div>
+              <div className={`w-11 h-11 bg-gradient-to-tr ${currentTheme.headerGrad} text-white rounded-2xl flex items-center justify-center text-2xl shadow-md shadow-rose-200/40`}>👶</div>
               <div>
                 <div className="flex items-center gap-1.5">
-                  <h1 className="font-bold text-gray-800 dark:text-white text-base">{babyName}</h1>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${currentTheme.badge}`}>{getBabyAge()}</span>
+                  <h1 className="font-extrabold text-gray-900 dark:text-white text-base">{babyName}</h1>
+                  <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${currentTheme.badge}`}>{getBabyAge()}</span>
                 </div>
                 <p className="text-[10px] font-bold flex items-center gap-1">
                   {isOnline ? (
@@ -992,48 +995,52 @@
             <button onClick={() => supabaseClient.auth.signOut()} className="text-xs font-bold text-red-500 bg-red-50 dark:bg-red-950/40 px-3 py-1.5 rounded-xl transition hover:bg-red-100 dark:hover:bg-red-900/60">התנתק</button>
           </header>
 
-          <nav className="bg-white/95 dark:bg-gray-800/95 border-b border-gray-100 dark:border-gray-700 sticky top-19 z-40 flex text-center backdrop-blur-md rounded-b-2xl shadow-sm overflow-x-auto hide-scrollbar snap-x">
-            <button onClick={() => { setActiveTab('home'); setActiveSection(null); }} className={`min-w-[65px] flex-1 py-3 text-[11px] font-bold border-b-4 transition-all duration-200 snap-center ${activeTab === 'home' ? currentTheme.activeTab : 'text-gray-400 border-transparent'}`}>🏠 בית</button>
-            <button onClick={() => setActiveTab('timeline')} className={`min-w-[65px] flex-1 py-3 text-[11px] font-bold border-b-4 transition-all duration-200 snap-center ${activeTab === 'timeline' ? currentTheme.activeTab : 'text-gray-400 border-transparent'}`}>📋 יומן</button>
-            <button onClick={() => setActiveTab('solids_board')} className={`min-w-[65px] flex-1 py-3 text-[11px] font-bold border-b-4 transition-all duration-200 snap-center ${activeTab === 'solids_board' ? 'text-emerald-500 border-emerald-400' : 'text-gray-400 border-transparent'}`}>🥑 טעימות</button>
-            <button onClick={() => setActiveTab('pumping')} className={`min-w-[65px] flex-1 py-3 text-[11px] font-bold border-b-4 transition-all duration-200 snap-center ${activeTab === 'pumping' ? 'text-purple-500 border-purple-400' : 'text-gray-400 border-transparent'}`}>🥛 שאיבות</button>
-            <button onClick={() => setActiveTab('trends')} className={`min-w-[65px] flex-1 py-3 text-[11px] font-bold border-b-4 transition-all duration-200 snap-center ${activeTab === 'trends' ? 'text-blue-500 border-blue-400' : 'text-gray-400 border-transparent'}`}>📊 מגמות</button>
-            <button onClick={() => { setActiveTab('growth'); handleCancelGrowthEdit(); }} className={`min-w-[65px] flex-1 py-3 text-[11px] font-bold border-b-4 transition-all duration-200 snap-center ${activeTab === 'growth' ? 'text-teal-500 border-teal-400' : 'text-gray-400 border-transparent'}`}>📈 גדילה</button>
-            <button onClick={() => setActiveTab('settings')} className={`min-w-[65px] flex-1 py-3 text-[11px] font-bold border-b-4 transition-all duration-200 snap-center ${activeTab === 'settings' ? currentTheme.activeTab : 'text-gray-400 border-transparent'}`}>⚙️ הגדרות</button>
-          </nav>
-
-          <main className="p-4 space-y-5 flex-1 relative">
+          <main className="p-4 space-y-4 flex-1 relative">
             
             {activeTab === 'home' && (
               <>
+                {/* כרטיסי KPI עם פסי התקדמות ויזואליים */}
                 <div className={`grid ${statColsCount} gap-2.5 text-white`}>
-                  <div className="bg-gradient-to-br from-rose-400 to-rose-500 p-3 rounded-2xl shadow-md shadow-rose-100/50 dark:shadow-none">
-                    <div className="flex justify-between items-center"><span className="text-[11px] font-bold">אכילות (היום)</span><span className="font-bold text-base">{actualFeedingsToday.length}/{targetFeeds}</span></div>
-                    <p className="text-[10px] mt-2 font-medium truncate">{totalDurationToday > 0 && `${totalDurationToday} דק'`} {totalMlToday > 0 && `| ${totalMlToday} מ"ל`}</p>
+                  <div className="bg-gradient-to-br from-rose-400 to-rose-500 p-3.5 rounded-3xl shadow-lg shadow-rose-200/50 dark:shadow-none flex flex-col justify-between">
+                    <div>
+                      <div className="flex justify-between items-center"><span className="text-[11px] font-bold opacity-90">🍼 אכילות היום</span><span className="font-black text-sm">{actualFeedingsToday.length}/{targetFeeds}</span></div>
+                      <div className="w-full bg-white/20 h-1.5 rounded-full overflow-hidden mt-2 mb-1.5">
+                        <div className="bg-white h-full rounded-full transition-all duration-500" style={{ width: `${feedProgressPercent}%` }}></div>
+                      </div>
+                    </div>
+                    <p className="text-[10px] font-medium opacity-90 truncate">{totalDurationToday > 0 && `${totalDurationToday} דק'`} {totalMlToday > 0 && `| ${totalMlToday} מ"ל`}</p>
                   </div>
-                  <div className="bg-gradient-to-br from-amber-400 to-amber-500 p-3 rounded-2xl shadow-md shadow-amber-100/50 dark:shadow-none">
-                    <div className="flex justify-between items-center"><span className="text-[11px] font-bold">חיתולים (היום)</span><span className="font-bold text-base">{todaysDiapers.length}/{targetDiapers}</span></div>
-                    <p className="text-[10px] mt-2 font-medium">היום ביומן</p>
+
+                  <div className="bg-gradient-to-br from-amber-400 to-amber-500 p-3.5 rounded-3xl shadow-lg shadow-amber-200/50 dark:shadow-none flex flex-col justify-between">
+                    <div>
+                      <div className="flex justify-between items-center"><span className="text-[11px] font-bold opacity-90">🚼 חיתולים היום</span><span className="font-black text-sm">{todaysDiapers.length}/{targetDiapers}</span></div>
+                      <div className="w-full bg-white/20 h-1.5 rounded-full overflow-hidden mt-2 mb-1.5">
+                        <div className="bg-white h-full rounded-full transition-all duration-500" style={{ width: `${diaperProgressPercent}%` }}></div>
+                      </div>
+                    </div>
+                    <p className="text-[10px] font-medium opacity-90 truncate">{todaysDiapers.length} הוחלפו היום</p>
                   </div>
+
                   {showLastSideStat && (
-                    <div className="bg-gradient-to-br from-purple-400 to-purple-500 p-3 rounded-2xl shadow-md shadow-purple-100/50 dark:shadow-none">
-                      <div className="flex justify-between items-center"><span className="text-[11px] font-bold">צד אחרון</span><span className="font-bold text-xs">{lastSide === 'left' ? 'שמאל' : lastSide === 'right' ? 'ימין' : 'שניהם'}</span></div>
-                      <p className="text-[10px] mt-2 font-medium truncate">מומלץ: {lastSide === 'left' ? 'ימין' : lastSide === 'right' ? 'שמאל' : 'איזה שבא לך'}</p>
+                    <div className="bg-gradient-to-br from-purple-400 to-purple-500 p-3.5 rounded-3xl shadow-lg shadow-purple-200/50 dark:shadow-none flex flex-col justify-between">
+                      <div className="flex justify-between items-center"><span className="text-[11px] font-bold opacity-90">צד אחרון</span><span className="font-black text-xs">{lastSide === 'left' ? 'שמאל' : lastSide === 'right' ? 'ימין' : 'שניהם'}</span></div>
+                      <p className="text-[10px] mt-2 font-medium opacity-90 truncate">מומלץ: {lastSide === 'left' ? 'ימין' : lastSide === 'right' ? 'שמאל' : 'לבחירתך'}</p>
                     </div>
                   )}
                 </div>
 
-                <div className={`mt-3 p-4 rounded-3xl flex justify-between items-center shadow-md border transition-colors duration-300 ${timeToNextFeed !== null && timeToNextFeed <= 0 ? 'bg-red-50 border-red-100 dark:bg-red-900/20 dark:border-red-800 shadow-red-100/50 dark:shadow-none text-red-600 dark:text-red-400' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 text-gray-800 dark:text-white'}`}>
+                {/* כרטיס טיימר חי */}
+                <div className={`p-4 rounded-3xl flex justify-between items-center shadow-md border transition-all duration-300 ${timeToNextFeed !== null && timeToNextFeed <= 0 ? 'bg-red-50 border-red-100 dark:bg-red-900/20 dark:border-red-800 text-red-600 dark:text-red-400' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 text-gray-800 dark:text-white'}`}>
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${timeToNextFeed !== null && timeToNextFeed <= 0 ? 'bg-red-100 dark:bg-red-900/50' : 'bg-gray-100 dark:bg-gray-700'}`}>⏰</div>
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl ${timeToNextFeed !== null && timeToNextFeed <= 0 ? 'bg-red-100 dark:bg-red-900/50 animate-bounce' : 'bg-rose-50 dark:bg-gray-700 text-rose-500 animate-pulse'}`}>⏰</div>
                     <div>
-                      <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400">האכלה הבאה בעוד:</p>
-                      <p className="text-lg font-black font-mono tracking-wider" dir="ltr">{renderCountdownText()}</p>
+                      <p className="text-[11px] font-bold text-gray-400 dark:text-gray-400">האכלה הבאה בעוד:</p>
+                      <p className="text-xl font-black font-mono tracking-wider" dir="ltr">{renderCountdownText()}</p>
                     </div>
                   </div>
                   {lastFeedTime && (
                     <div className="text-left bg-gray-50 dark:bg-gray-700/50 px-3 py-1.5 rounded-xl border border-gray-100 dark:border-gray-600 flex flex-col items-center">
-                      <p className="text-[10px] text-gray-500 font-bold mb-0.5">שעת יעד:</p>
+                      <p className="text-[9px] text-gray-400 font-bold mb-0.5">שעת יעד:</p>
                       <p className="text-xs font-bold text-gray-700 dark:text-gray-300">
                         {new Date(lastFeedTime + feedIntervalHours * 3600000).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'})}
                       </p>
@@ -1041,10 +1048,10 @@
                   )}
                 </div>
 
-                {/* כפתור שיתוף בוואטסאפ */}
+                {/* כפתור שיתוף וואטסאפ */}
                 <button
                   onClick={shareDailySummaryWhatsApp}
-                  className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white p-3.5 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition active:scale-95"
+                  className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white p-3.5 rounded-2xl font-extrabold text-xs flex items-center justify-center gap-2 shadow-sm transition active:scale-95"
                 >
                   <span className="text-base">💬</span>
                   <span>שתף סיכום יומי בוואטסאפ (WhatsApp)</span>
@@ -1060,7 +1067,8 @@
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-3.5 pt-1">
+                {/* כפתורי פעולות מהירות */}
+                <div className="grid grid-cols-2 gap-3 pt-1">
                   <button onClick={() => { setActiveSection(activeSection === 'breast' ? null : 'breast'); setFeedType('breastfeeding'); }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 ${activeSection === 'breast' ? 'bg-rose-400 text-white shadow-md shadow-rose-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-rose-500 shadow-sm border border-rose-100 dark:border-gray-700'}`}>🤱 הנקה</button>
                   <button onClick={() => { setActiveSection(activeSection === 'bottle' ? null : 'bottle'); setFeedType('bottle'); }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 ${activeSection === 'bottle' ? 'bg-cyan-400 text-white shadow-md shadow-cyan-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-cyan-500 shadow-sm border border-cyan-100 dark:border-gray-700'}`}>🍼 בקבוק</button>
                   <button onClick={() => { setActiveSection(activeSection === 'pumping' ? null : 'pumping'); setFeedType('pumping'); }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 ${activeSection === 'pumping' ? 'bg-purple-400 text-white shadow-md shadow-purple-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-purple-500 shadow-sm border border-purple-100 dark:border-gray-700'}`}>🥛 שאיבה</button>
@@ -1210,39 +1218,44 @@
                   </div>
                 )}
 
-                <div className="space-y-2.5 pt-2">
+                {/* ציר זמן מחובר - פעולות מהיום */}
+                <div className="space-y-3 pt-2">
                   <div className="flex justify-between items-center px-1">
-                    <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400">פעולות מהיום ({todaysTimeline.length})</h3>
+                    <h3 className="text-xs font-bold text-gray-400 dark:text-gray-400">ציר זמן היום ({todaysTimeline.length})</h3>
                     <span className="text-[11px] font-bold text-rose-500 bg-rose-50 dark:bg-rose-950/50 px-2 py-0.5 rounded-md">יום קלנדרי</span>
                   </div>
+
                   {todaysTimeline.length === 0 ? (
-                    <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700 text-center text-gray-400 text-sm font-medium">
+                    <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-dashed border-gray-200 dark:border-gray-700 text-center text-gray-400 text-sm font-medium">
                       לא תועדו פעולות היום עדיין.
                     </div>
                   ) : (
-                    <div className="space-y-2.5">
+                    <div className="relative border-r-2 border-rose-100 dark:border-gray-700 mr-4 space-y-3.5 pr-5 pt-1">
                       {todaysTimeline.map((item, i) => (
-                        <div key={i} className={`bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 flex justify-between items-center shadow-sm ${getCardBorderColor(item)}`}>
+                        <div key={i} className="relative bg-white dark:bg-gray-800 p-4 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm flex justify-between items-center">
+                          {/* נקודת ציר זמן */}
+                          <div className={`absolute -right-[27px] top-5 w-3.5 h-3.5 rounded-full ring-4 ${getNodeColor(item)} flex items-center justify-center`}></div>
+                          
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
-                              <span className="text-base font-bold text-gray-900 dark:text-white">
+                              <span className="text-sm font-extrabold text-gray-900 dark:text-white">
                                 {item.logType === 'vitamin_d' ? '💊 ויטמין D' : item.logType === 'pumping' ? '🥛 שאיבה' : item.logType === 'feeding' ? (item.type === 'breastfeeding' ? '🤱 הנקה' : '🍼 בקבוק') : item.logType === 'solid' ? '🥑 טעימה' : item.logType === 'diaper' ? '🚼 חיתול' : '📈 גדילה'}
                               </span>
-                              <span className={`text-xs px-2.5 py-0.5 rounded-md font-bold ${getTagColor(item)}`}>
+                              <span className={`text-xs px-2 py-0.5 rounded-md font-bold ${getTagColor(item)}`}>
                                 {item.logType === 'vitamin_d' ? '2 טיפות' : item.logType === 'pumping' ? `${item.amount_ml} מ"ל` : item.logType === 'feeding' ? (item.duration_minutes ? `${item.duration_minutes} דק'` : `${item.amount_ml} מ"ל`) : item.logType === 'solid' ? `${item.food_name}` : (item.type === 'wet' ? 'פיפי' : item.type === 'dirty' ? 'קקי' : 'שניהם')}
                               </span>
                               {item.isOfflinePending && <span className="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 font-bold px-2 py-0.5 rounded-md">⏳ ממתין לסנכרון</span>}
                             </div>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mt-1">
-                              בשעה <strong className="text-base text-gray-800 dark:text-gray-200">{new Date(item.timestamp).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'})}</strong> 
+                            <p className="text-xs text-gray-400 dark:text-gray-400 font-medium mt-1">
+                              בשעה <strong className="text-sm text-gray-800 dark:text-gray-200">{new Date(item.timestamp).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'})}</strong> 
                               {item.side && item.logType !== 'vitamin_d' && ` | צד: ${item.side === 'left' ? 'שמאל' : item.side === 'right' ? 'ימין' : 'שניהם'}`}
                               {item.logType === 'solid' && ` | תגובה: ${item.reaction === 'liked' ? 'אהב' : item.reaction === 'neutral' ? 'נייטרלי' : item.reaction === 'disliked' ? 'לא אהב' : 'חשש לאלרגיה'}`}
                             </p>
-                            {item.notes && item.notes !== '💊 ויטמין D - 2 טיפות' && <p className="text-sm bg-gray-50 dark:bg-gray-700 p-2.5 rounded-xl text-gray-800 dark:text-gray-200 mt-2 font-medium border border-gray-100 dark:border-gray-600">{item.notes}</p>}
+                            {item.notes && item.notes !== '💊 ויטמין D - 2 טיפות' && <p className="text-xs bg-gray-50 dark:bg-gray-700 p-2 rounded-xl text-gray-800 dark:text-gray-200 mt-2 font-medium border border-gray-100 dark:border-gray-600">{item.notes}</p>}
                           </div>
                           <div className="flex gap-1.5 mr-2">
-                            <button onClick={() => openEditModal(item)} className="text-xs bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600 px-3 py-2 rounded-xl font-bold transition active:scale-95">ערוך</button>
-                            <button onClick={() => deleteTimelineItem(item)} className="text-xs bg-red-50 dark:bg-red-900/40 text-red-500 dark:text-red-400 px-3 py-2 rounded-xl font-bold transition active:scale-95">🗑️</button>
+                            <button onClick={() => openEditModal(item)} className="text-xs bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600 px-2.5 py-1.5 rounded-xl font-bold transition active:scale-95">ערוך</button>
+                            <button onClick={() => deleteTimelineItem(item)} className="text-xs bg-red-50 dark:bg-red-900/40 text-red-500 dark:text-red-400 px-2.5 py-1.5 rounded-xl font-bold transition active:scale-95">🗑️</button>
                           </div>
                         </div>
                       ))}
@@ -1291,7 +1304,7 @@
                     <button 
                       key={f.id} 
                       onClick={() => setTimelineFilter(f.id)}
-                      className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-bold transition-all snap-center shadow-sm border ${
+                      className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-bold transition-all snap-center shadow-sm border ${
                         timelineFilter === f.id 
                           ? `${currentTheme.primaryBtn} border-transparent` 
                           : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-700'
@@ -1303,33 +1316,35 @@
                 </div>
 
                 {displayedTimelineLogs.length === 0 ? (
-                  <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700 text-center text-gray-400 text-sm font-medium mt-2">
+                  <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl border border-dashed border-gray-200 dark:border-gray-700 text-center text-gray-400 text-sm font-medium mt-2">
                     לא נמצאו פעולות תואמות לתאריך או לסינון שנבחר.
                   </div>
                 ) : (
-                  <div className="space-y-2.5">
+                  <div className="relative border-r-2 border-rose-100 dark:border-gray-700 mr-4 space-y-3.5 pr-5 pt-1">
                     {displayedTimelineLogs.map((item, i) => (
-                      <div key={i} className={`bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 flex justify-between items-center shadow-sm ${getCardBorderColor(item)}`}>
+                      <div key={i} className="relative bg-white dark:bg-gray-800 p-4 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm flex justify-between items-center">
+                        <div className={`absolute -right-[27px] top-5 w-3.5 h-3.5 rounded-full ring-4 ${getNodeColor(item)} flex items-center justify-center`}></div>
+                        
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="text-base font-bold text-gray-900 dark:text-white">
+                            <span className="text-sm font-extrabold text-gray-900 dark:text-white">
                               {item.logType === 'vitamin_d' ? '💊 ויטמין D' : item.logType === 'pumping' ? '🥛 שאיבה' : item.logType === 'feeding' ? (item.type === 'breastfeeding' ? '🤱 הנקה' : '🍼 בקבוק') : item.logType === 'solid' ? '🥑 טעימה' : '🚼 חיתול'}
                             </span>
-                            <span className={`text-xs px-2.5 py-0.5 rounded-md font-bold ${getTagColor(item)}`}>
+                            <span className={`text-xs px-2 py-0.5 rounded-md font-bold ${getTagColor(item)}`}>
                               {item.logType === 'vitamin_d' ? '2 טיפות' : item.logType === 'pumping' ? `${item.amount_ml} מ"ל` : item.logType === 'feeding' ? (item.duration_minutes ? `${item.duration_minutes} דק'` : `${item.amount_ml} מ"ל`) : item.logType === 'solid' ? `${item.food_name}` : (item.type === 'wet' ? 'פיפי' : item.type === 'dirty' ? 'קקי' : 'שניהם')}
                             </span>
                             {item.isOfflinePending && <span className="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 font-bold px-2 py-0.5 rounded-md">⏳ ממתין לסנכרון</span>}
                           </div>
-                          <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mt-1">
-                            {new Date(item.timestamp).toLocaleDateString('he-IL')} בשעה <strong className="text-base text-gray-800 dark:text-gray-200">{new Date(item.timestamp).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'})}</strong> 
+                          <p className="text-xs text-gray-400 dark:text-gray-400 font-medium mt-1">
+                            {new Date(item.timestamp).toLocaleDateString('he-IL')} בשעה <strong className="text-sm text-gray-800 dark:text-gray-200">{new Date(item.timestamp).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'})}</strong> 
                             {item.side && item.logType !== 'vitamin_d' && ` | צד: ${item.side === 'left' ? 'שמאל' : item.side === 'right' ? 'ימין' : 'שניהם'}`}
                             {item.logType === 'solid' && ` | תגובה: ${item.reaction === 'liked' ? 'אהב' : item.reaction === 'neutral' ? 'נייטרלי' : item.reaction === 'disliked' ? 'לא אהב' : 'חשש לאלרגיה'}`}
                           </p>
-                          {item.notes && item.notes !== '💊 ויטמין D - 2 טיפות' && <p className="text-sm bg-gray-50 dark:bg-gray-700 p-2.5 rounded-xl text-gray-800 dark:text-gray-200 mt-2 font-medium border border-gray-100 dark:border-gray-600">{item.notes}</p>}
+                          {item.notes && item.notes !== '💊 ויטמין D - 2 טיפות' && <p className="text-xs bg-gray-50 dark:bg-gray-700 p-2 rounded-xl text-gray-800 dark:text-gray-200 mt-2 font-medium border border-gray-100 dark:border-gray-600">{item.notes}</p>}
                         </div>
                         <div className="flex gap-1.5 mr-2">
-                          <button onClick={() => openEditModal(item)} className="text-xs bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600 px-3 py-2 rounded-xl font-bold transition active:scale-95">ערוך</button>
-                          <button onClick={() => deleteTimelineItem(item)} className="text-xs bg-red-50 dark:bg-red-900/40 text-red-500 dark:text-red-400 px-3 py-2 rounded-xl font-bold transition active:scale-95">🗑️</button>
+                          <button onClick={() => openEditModal(item)} className="text-xs bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600 px-2.5 py-1.5 rounded-xl font-bold transition active:scale-95">ערוך</button>
+                          <button onClick={() => deleteTimelineItem(item)} className="text-xs bg-red-50 dark:bg-red-900/40 text-red-500 dark:text-red-400 px-2.5 py-1.5 rounded-xl font-bold transition active:scale-95">🗑️</button>
                         </div>
                       </div>
                     ))}
@@ -1703,7 +1718,7 @@
                     ) : (
                       <div className="space-y-2.5">
                         {growthLogs.map((item, i) => (
-                          <div key={i} className={`bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 flex justify-between items-center shadow-sm ${getCardBorderColor(item)}`}>
+                          <div key={i} className={`bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 flex justify-between items-center shadow-sm`}>
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
                                 <span className="text-base font-bold text-gray-900 dark:text-white">
@@ -1908,6 +1923,59 @@
             )}
 
           </main>
+
+          {/* Floating Glass Bottom Navigation Bar */}
+          <nav className="fixed bottom-3 left-4 right-4 max-w-md mx-auto bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border border-gray-100/80 dark:border-gray-700/80 shadow-2xl rounded-3xl p-1.5 z-50 flex justify-between items-center no-print">
+            <button 
+              onClick={() => { setActiveTab('home'); setActiveSection(null); }} 
+              className={`flex flex-col items-center gap-1 py-1.5 px-2 rounded-2xl transition-all flex-1 ${activeTab === 'home' ? currentTheme.activeTab : 'text-gray-400'}`}
+            >
+              <span className="text-lg leading-none">🏠</span>
+              <span className="text-[10px]">בית</span>
+            </button>
+            <button 
+              onClick={() => setActiveTab('timeline')} 
+              className={`flex flex-col items-center gap-1 py-1.5 px-2 rounded-2xl transition-all flex-1 ${activeTab === 'timeline' ? currentTheme.activeTab : 'text-gray-400'}`}
+            >
+              <span className="text-lg leading-none">📋</span>
+              <span className="text-[10px]">יומן</span>
+            </button>
+            <button 
+              onClick={() => setActiveTab('solids_board')} 
+              className={`flex flex-col items-center gap-1 py-1.5 px-2 rounded-2xl transition-all flex-1 ${activeTab === 'solids_board' ? 'text-emerald-500 font-extrabold' : 'text-gray-400'}`}
+            >
+              <span className="text-lg leading-none">🥑</span>
+              <span className="text-[10px]">טעימות</span>
+            </button>
+            <button 
+              onClick={() => setActiveTab('pumping')} 
+              className={`flex flex-col items-center gap-1 py-1.5 px-2 rounded-2xl transition-all flex-1 ${activeTab === 'pumping' ? 'text-purple-500 font-extrabold' : 'text-gray-400'}`}
+            >
+              <span className="text-lg leading-none">🥛</span>
+              <span className="text-[10px]">שאיבות</span>
+            </button>
+            <button 
+              onClick={() => setActiveTab('trends')} 
+              className={`flex flex-col items-center gap-1 py-1.5 px-2 rounded-2xl transition-all flex-1 ${activeTab === 'trends' ? 'text-blue-500 font-extrabold' : 'text-gray-400'}`}
+            >
+              <span className="text-lg leading-none">📊</span>
+              <span className="text-[10px]">מגמות</span>
+            </button>
+            <button 
+              onClick={() => { setActiveTab('growth'); handleCancelGrowthEdit(); }} 
+              className={`flex flex-col items-center gap-1 py-1.5 px-2 rounded-2xl transition-all flex-1 ${activeTab === 'growth' ? 'text-teal-500 font-extrabold' : 'text-gray-400'}`}
+            >
+              <span className="text-lg leading-none">📈</span>
+              <span className="text-[10px]">גדילה</span>
+            </button>
+            <button 
+              onClick={() => setActiveTab('settings')} 
+              className={`flex flex-col items-center gap-1 py-1.5 px-2 rounded-2xl transition-all flex-1 ${activeTab === 'settings' ? currentTheme.activeTab : 'text-gray-400'}`}
+            >
+              <span className="text-lg leading-none">⚙️</span>
+              <span className="text-[10px]">הגדרות</span>
+            </button>
+          </nav>
 
           {editingItem && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200 no-print">
