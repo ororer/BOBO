@@ -2127,6 +2127,68 @@
 
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<App/>);
+    // פונקציות התראות פוש
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+window.enablePushNotifications = async function() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    alert('התראות פוש אינן נתמכות בדפדפן זה. באייפון יש להוסיף את האפליקציה למסך הבית (iOS 16.4+).');
+    return;
+  }
+
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      alert('יש לאשר הרשאות התראה בהגדרות המכשיר');
+      return;
+    }
+
+    const registration = await navigator.serviceWorker.ready;
+    const vapidPublicKey = 'BIdvuzEQYdXs4G2hRXabNuiJshZaoQ61nNyTgbfni5pOm2frj6Bf2dGljKjvaOLWNQ851ZQr5xna7I2C_9s6StU';
+    const convertedKey = urlBase64ToUint8Array(vapidPublicKey);
+
+    let subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: convertedKey
+      });
+    }
+
+    const subJson = subscription.toJSON();
+    if (!subJson.keys || !subJson.keys.p256dh || !subJson.keys.auth) {
+      throw new Error('לא נוצרו מפתחות הצפנה תקינים במכשיר');
+    }
+
+    const client = typeof supabase !== 'undefined' ? supabase : window.supabaseClient;
+    const { error } = await client
+      .from('push_subscriptions')
+      .upsert({
+        endpoint: subJson.endpoint,
+        p256dh: subJson.keys.p256dh,
+        auth: subJson.keys.auth
+      }, { onConflict: 'endpoint' });
+
+    if (error) {
+      alert('שגיאה בשמירה ל-Supabase: ' + error.message);
+    } else {
+      alert('ההתראות הופעלו והמכשיר נרשם בהצלחה!');
+    }
+  } catch (err) {
+    alert('שגיאה בהפעלת התראות: ' + err.message);
+    console.error(err);
+  }
+};
+
   </script>
 </body>
 </html>
