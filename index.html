@@ -12,8 +12,8 @@
   <meta name="apple-mobile-web-app-title" content="בובו">
   <meta name="application-name" content="בובו">
   
-  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23fb7185'/><text x='50' y='68' font-size='60' text-anchor='middle'>👶</text></svg>">
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23fb7185'/><text x='50' y='68' font-size='60' text-anchor='middle'>👶</text></svg>">
+  <link rel="apple-touch-icon" href="./icon-192.png">
+  <link rel="icon" type="image/png" href="./icon-192.png">
 
   <link rel="manifest" href="./manifest.json">
 
@@ -159,7 +159,6 @@
         try { return typeof window !== 'undefined' && 'Notification' in window && window.Notification.permission === 'granted'; } catch(e) { return false; }
       });
 
-      // PWA Install State for Android & iOS
       const [showInstallPrompt, setShowInstallPrompt] = useState(false);
       const [installDeviceType, setInstallDeviceType] = useState('unknown');
       const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -273,7 +272,6 @@
         localStorage.setItem('bobo_deep_night', isDeepNight);
       }, [isDarkMode, isDeepNight]);
 
-      // Handle PWA installation for Android/Galaxy & iOS
       useEffect(() => {
         const handleBeforeInstallPrompt = (e) => {
           e.preventDefault();
@@ -1850,7 +1848,7 @@
                     ) : (
                       <div className="space-y-3">
                         {growthLogs.map((item, i) => (
-                          <div key={i} className={`bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-600 flex justify-between items-center shadow-sm ${getCardBorderColor(item)}`}>
+                          <div key={i} className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-600 flex justify-between items-center shadow-sm">
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-1">
                                 <span className="text-sm font-black text-gray-900 dark:text-white">
