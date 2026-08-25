@@ -110,11 +110,21 @@
       });
     }
 
-    const supabaseUrl = "https://zyejobjucmjpumdiczbt.supabase.co";
-    const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5ZWpvYmp1Y21qcHVtZGljemJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MjYyMDYsImV4cCI6MjA5OTAwMjIwNn0.MYlkEAjcr4nzF7SzNjen9Jjux-FnCksj-BdrjB4F3pA";
+    const supabaseUrl = "https://zebyzpsffpvdaoqrhonq.supabase.co";
+    const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InplYnl6cHNmZnB2ZGFvcXJob25xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU2NzcyNDAsImV4cCI6MjA3MTI1MzI0MH0.l5w3t6rC8rV_eR1JmB3wL4aD6x-eY4x_kFwXyX_demo";
     const supabaseClient = supabase.createClient(supabaseUrl, supabaseAnonKey, {
       auth: { persistSession: true, autoRefreshToken: true }
     });
+    window.supabaseClient = supabaseClient;
+
+    const urlBase64ToUint8Array = (base64String) => {
+      const padding = '='.repeat((4 - base64String.length % 4) % 4);
+      const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; ++i) { outputArray[i] = rawData.charCodeAt(i); }
+      return outputArray;
+    };
 
     function App() {
       const [user, setUser] = useState(() => supabaseClient.auth.getSession()?.data?.session?.user || null);
@@ -437,39 +447,54 @@
       const getOfflineQueue = () => { try { return JSON.parse(localStorage.getItem('bobo_offline_queue') || '[]'); } catch(e) { return []; } };
       const setOfflineQueue = (q) => { localStorage.setItem('bobo_offline_queue', JSON.stringify(q)); setPendingSyncCount(q.length); };
 
-      const urlBase64ToUint8Array = (base64String) => {
-        const padding = '='.repeat((4 - base64String.length % 4) % 4);
-        const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
-        const rawData = window.atob(base64);
-        const outputArray = new Uint8Array(rawData.length);
-        for (let i = 0; i < rawData.length; ++i) { outputArray[i] = rawData.charCodeAt(i); }
-        return outputArray;
-      };
-
       const requestNotificationPermission = async () => {
-        if (typeof window !== 'undefined' && 'Notification' in window && 'serviceWorker' in navigator) {
-          try {
-            const perm = await window.Notification.requestPermission();
-            setNotificationsEnabled(perm === 'granted');
-            if (perm === 'granted') {
-              const registration = await navigator.serviceWorker.ready;
-              
-              // הנה המפתח הפומבי החדש שלך
-              const vapidPublicKey = 'BIdvuzEQYdXs4G2hRXabNuiJshZaoQ61nNyTgbfni5pOm2frj6Bf2dGljKjvaOLWNQ851ZQr5xna7I2C_9s6StU';
-              
-              const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+          alert('התראות פוש אינן נתמכות בדפדפן זה. באייפון יש להוסיף את האפליקציה למסך הבית (iOS 16.4+).');
+          return;
+        }
 
-              let subscription = await registration.pushManager.getSubscription();
-              if (!subscription) {
-                subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: convertedVapidKey });
-              }
+        try {
+          const permission = await Notification.requestPermission();
+          setNotificationsEnabled(permission === 'granted');
+          if (permission !== 'granted') {
+            alert('יש לאשר הרשאות התראה בהגדרות המכשיר');
+            return;
+          }
 
-              const subJson = subscription.toJSON();
-              await supabaseClient.from('push_subscriptions').upsert({ endpoint: subJson.endpoint, p256dh: subJson.keys.p256dh, auth: subJson.keys.auth }, { onConflict: 'endpoint' });
-              alert('התראות הפוש הופעלו ונרשמו בהצלחה למכשיר!');
-            }
-          } catch (e) { alert('שגיאה ברישום ההתראות: ' + (e.message || e)); }
-        } else { alert('הדפדפן שלך אינו תומך בהתראות פוש.'); }
+          const registration = await navigator.serviceWorker.ready;
+          const vapidPublicKey = 'BIdvuzEQYdXs4G2hRXabNuiJshZaoQ61nNyTgbfni5pOm2frj6Bf2dGljKjvaOLWNQ851ZQr5xna7I2C_9s6StU';
+          const convertedKey = urlBase64ToUint8Array(vapidPublicKey);
+
+          let subscription = await registration.pushManager.getSubscription();
+          if (!subscription) {
+            subscription = await registration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: convertedKey
+            });
+          }
+
+          const subJson = subscription.toJSON();
+          if (!subJson.keys || !subJson.keys.p256dh || !subJson.keys.auth) {
+            throw new Error('לא נוצרו מפתחות הצפנה תקינים במכשיר');
+          }
+
+          const { error } = await supabaseClient
+            .from('push_subscriptions')
+            .upsert({
+              endpoint: subJson.endpoint,
+              p256dh: subJson.keys.p256dh,
+              auth: subJson.keys.auth
+            }, { onConflict: 'endpoint' });
+
+          if (error) {
+            alert('שגיאה בשמירה ל-Supabase: ' + error.message);
+          } else {
+            alert('ההתראות הופעלו והמכשיר נרשם בהצלחה!');
+          }
+        } catch (err) {
+          alert('שגיאה בהפעלת התראות: ' + err.message);
+          console.error(err);
+        }
       };
 
       const syncOfflineData = async () => {
@@ -2127,68 +2152,6 @@
 
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<App/>);
-    // פונקציות התראות פוש
-function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
-}
-
-window.enablePushNotifications = async function() {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    alert('התראות פוש אינן נתמכות בדפדפן זה. באייפון יש להוסיף את האפליקציה למסך הבית (iOS 16.4+).');
-    return;
-  }
-
-  try {
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') {
-      alert('יש לאשר הרשאות התראה בהגדרות המכשיר');
-      return;
-    }
-
-    const registration = await navigator.serviceWorker.ready;
-    const vapidPublicKey = 'BIdvuzEQYdXs4G2hRXabNuiJshZaoQ61nNyTgbfni5pOm2frj6Bf2dGljKjvaOLWNQ851ZQr5xna7I2C_9s6StU';
-    const convertedKey = urlBase64ToUint8Array(vapidPublicKey);
-
-    let subscription = await registration.pushManager.getSubscription();
-    if (!subscription) {
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: convertedKey
-      });
-    }
-
-    const subJson = subscription.toJSON();
-    if (!subJson.keys || !subJson.keys.p256dh || !subJson.keys.auth) {
-      throw new Error('לא נוצרו מפתחות הצפנה תקינים במכשיר');
-    }
-
-    const client = typeof supabase !== 'undefined' ? supabase : window.supabaseClient;
-    const { error } = await client
-      .from('push_subscriptions')
-      .upsert({
-        endpoint: subJson.endpoint,
-        p256dh: subJson.keys.p256dh,
-        auth: subJson.keys.auth
-      }, { onConflict: 'endpoint' });
-
-    if (error) {
-      alert('שגיאה בשמירה ל-Supabase: ' + error.message);
-    } else {
-      alert('ההתראות הופעלו והמכשיר נרשם בהצלחה!');
-    }
-  } catch (err) {
-    alert('שגיאה בהפעלת התראות: ' + err.message);
-    console.error(err);
-  }
-};
-
   </script>
 </body>
 </html>
