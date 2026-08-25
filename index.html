@@ -453,7 +453,10 @@
             setNotificationsEnabled(perm === 'granted');
             if (perm === 'granted') {
               const registration = await navigator.serviceWorker.ready;
-              const vapidPublicKey = 'BIVxR8c0Ehf0c8SNriFpic6yCbSe3ooxBHXO715swLvEmlMj7kUF0tri2WCtod_JhReBjSvNtUGS7KiDYVukOjI';
+              
+              // הנה המפתח הפומבי החדש שלך
+              const vapidPublicKey = 'BIdvuzEQYdXs4G2hRXabNuiJshZaoQ61nNyTgbfni5pOm2frj6Bf2dGljKjvaOLWNQ851ZQr5xna7I2C_9s6StU';
+              
               const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
 
               let subscription = await registration.pushManager.getSubscription();
