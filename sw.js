@@ -1,35 +1,59 @@
-const CACHE_NAME = 'bobo-cache-v2';
+// Service Worker עבור BOBO
+const CACHE_NAME = 'bobo-pwa-v1';
 
-self.addEventListener('install', (e) => { 
-  self.skipWaiting(); 
+self.addEventListener('install', (event) => {
+  self.skipWaiting();
 });
 
-self.addEventListener('activate', (e) => { 
-  e.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cache => {
-          if (cache !== CACHE_NAME) {
-            return caches.delete(cache);
-          }
-        })
-      );
-    }).then(() => self.clients.claim())
-  ); 
+self.addEventListener('activate', (event) => {
+  event.waitUntil(clients.claim());
 });
 
-self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    fetch(event.request).catch(() => caches.match(event.request))
+// האזנה לקבלת התראת פוש מהשרת
+self.addEventListener('push', (event) => {
+  let data = {
+    title: 'בובו 👶',
+    body: 'עודכנה פעולה חדשה!'
+  };
+
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data.body = event.data.text();
+    }
+  }
+
+  const options = {
+    body: data.body,
+    icon: 'icon-192.png',
+    badge: 'icon-192.png',
+    vibrate: [100, 50, 100],
+    data: {
+      dateOfArrival: Date.now()
+    }
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, options)
   );
 });
 
-self.addEventListener('push', (event) => {
-  const data = event.data ? event.data.json() : { title: 'בובו', body: 'התראה חדשה!' };
+// פתיחת האפליקציה בלחיצה על ההתראה
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
   event.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      icon: './icon-192.png'
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      if (clientList.length > 0) {
+        let client = clientList[0];
+        for (let i = 0; i < clientList.length; i++) {
+          if (clientList[i].focused) {
+            client = clientList[i];
+          }
+        }
+        return client.focus();
+      }
+      return clients.openWindow('./');
     })
   );
 });
