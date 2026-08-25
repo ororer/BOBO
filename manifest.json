@@ -1,5 +1,5 @@
 {
-  "name": "בובו - מעקב תינוק משפחתי",
+  "name": "בובו - מעקב תינוקות",
   "short_name": "בובו",
   "description": "אפליקציית מעקב תינוקות משפחתית",
   "start_url": "./index.html",
@@ -10,13 +10,13 @@
   "theme_color": "#fb7185",
   "icons": [
     {
-      "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAMAAABlApw1AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAFdUExURf+1hfr4+Pv7+/z8/P39/f7+/v///+rq6uzs7O3t7e7u7vDw8PHx8fLy8vPz8/T09PX19ff39/j4+Pn5+fr6+vv7+/z8/P39/f7+/v///+rq6uzs7O3t7e7u7vDw8PHx8fLy8vPz8/T09PX19ff39/j4+Pn5+fr6+vv7+/z8/P39/f7+/v///+rq6uzs7O3t7e7u7vDw8PHx8fLy8vPz8/T09PX19ff39/j4+Pn5+fr6+vv7+/z8/P39/f7+/v///+rq6uzs7O3t7e7u7vDw8PHx8fLy8vPz8/T09PX19ff39/j4+Pn5+fr6+vv7+/z8/P39/f7+/v///+rq6uzs7O3t7e7u7vDw8PHx8fLy8vPz8/T09PX19ff39/j4+Pn5+fr6+vv7+/z8/P39/f7+/v///+rq6uzs7O3t7e7u7vDw8PHx8fLy8vPz8/T09PX19ff39/j4+Pn5+fr6+vv7+/z8/P39/f7+/v///40J7sQAAAAtdFJOUwABAQIDBAYKDhUaGx8iJicpMDM3Oz5BQ0VISk1QU1hdXmBhY2hrcHp8gIKHi4+Xnr1F77oAAAAJcEhZcwAAFiUAABYlAUlSJPAAAAJpSURBVHic7dvXctswEAZQk6j33nsn6r338v//W4vjGE9k0nCK873vzgxnwN2FAhCSmJgYHM0K5z0G4L8NlJ2A0oEysr6yE1B5oN4EpA7UG4G9gfq+vBHYm4HeBHYF6g+uN4GtA/X2F1sCmwP13gK7A/X2B1sCewP11hdbArsD9dYXWwLbA/X2A9sCuwP19gNbAlsD9dYFtwW2BurtC24LbAvU201uC2wJ1NtN7gz8F6gfXG8C6wP11he3BtYH6q0vbg2sD9TbT64P1NtfXB9YH6i3v7g+UG9/cX1gfaDe/uL6wPpAvf3F9YF6+4vrA/X2A9cH6u0Hrg/U2w9cH6i3H7g+UG8/cH2g3n7g+kC9/cD1gXr7gesD9fYD1wfq7QeuD9TbD1wfqLcfuD5Qbz9wfaDe/uL6QL39xfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6e0A9AA9AgP4+kAAAAABJRU5ErkJggg==",
+      "src": "./icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAMAAADDpiTIAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAFdUExURf+1hfr4+Pv7+/z8/P39/f7+/v///+rq6uzs7O3t7e7u7vDw8PHx8fLy8vPz8/T09PX19ff39/j4+Pn5+fr6+vv7+/z8/P39/f7+/v///+rq6uzs7O3t7e7u7vDw8PHx8fLy8vPz8/T09PX19ff39/j4+Pn5+fr6+vv7+/z8/P39/f7+/v///+rq6uzs7O3t7e7u7vDw8PHx8fLy8vPz8/T09PX19ff39/j4+Pn5+fr6+vv7+/z8/P39/f7+/v///+rq6uzs7O3t7e7u7vDw8PHx8fLy8vPz8/T09PX19ff39/j4+Pn5+fr6+vv7+/z8/P39/f7+/v///+rq6uzs7O3t7e7u7vDw8PHx8fLy8vPz8/T09PX19ff39/j4+Pn5+fr6+vv7+/z8/P39/f7+/v///+rq6uzs7O3t7e7u7vDw8PHx8fLy8vPz8/T09PX19ff39/j4+Pn5+fr6+vv7+/z8/P39/f7+/v///40J7sQAAAAtdFJOUwABAQIDBAYKDhUaGx8iJicpMDM3Oz5BQ0VISk1QU1hdXmBhY2hrcHp8gIKHi4+Xnr1F77oAAAAJcEhZcwAAFiUAABYlAUlSJPAAAAJpSURBVHic7dvXctswEAZQk6j33nsn6r338v//W4vjGE9k0nCK873vzgxnwN2FAhCSmJgYHM0K5z0G4L8NlJ2A0oEysr6yE1B5oN4EpA7UG4G9gfq+vBHYm4HeBHYF6g+uN4GtA/X2F1sCmwP13gK7A/X2B1sCewP11hdbArsD9dYXWwLbA/X2A9sCuwP19gNbAlsD9dYFtwW2BurtC24LbAvU201uC2wJ1NtN7gz8F6gfXG8C6wP11he3BtYH6q0vbg2sD9TbT64P1NtfXB9YH6i3v7g+UG9/cX1gfaDe/uL6wPpAvf3F9YF6+4vrA/X2A9cH6u0Hrg/U2w9cH6i3H7g+UG8/cH2g3n7g+kC9/cD1gXr7gesD9fYD1wfq7QeuD9TbD1wfqLcfuD5Qbz9wfaDe/uL6QL39xfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6u8H1gfq7wfWB+rvB9YH6e0A9AA9AgP4+kAAAAABJRU5ErkJggg==",
+      "src": "./icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
