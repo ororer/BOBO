@@ -1,6 +1,3 @@
-// Service Worker עבור BOBO
-const CACHE_NAME = 'bobo-pwa-v1';
-
 self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
@@ -9,13 +6,9 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(clients.claim());
 });
 
-// האזנה לקבלת התראת פוש מהשרת
 self.addEventListener('push', (event) => {
-  let data = {
-    title: 'בובו 👶',
-    body: 'עודכנה פעולה חדשה!'
-  };
-
+  let data = { title: 'בובו 👶', body: 'עודכנה פעולה חדשה!' };
+  
   if (event.data) {
     try {
       data = event.data.json();
@@ -26,12 +19,10 @@ self.addEventListener('push', (event) => {
 
   const options = {
     body: data.body,
-    icon: 'icon-192.png',
-    badge: 'icon-192.png',
-    vibrate: [100, 50, 100],
-    data: {
-      dateOfArrival: Date.now()
-    }
+    icon: './192.png',
+    badge: './192.png',
+    vibrate: [200, 100, 200],
+    data: { url: './' }
   };
 
   event.waitUntil(
@@ -39,21 +30,18 @@ self.addEventListener('push', (event) => {
   );
 });
 
-// פתיחת האפליקציה בלחיצה על ההתראה
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      if (clientList.length > 0) {
-        let client = clientList[0];
-        for (let i = 0; i < clientList.length; i++) {
-          if (clientList[i].focused) {
-            client = clientList[i];
-          }
+      for (const client of clientList) {
+        if (client.url && 'focus' in client) {
+          return client.focus();
         }
-        return client.focus();
       }
-      return clients.openWindow('./');
+      if (clients.openWindow) {
+        return clients.openWindow('./');
+      }
     })
   );
 });
