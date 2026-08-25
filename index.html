@@ -44,36 +44,6 @@
     html.dark .text-gray-800, html.dark .text-gray-900, html.dark .text-gray-700, html.dark .text-gray-950 { color: #f3f4f6 !important; }
     html.dark .text-gray-600, html.dark .text-gray-500 { color: #a1a1aa !important; }
     html.dark header, html.dark nav { border-color: #27272a !important; }
-
-    html.deep-night body {
-      background-image: none !important;
-      background-color: #000000 !important;
-      color: #ef4444 !important;
-    }
-    html.deep-night div, html.deep-night header, html.deep-night nav, html.deep-night main, html.deep-night section {
-      background-color: #000000 !important;
-      border-color: #450a0a !important;
-      color: #ef4444 !important;
-    }
-    html.deep-night .bg-gradient-to-br, html.deep-night .bg-gradient-to-r, html.deep-night .bg-gradient-to-tr {
-      background-image: none !important;
-      background-color: #1a0505 !important;
-      border: 1px solid #7f1d1d !important;
-      color: #f87171 !important;
-    }
-    html.deep-night button {
-      background-color: #1c0606 !important;
-      border-color: #7f1d1d !important;
-      color: #ef4444 !important;
-    }
-    html.deep-night input, html.deep-night select {
-      background-color: #0a0202 !important;
-      border-color: #7f1d1d !important;
-      color: #fca5a5 !important;
-    }
-    html.deep-night span, html.deep-night p, html.deep-night h1, html.deep-night h2, html.deep-night h3, html.deep-night h4 {
-      color: #ef4444 !important;
-    }
     
     .hide-scrollbar::-webkit-scrollbar { display: none; }
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -173,11 +143,8 @@
       const [timeline, setTimeline] = useState([]);
 
       const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('bobo_dark') === 'true');
-      const [isDeepNight, setIsDeepNight] = useState(() => localStorage.getItem('bobo_deep_night') === 'true');
-      const [activeCaregiver, setActiveCaregiver] = useState(() => localStorage.getItem('bobo_caregiver') || 'אבא');
       
       const [stickyNote, setStickyNote] = useState(() => localStorage.getItem('bobo_sticky_note') || '');
-      const [stickyUpdatedBy, setStickyUpdatedBy] = useState(() => localStorage.getItem('bobo_sticky_by') || '');
       const [isEditingSticky, setIsEditingSticky] = useState(false);
       const [tempSticky, setTempSticky] = useState('');
 
@@ -255,22 +222,15 @@
 
       useEffect(() => {
         const metaTheme = document.querySelector('meta[name="theme-color"]');
-        if (isDeepNight) {
-          document.documentElement.classList.add('deep-night');
-          document.documentElement.classList.remove('dark');
-          if (metaTheme) metaTheme.setAttribute('content', '#000000');
-        } else if (isDarkMode) {
-          document.documentElement.classList.remove('deep-night');
+        if (isDarkMode) {
           document.documentElement.classList.add('dark');
           if (metaTheme) metaTheme.setAttribute('content', '#121212');
         } else {
-          document.documentElement.classList.remove('deep-night');
           document.documentElement.classList.remove('dark');
           if (metaTheme) metaTheme.setAttribute('content', '#ffffff');
         }
         localStorage.setItem('bobo_dark', isDarkMode);
-        localStorage.setItem('bobo_deep_night', isDeepNight);
-      }, [isDarkMode, isDeepNight]);
+      }, [isDarkMode]);
 
       useEffect(() => {
         const handleBeforeInstallPrompt = (e) => {
@@ -428,9 +388,7 @@
           const { data } = await supabaseClient.from('sticky_notes').select('*').eq('id', 'shared_family_note').maybeSingle();
           if (data) {
             setStickyNote(data.content || '');
-            setStickyUpdatedBy(data.updated_by || '');
             localStorage.setItem('bobo_sticky_note', data.content || '');
-            localStorage.setItem('bobo_sticky_by', data.updated_by || '');
           }
         } catch(e) {}
       };
@@ -439,16 +397,13 @@
         triggerVibration(10);
         const newText = tempSticky.trim();
         setStickyNote(newText);
-        setStickyUpdatedBy(activeCaregiver);
         localStorage.setItem('bobo_sticky_note', newText);
-        localStorage.setItem('bobo_sticky_by', activeCaregiver);
         setIsEditingSticky(false);
 
         try {
           await supabaseClient.from('sticky_notes').upsert({
             id: 'shared_family_note',
             content: newText,
-            updated_by: activeCaregiver,
             updated_at: new Date().toISOString()
           });
         } catch(e) {}
@@ -569,17 +524,6 @@
         return `לפני ${days} ימים`;
       };
 
-      const parseCaregiverFromNotes = (notes) => {
-        if (!notes) return null;
-        const match = notes.match(/\[by:(.*?)\]/);
-        return match ? match[1] : null;
-      };
-
-      const cleanNotes = (notes) => {
-        if (!notes) return '';
-        return notes.replace(/\[by:.*?\]/g, '').trim();
-      };
-
       const getNodeColor = (item) => {
         if (item.logType === 'vitamin_d') return 'bg-violet-400 dark:bg-violet-500';
         if (item.logType === 'pumping') return 'bg-purple-400 dark:bg-purple-500';
@@ -660,9 +604,7 @@
           .on('postgres_changes', { event: '*', schema: 'public', table: 'sticky_notes' }, (payload) => {
             if (payload.new) {
               setStickyNote(payload.new.content || '');
-              setStickyUpdatedBy(payload.new.updated_by || '');
               localStorage.setItem('bobo_sticky_note', payload.new.content || '');
-              localStorage.setItem('bobo_sticky_by', payload.new.updated_by || '');
             }
           })
           .subscribe();
@@ -725,16 +667,14 @@
         setFeedSaveStatus('saving');
         const currentType = customType || feedType;
         let finalType = currentType;
-        let finalNotes = feedNotes;
+        let finalNotes = feedNotes.trim();
         
         if (currentType === 'bottle') { 
-          finalNotes = `[${bottleType === 'expressed' ? 'שאוב' : 'תמ"ל'}] ${feedNotes}`.trim(); 
+          finalNotes = `[${bottleType === 'expressed' ? 'שאוב' : 'תמ"ל'}] ${finalNotes}`.trim(); 
         } else if (currentType === 'pumping') { 
           finalType = 'bottle'; 
-          finalNotes = `[שאיבת_חלב] ${feedNotes}`.trim(); 
+          finalNotes = `[שאיבת_חלב] ${finalNotes}`.trim(); 
         }
-
-        finalNotes = `${finalNotes} [by:${activeCaregiver}]`.trim();
 
         await performInsert('feedings', { type: finalType, side: feedSide, duration_minutes: currentType === 'breastfeeding' ? duration : null, amount_ml: (currentType === 'bottle' || currentType === 'pumping') ? amount : null, notes: finalNotes || null, created_at: new Date().toISOString() });
         setFeedSaveStatus('success');
@@ -747,7 +687,7 @@
       const saveDiaper = async () => {
         triggerVibration(15);
         setDiaperSaveStatus('saving');
-        const finalNotes = `${diaperNotes} [by:${activeCaregiver}]`.trim();
+        const finalNotes = diaperNotes.trim();
         await performInsert('diapers', { type: diaperType, notes: finalNotes || null, created_at: new Date().toISOString() });
         setDiaperSaveStatus('success');
         setTimeout(() => { setDiaperNotes(''); setActiveSection(null); setDiaperSaveStatus('idle'); loadAllDataRef.current(); }, 800);
@@ -757,7 +697,7 @@
         if (!solidFood.trim()) return;
         triggerVibration(15);
         setSolidSaveStatus('saving');
-        const finalNotes = `${solidNotes.trim()} [by:${activeCaregiver}]`.trim();
+        const finalNotes = solidNotes.trim();
         await performInsert('solids', { food_name: solidFood.trim(), reaction: solidReaction, notes: finalNotes || null, created_at: new Date().toISOString() });
         setSolidSaveStatus('success');
         setTimeout(() => { setSolidFood(''); setSolidNotes(''); setSolidReaction('liked'); setActiveSection(null); setSolidSaveStatus('idle'); loadAllDataRef.current(); }, 800);
@@ -767,7 +707,7 @@
         triggerVibration(15);
         const alreadyGivenToday = timeline.some(f => f.notes?.includes('ויטמין D') && isToday(f.timestamp));
         if (alreadyGivenToday) { alert('💊 שימו לב: כבר ניתן ויטמין D היום! אין צורך במנה נוספת.'); return; }
-        const finalNotes = `💊 ויטמין D - 2 טיפות [by:${activeCaregiver}]`;
+        const finalNotes = `💊 ויטמין D - 2 טיפות`;
         await performInsert('feedings', { type: 'bottle', side: 'both', amount_ml: null, duration_minutes: null, notes: finalNotes, created_at: new Date().toISOString() });
         setVitDSuccess(true); setTimeout(() => setVitDSuccess(false), 1500);
         loadAllDataRef.current();
@@ -777,7 +717,7 @@
         const num = parseFloat(growthValue); if (isNaN(num) || num <= 0) return;
         triggerVibration(15);
         setGrowthSaveStatus('saving');
-        const finalNotes = `${growthNotes} [by:${activeCaregiver}]`.trim();
+        const finalNotes = growthNotes.trim();
         const payload = { metric_type: growthType, value: num, unit: growthType === 'weight' ? 'kg' : 'cm', notes: finalNotes || null, measured_at: new Date().toISOString() };
         if (editingGrowthId) { await supabaseClient.from('growth_metrics').update(payload).eq('id', editingGrowthId); } 
         else { await performInsert('growth_metrics', payload); }
@@ -797,7 +737,7 @@
       const openEditModal = (item) => {
         triggerVibration(10);
         setEditingItem(item); 
-        setEditNotes(cleanNotes(item.notes) || '');
+        setEditNotes(item.notes || '');
         const date = new Date(item.timestamp);
         const tzoffset = date.getTimezoneOffset() * 60000;
         const localISOTime = (new Date(date.getTime() - tzoffset)).toISOString().slice(0, 16);
@@ -806,9 +746,9 @@
         if (item.logType === 'feeding' || item.logType === 'pumping') {
           setEditValue1(item.type === 'breastfeeding' ? item.duration_minutes : item.amount_ml); 
           setEditSelect1(item.side || 'both');
-          if (item.notes && item.notes.includes('[שאוב]')) { setEditSelect2('expressed'); setEditNotes(cleanNotes(item.notes.replace('[שאוב]', '').trim())); } 
-          else if (item.notes && item.notes.includes('[תמ"ל]')) { setEditSelect2('formula'); setEditNotes(cleanNotes(item.notes.replace('[תמ"ל]', '').trim())); } 
-          else if (item.notes && item.notes.includes('[שאיבת_חלב]')) { setEditNotes(cleanNotes(item.notes.replace('[שאיבת_חלב]', '').trim())); } 
+          if (item.notes && item.notes.includes('[שאוב]')) { setEditSelect2('expressed'); setEditNotes(item.notes.replace('[שאוב]', '').trim()); } 
+          else if (item.notes && item.notes.includes('[תמ"ל]')) { setEditSelect2('formula'); setEditNotes(item.notes.replace('[תמ"ל]', '').trim()); } 
+          else if (item.notes && item.notes.includes('[שאיבת_חלב]')) { setEditNotes(item.notes.replace('[שאיבת_חלב]', '').trim()); } 
           else { setEditSelect2('formula'); }
         } 
         else if (item.logType === 'diaper') { setEditSelect1(item.type); } 
@@ -822,27 +762,22 @@
         setEditSaveStatus('saving');
         try {
           const isoTimestamp = new Date(editTimestamp).toISOString();
-          const existingCaregiver = parseCaregiverFromNotes(editingItem.notes) || activeCaregiver;
           let finalNotes = editNotes.trim();
 
           if (editingItem.logType === 'feeding') {
             if (editingItem.type === 'bottle' && !editingItem.notes?.includes('ויטמין D')) { finalNotes = `[${editSelect2 === 'expressed' ? 'שאוב' : 'תמ"ל'}] ${finalNotes}`.trim(); }
-            finalNotes = `${finalNotes} [by:${existingCaregiver}]`.trim();
             await supabaseClient.from('feedings').update({ side: editSelect1, duration_minutes: editingItem.type === 'breastfeeding' ? parseInt(editValue1 || 0) : null, amount_ml: editingItem.type === 'bottle' ? parseInt(editValue1 || 0) : null, notes: finalNotes || null, created_at: isoTimestamp }).eq('id', editingItem.id);
           } else if (editingItem.logType === 'pumping') {
-            finalNotes = `[שאיבת_חלב] ${finalNotes} [by:${existingCaregiver}]`.trim();
+            finalNotes = `[שאיבת_חלב] ${finalNotes}`.trim();
             await supabaseClient.from('feedings').update({ side: editSelect1, amount_ml: parseInt(editValue1 || 0), notes: finalNotes, created_at: isoTimestamp }).eq('id', editingItem.id);
           } else if (editingItem.logType === 'vitamin_d') {
-            finalNotes = `💊 ויטמין D - 2 טיפות [by:${existingCaregiver}]`;
+            finalNotes = `💊 ויטמין D - 2 טיפות`;
             await supabaseClient.from('feedings').update({ notes: finalNotes, created_at: isoTimestamp }).eq('id', editingItem.id);
           } else if (editingItem.logType === 'diaper') {
-            finalNotes = `${finalNotes} [by:${existingCaregiver}]`.trim();
             await supabaseClient.from('diapers').update({ type: editSelect1, notes: finalNotes || null, created_at: isoTimestamp }).eq('id', editingItem.id);
           } else if (editingItem.logType === 'solid') {
-            finalNotes = `${finalNotes} [by:${existingCaregiver}]`.trim();
             await supabaseClient.from('solids').update({ food_name: editValue1, reaction: editSelect1, notes: finalNotes || null, created_at: isoTimestamp }).eq('id', editingItem.id);
           } else if (editingItem.logType === 'growth') {
-            finalNotes = `${finalNotes} [by:${existingCaregiver}]`.trim();
             await supabaseClient.from('growth_metrics').update({ value: parseFloat(editValue1 || 0), notes: finalNotes || null, measured_at: isoTimestamp }).eq('id', editingItem.id);
           }
           setEditSaveStatus('success');
@@ -883,15 +818,14 @@
 
       const exportToCSV = () => {
         if (timeline.length === 0) return alert("אין נתונים לייצוא");
-        let csvContent = "\uFEFFסוג פעולה,פירוט,כמות/משך,צד/החזקה,הורה מתעד,תאריך,שעה,הערות\n";
+        let csvContent = "\uFEFFסוג פעולה,פירוט,כמות/משך,צד/החזקה,תאריך,שעה,הערות\n";
         timeline.forEach(item => {
           const type = item.logType === 'vitamin_d' ? 'ויטמין D' : item.logType === 'pumping' ? 'שאיבה' : item.logType === 'feeding' ? (item.type === 'breastfeeding' ? 'הנקה' : 'בקבוק') : item.logType === 'diaper' ? 'חיתול' : item.logType === 'solid' ? 'טעימות מוצקים' : 'גדילה';
           const subType = item.logType === 'vitamin_d' ? 'תוסף תזונה' : item.logType === 'pumping' ? 'שאיבת חלב' : item.logType === 'feeding' ? (item.type === 'breastfeeding' ? 'הנקה' : 'האכלה') : item.logType === 'diaper' ? (item.type === 'wet' ? 'פיפי' : item.type === 'dirty' ? 'קקי' : 'שניהם') : item.logType === 'solid' ? item.food_name : (item.metric_type === 'weight' ? 'משקל' : 'גובה');
           const value = item.logType === 'vitamin_d' ? '2 טיפות' : item.logType === 'pumping' ? `${item.amount_ml} מ"ל` : item.logType === 'feeding' ? (item.duration_minutes ? `${item.duration_minutes} דקות` : `${item.amount_ml} מ"ל`) : item.logType === 'diaper' ? '' : item.logType === 'solid' ? (item.reaction === 'liked' ? 'אהב' : item.reaction === 'neutral' ? 'נייטרלי' : item.reaction === 'disliked' ? 'לא אהב' : 'חשש לאלרגיה') : `${item.value} ${item.unit === 'kg' ? 'ק"ג' : 'ס"מ'}`;
           const side = item.side === 'left' ? 'שמאל' : item.side === 'right' ? 'ימין' : item.side === 'both' && item.logType !== 'vitamin_d' ? 'שניהם' : '';
-          const caregiverStr = parseCaregiverFromNotes(item.notes) || '';
-          const cleanItemNotes = cleanNotes(item.notes);
-          csvContent += `${type},${subType},${value},${side},${caregiverStr},${new Date(item.timestamp).toLocaleDateString('he-IL')},${new Date(item.timestamp).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'})},${cleanItemNotes ? cleanItemNotes.replace(/,/g, " ") : ""}\n`;
+          const notesStr = item.notes ? item.notes.trim() : '';
+          csvContent += `${type},${subType},${value},${side},${new Date(item.timestamp).toLocaleDateString('he-IL')},${new Date(item.timestamp).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'})},${notesStr ? notesStr.replace(/,/g, " ") : ""}\n`;
         });
         const link = document.createElement("a"); link.setAttribute("href", URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }))); link.setAttribute("download", `יומן_בובו_${babyName}.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link);
       };
@@ -1068,16 +1002,6 @@
 
             <div className="flex items-center gap-2">
               <button 
-                onClick={() => { triggerVibration(10); setIsDeepNight(!isDeepNight); }}
-                title="מצב לילה עמוק"
-                className={`p-2 rounded-xl text-xs font-bold border transition active:scale-95 flex items-center gap-1 ${
-                  isDeepNight ? 'bg-red-950 border-red-800 text-red-400 shadow-inner' : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700'
-                }`}
-              >
-                <span>🌙🔴</span>
-              </button>
-
-              <button 
                 onClick={() => { triggerVibration(10); setShowNoisePlayer(!showNoisePlayer); }}
                 title="רעש לבן מרגיע"
                 className={`p-2 rounded-xl text-xs font-bold border transition active:scale-95 flex items-center gap-1 ${
@@ -1156,16 +1080,9 @@
                 
                 <div className="bg-amber-50/80 dark:bg-amber-950/30 p-3.5 rounded-3xl border border-amber-200/70 dark:border-amber-900/50 shadow-sm flex items-center justify-between gap-3">
                   <div className="flex-1">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-sm">📌</span>
-                        <span className="text-[11px] font-black text-amber-800 dark:text-amber-300">פתקית מקרר משפחתית</span>
-                      </div>
-                      {stickyUpdatedBy && (
-                        <span className="text-[9px] bg-amber-200/60 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full font-bold">
-                          עודכן ע״י {stickyUpdatedBy}
-                        </span>
-                      )}
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-sm">📌</span>
+                      <span className="text-[11px] font-black text-amber-800 dark:text-amber-300">פתקית מקרר משפחתית</span>
                     </div>
                     {isEditingSticky ? (
                       <div className="flex gap-2 mt-1.5">
@@ -1173,14 +1090,14 @@
                           type="text" 
                           value={tempSticky} 
                           onChange={e => setTempSticky(e.target.value)} 
-                          placeholder="רשמו הודעה קצרה בין המשמרות..."
+                          placeholder="רשמו הודעה קצרה..."
                           className="flex-1 px-3 py-1.5 bg-white dark:bg-gray-800 text-xs font-bold rounded-xl border border-amber-300 dark:border-amber-700 focus:outline-none dark:text-white"
                         />
                         <button onClick={handleSaveStickyNote} className="bg-amber-500 text-white px-3 py-1.5 rounded-xl text-xs font-bold">שמור</button>
                       </div>
                     ) : (
                       <p className="text-xs font-medium text-amber-900 dark:text-amber-200">
-                        {stickyNote || 'לחצו כדי להשאיר הודעה קצרה אחד לשנייה...'}
+                        {stickyNote || 'לחצו כדי להשאיר הודעה קצרה...'}
                       </p>
                     )}
                   </div>
@@ -1194,34 +1111,13 @@
                   )}
                 </div>
 
-                <div className="flex justify-between items-center bg-white dark:bg-gray-800 p-2.5 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-gray-500 dark:text-gray-400">מתעד כרגע:</span>
-                    <div className="flex gap-1">
-                      {['אבא', 'אמא'].map(c => (
-                        <button 
-                          key={c} 
-                          onClick={() => {
-                            triggerVibration(10);
-                            setActiveCaregiver(c);
-                            localStorage.setItem('bobo_caregiver', c);
-                          }}
-                          className={`px-3 py-1 rounded-xl text-xs font-black transition ${
-                            activeCaregiver === c ? 'bg-rose-500 text-white shadow-sm' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600'
-                          }`}
-                        >
-                          {c}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
+                <div className="flex justify-end items-center">
                   <button 
                     onClick={shareDayToWhatsApp}
-                    className="flex items-center gap-1.5 bg-emerald-500 text-white px-3 py-1.5 rounded-xl text-xs font-black shadow-md shadow-emerald-200/50 active:scale-95 transition"
+                    className="flex items-center gap-1.5 bg-emerald-500 text-white px-4 py-2 rounded-2xl text-xs font-black shadow-md shadow-emerald-200/50 active:scale-95 transition"
                   >
                     <span>💬</span>
-                    <span>סיכום לוואטסאפ</span>
+                    <span>סיכום יום לוואטסאפ</span>
                   </button>
                 </div>
 
@@ -1325,6 +1221,10 @@
                       <input type="number" value={duration} onChange={e => setDuration(parseInt(e.target.value || 1))} className="w-20 text-center font-black text-lg p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none dark:text-white shadow-sm" />
                     </div>
 
+                    <div>
+                      <input type="text" value={feedNotes} onChange={e => setFeedNotes(e.target.value)} placeholder="הערות להנקה..." className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-200 dark:border-gray-600 text-xs focus:outline-none dark:text-white font-medium shadow-sm" />
+                    </div>
+
                     <button onClick={() => saveFeeding('breastfeeding')} disabled={feedSaveStatus !== 'idle'} 
                       className={`w-full font-black text-base py-4 rounded-2xl shadow-xl transition-all duration-300 flex items-center justify-center gap-2 ${
                         feedSaveStatus === 'success' ? 'bg-green-500 text-white shadow-green-200/50 animate-success' : 'bg-rose-500 text-white shadow-rose-200/50 active:scale-95'
@@ -1358,6 +1258,9 @@
                         ))}
                       </div>
                     </div>
+                    <div>
+                      <input type="text" value={feedNotes} onChange={e => setFeedNotes(e.target.value)} placeholder="הערות לבקבוק..." className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-200 dark:border-gray-600 text-xs focus:outline-none dark:text-white font-medium shadow-sm" />
+                    </div>
                     <button onClick={() => saveFeeding('bottle')} disabled={feedSaveStatus !== 'idle'} 
                       className={`w-full font-black text-base py-4 rounded-2xl shadow-xl transition-all duration-300 flex items-center justify-center gap-2 ${
                         feedSaveStatus === 'success' ? 'bg-green-500 text-white shadow-green-200/50 animate-success' : 'bg-cyan-500 text-white shadow-cyan-200/50 active:scale-95'
@@ -1387,6 +1290,9 @@
                         ))}
                       </div>
                     </div>
+                    <div>
+                      <input type="text" value={feedNotes} onChange={e => setFeedNotes(e.target.value)} placeholder="הערות לשאיבה..." className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-200 dark:border-gray-600 text-xs focus:outline-none dark:text-white font-medium shadow-sm" />
+                    </div>
                     <button onClick={() => saveFeeding('pumping')} disabled={feedSaveStatus !== 'idle'} 
                       className={`w-full font-black text-base py-4 rounded-2xl shadow-xl transition-all duration-300 flex items-center justify-center gap-2 ${
                         feedSaveStatus === 'success' ? 'bg-green-500 text-white shadow-green-200/50 animate-success' : 'bg-purple-500 text-white shadow-purple-200/50 active:scale-95'
@@ -1401,6 +1307,9 @@
                     <div className="flex justify-between items-center"><h3 className="font-black text-amber-500 text-sm flex items-center gap-2"><span className="text-lg">🚼</span> עדכון חיתול</h3><button onClick={()=>{triggerVibration(10); setActiveSection(null)}} className="text-sm bg-gray-100 dark:bg-gray-700 w-8 h-8 rounded-full flex items-center justify-center font-bold text-gray-500 dark:text-gray-300">✕</button></div>
                     <div className="grid grid-cols-3 gap-3">
                       {['wet', 'dirty', 'both'].map(t => <button key={t} onClick={() => {triggerVibration(10); setDiaperType(t)}} className={`py-5 rounded-2xl text-sm font-bold shadow-sm active:scale-95 transition border flex flex-col items-center gap-2 ${diaperType === t ? 'bg-amber-400 text-white border-amber-400' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-600'}`}><span className="text-2xl drop-shadow-sm">{t === 'wet' ? '💧' : t === 'dirty' ? '💩' : '✨'}</span>{t === 'wet' ? 'פיפי' : t === 'dirty' ? 'קקי' : 'שניהם'}</button>)}
+                    </div>
+                    <div>
+                      <input type="text" value={diaperNotes} onChange={e => setDiaperNotes(e.target.value)} placeholder="הערות לחיתול (צבע, מרקם וכו')..." className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-200 dark:border-gray-600 text-xs focus:outline-none dark:text-white font-medium shadow-sm" />
                     </div>
                     <button onClick={saveDiaper} disabled={diaperSaveStatus !== 'idle'} 
                       className={`w-full font-black text-base py-4 rounded-2xl shadow-xl transition-all duration-300 flex items-center justify-center gap-2 ${
@@ -1463,8 +1372,7 @@
                   ) : (
                     <div className="relative border-r-[3px] border-gray-100 dark:border-gray-700/60 pr-5 ml-2 mt-4 pb-2 space-y-5">
                       {todaysTimeline.map((item, i) => {
-                        const caregiverStr = parseCaregiverFromNotes(item.notes);
-                        const cleanItemNotes = cleanNotes(item.notes);
+                        const notesText = item.notes ? item.notes.trim() : '';
                         return (
                           <div key={i} className="relative">
                             <div className={`absolute -right-[27.5px] top-5 w-4 h-4 rounded-full border-[3px] border-white dark:border-[#121212] ${getNodeColor(item)} z-10 shadow-sm`}></div>
@@ -1475,11 +1383,6 @@
                                   <span className="text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 font-bold px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap">
                                     {getTimeAgo(item.timestamp)}
                                   </span>
-                                  {caregiverStr && (
-                                    <span className="text-[10px] bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300 font-bold px-2 py-0.5 rounded-full shadow-sm">
-                                      ע״י {caregiverStr}
-                                    </span>
-                                  )}
                                   {item.isOfflinePending && <span className="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 font-bold px-2 py-0.5 rounded-full shadow-sm">⏳ ממתין לסנכרון</span>}
                                 </div>
                                 <div className="flex items-center gap-2 mb-1">
@@ -1495,7 +1398,7 @@
                                   {item.side && item.logType !== 'vitamin_d' && <span>| צד: <strong className="text-gray-700 dark:text-gray-300">{item.side === 'left' ? 'שמאל' : item.side === 'right' ? 'ימין' : 'שניהם'}</strong></span>}
                                   {item.logType === 'solid' && <span>| <strong className="text-gray-700 dark:text-gray-300">{item.reaction === 'liked' ? 'אהב' : item.reaction === 'neutral' ? 'נייטרלי' : item.reaction === 'disliked' ? 'לא אהב' : 'חשש לאלרגיה'}</strong></span>}
                                 </p>
-                                {cleanItemNotes && cleanItemNotes !== '💊 ויטמין D - 2 טיפות' && <p className="text-[11px] bg-gray-50 dark:bg-gray-700/60 p-2.5 rounded-xl text-gray-700 dark:text-gray-300 mt-2 font-medium border border-gray-100 dark:border-gray-600 leading-relaxed shadow-sm">{cleanItemNotes}</p>}
+                                {notesText && notesText !== '💊 ויטמין D - 2 טיפות' && <p className="text-[11px] bg-gray-50 dark:bg-gray-700/60 p-2.5 rounded-xl text-gray-700 dark:text-gray-300 mt-2 font-medium border border-gray-100 dark:border-gray-600 leading-relaxed shadow-sm">{notesText}</p>}
                               </div>
                               <div className="flex flex-col gap-1.5 mr-2 ml-1">
                                 <button onClick={() => openEditModal(item)} className="text-[10px] bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-300 border border-gray-200 dark:border-gray-600 px-2.5 py-1.5 rounded-lg font-bold transition active:scale-95 shadow-sm">ערוך</button>
@@ -1568,8 +1471,7 @@
                 ) : (
                   <div className="relative border-r-[3px] border-gray-100 dark:border-gray-700/60 pr-5 ml-2 mt-4 pb-2 space-y-5">
                     {displayedTimelineLogs.map((item, i) => {
-                      const caregiverStr = parseCaregiverFromNotes(item.notes);
-                      const cleanItemNotes = cleanNotes(item.notes);
+                      const notesText = item.notes ? item.notes.trim() : '';
                       return (
                         <div key={i} className="relative">
                           <div className={`absolute -right-[27.5px] top-5 w-4 h-4 rounded-full border-[3px] border-white dark:border-[#121212] ${getNodeColor(item)} z-10 shadow-sm`}></div>
@@ -1580,11 +1482,6 @@
                                 <span className="text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 font-bold px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap">
                                   {getTimeAgo(item.timestamp)}
                                 </span>
-                                {caregiverStr && (
-                                  <span className="text-[10px] bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300 font-bold px-2 py-0.5 rounded-full shadow-sm">
-                                    ע״י {caregiverStr}
-                                  </span>
-                                )}
                                 {item.isOfflinePending && <span className="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 font-bold px-2 py-0.5 rounded-full shadow-sm">⏳ ממתין לסנכרון</span>}
                               </div>
                               <div className="flex items-center gap-2 mb-1">
@@ -1601,7 +1498,7 @@
                                 {item.side && item.logType !== 'vitamin_d' && <span>| צד: <strong className="text-gray-700 dark:text-gray-300">{item.side === 'left' ? 'שמאל' : item.side === 'right' ? 'ימין' : 'שניהם'}</strong></span>}
                                 {item.logType === 'solid' && <span>| <strong className="text-gray-700 dark:text-gray-300">{item.reaction === 'liked' ? 'אהב' : item.reaction === 'neutral' ? 'נייטרלי' : item.reaction === 'disliked' ? 'לא אהב' : 'חשש לאלרגיה'}</strong></span>}
                               </p>
-                              {cleanItemNotes && cleanItemNotes !== '💊 ויטמין D - 2 טיפות' && <p className="text-[11px] bg-gray-50 dark:bg-gray-700/60 p-2.5 rounded-xl text-gray-700 dark:text-gray-300 mt-2 font-medium border border-gray-100 dark:border-gray-600 leading-relaxed shadow-sm">{cleanItemNotes}</p>}
+                              {notesText && notesText !== '💊 ויטמין D - 2 טיפות' && <p className="text-[11px] bg-gray-50 dark:bg-gray-700/60 p-2.5 rounded-xl text-gray-700 dark:text-gray-300 mt-2 font-medium border border-gray-100 dark:border-gray-600 leading-relaxed shadow-sm">{notesText}</p>}
                             </div>
                             <div className="flex flex-col gap-1.5 mr-2 ml-1">
                               <button onClick={() => openEditModal(item)} className="text-[10px] bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-300 border border-gray-200 dark:border-gray-600 px-2.5 py-1.5 rounded-lg font-bold transition active:scale-95 shadow-sm">ערוך</button>
@@ -1812,7 +1709,7 @@
                         {weights.map((item, idx) => (
                           <div key={idx} className="flex flex-col items-center flex-1 h-full justify-end relative z-10 group">
                             <span className="text-[10px] font-black text-teal-600 dark:text-teal-400 mb-1.5 opacity-0 group-hover:opacity-100 transition-opacity">{item.value}</span>
-                            <div className="w-full max-w-[28px] bg-gradient-to-t from-teal-500 to-teal-400 dark:from-teal-600 dark:to-teal-400 rounded-t-xl shadow-sm transition-all duration-700 ease-out" style={{ height: `${(parseFloat(item.value) / maxW) * 100}%` }}></div>
+                            <div className="w-full max-w-[28px] bg-gradient-to-t from-teal-500 to-teal-400 dark:from-teal-600 dark:to-teal-400 rounded-t-xl shadow-sm transition-all duration-700 ease-out" style={{ height: `${(parseFloat(item.value || 0) / maxW) * 100}%` }}></div>
                             <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500 mt-2">{new Date(item.timestamp).toLocaleDateString('he-IL', {day:'2-digit', month:'2-digit'})}</span>
                           </div>
                         ))}
@@ -1829,6 +1726,9 @@
                       <div className="flex gap-2">
                         <input type="number" step="0.01" value={growthValue} onChange={e => setGrowthValue(e.target.value)} placeholder="הכנס ערך מספרי" className="flex-1 px-4 py-3 bg-gray-50 dark:bg-gray-700 font-black text-lg text-center border border-gray-200 dark:border-gray-600 rounded-2xl focus:outline-none dark:text-white shadow-sm" />
                         <span className="bg-gray-100 dark:bg-gray-700/60 px-5 py-3 rounded-2xl font-black text-gray-500 dark:text-gray-300 flex items-center border border-gray-200 dark:border-gray-600 shadow-sm">{growthType === 'weight' ? 'ק"ג' : 'ס"מ'}</span>
+                      </div>
+                      <div>
+                        <input type="text" value={growthNotes} onChange={e => setGrowthNotes(e.target.value)} placeholder="הערות למדידה..." className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-200 dark:border-gray-600 text-xs focus:outline-none dark:text-white font-medium shadow-sm" />
                       </div>
                       <button onClick={saveGrowth} disabled={!growthValue || growthSaveStatus !== 'idle'} 
                         className={`w-full font-black text-base py-4 rounded-2xl shadow-xl transition-all duration-300 flex items-center justify-center gap-2 ${
@@ -1861,7 +1761,7 @@
                               <p className="text-[11px] text-gray-500 dark:text-gray-400 font-bold mt-1.5 bg-white dark:bg-gray-800 px-2 py-0.5 rounded-md inline-block shadow-sm">
                                 {new Date(item.timestamp).toLocaleDateString('he-IL')} - <span className="font-mono">{new Date(item.timestamp).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'})}</span>
                               </p>
-                              {item.notes && <p className="text-[11px] text-gray-600 dark:text-gray-300 mt-2 font-medium">{cleanNotes(item.notes)}</p>}
+                              {item.notes && <p className="text-[11px] text-gray-600 dark:text-gray-300 mt-2 font-medium">{item.notes}</p>}
                             </div>
                             <div className="flex flex-col gap-1.5 mr-2">
                               <button onClick={() => openEditModal(item)} className="text-[10px] bg-white dark:bg-gray-600 text-gray-600 dark:text-gray-200 border border-gray-200 dark:border-gray-500 px-3 py-1.5 rounded-lg font-bold transition active:scale-95 shadow-sm">ערוך</button>
@@ -1882,16 +1782,8 @@
                   <h2 className="text-lg font-black pb-3 border-b border-gray-100 dark:border-gray-700/60 dark:text-white flex items-center gap-2"><span className="text-2xl drop-shadow-sm">⚙️</span> הגדרות האפליקציה</h2>
                   
                   <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-600 shadow-sm">
-                    <span className="text-sm font-black dark:text-white flex items-center gap-2"><span className="text-lg">🌙</span> מצב לילה רגיל (Dark Mode)</span>
-                    <input type="checkbox" checked={isDarkMode} onChange={e => {triggerVibration(10); setIsDarkMode(e.target.checked); if (e.target.checked) setIsDeepNight(false);}} className="w-5 h-5 accent-rose-500 cursor-pointer" />
-                  </div>
-
-                  <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-600 shadow-sm">
-                    <div>
-                      <span className="text-sm font-black dark:text-white flex items-center gap-2"><span className="text-lg">🌙🔴</span> מצב לילה עמוק (Deep Red OLED)</span>
-                      <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium leading-tight block max-w-[200px]">גווני אדום ושחור מוחלט שלא מסנוורים בלילה</span>
-                    </div>
-                    <input type="checkbox" checked={isDeepNight} onChange={e => {triggerVibration(10); setIsDeepNight(e.target.checked); if (e.target.checked) setIsDarkMode(false);}} className="w-5 h-5 accent-red-600 cursor-pointer" />
+                    <span className="text-sm font-black dark:text-white flex items-center gap-2"><span className="text-lg">🌙</span> מצב לילה (Dark Mode)</span>
+                    <input type="checkbox" checked={isDarkMode} onChange={e => {triggerVibration(10); setIsDarkMode(e.target.checked);}} className="w-5 h-5 accent-rose-500 cursor-pointer" />
                   </div>
 
                   <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-600 shadow-sm">
