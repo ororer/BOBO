@@ -14,7 +14,6 @@
   
   <link rel="apple-touch-icon" href="./192.png">
   <link rel="icon" type="image/png" href="./192.png">
-
   <link rel="manifest" href="./manifest.json">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -245,6 +244,18 @@
       const [showReportModal, setShowReportModal] = useState(false);
 
       const quickSolids = ['בטטה', 'גזר', 'קישוא', 'דלעת', 'בננה', 'אבוקדו', 'טחינה', 'תפוח'];
+
+      // --- הוגדרו כאן למעלה בצורה תקינה כדי ששאר הפונקציות יוכלו לגשת אליהם ---
+      const isToday = (timestamp) => {
+        if (!timestamp) return false;
+        const date = new Date(timestamp); const today = new Date();
+        return date.getDate() === today.getDate() && date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear();
+      };
+
+      const actualBabyFeedings = timeline.filter(f => f.logType === 'feeding' && !f.notes?.includes('ויטמין D') && !f.notes?.includes('[שאיבת_חלב]') && f.type !== 'pumping');
+      const actualFeedingsToday = actualBabyFeedings.filter(f => isToday(f.timestamp));
+      const todaysDiapers = timeline.filter(d => d.logType === 'diaper' && isToday(d.timestamp));
+      // ------------------------------------------------------------------------
 
       useEffect(() => {
         const metaTheme = document.querySelector('meta[name="theme-color"]');
@@ -596,7 +607,6 @@
         alert('ההתראה נשלחה כעת לכל המכשירים הרשומים!');
       };
 
-      // מנגנון Auth בטוח שלא נתקע לעולם על מסך טעינה
       useEffect(() => {
         supabaseClient.auth.getSession().then(({ data: { session } }) => {
           setUser(session?.user || null);
@@ -632,12 +642,6 @@
           setOfflineQueue(queue); 
           return { offline: true };
         }
-      };
-
-      const isToday = (timestamp) => {
-        if (!timestamp) return false;
-        const date = new Date(timestamp); const today = new Date();
-        return date.getDate() === today.getDate() && date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear();
       };
 
       const getTimeAgo = (timestamp) => {
@@ -1044,10 +1048,6 @@
         return formattedTime;
       };
 
-      const actualBabyFeedings = timeline.filter(f => f.logType === 'feeding' && !f.notes?.includes('ויטמין D') && !f.notes?.includes('[שאיבת_חלב]') && f.type !== 'pumping');
-      const actualFeedingsToday = actualBabyFeedings.filter(f => isToday(f.timestamp));
-      const todaysDiapers = timeline.filter(d => d.logType === 'diaper' && isToday(d.timestamp));
-      
       const feedPercentage = Math.min(100, (actualFeedingsToday.length / targetFeeds) * 100);
       const diaperPercentage = Math.min(100, (todaysDiapers.length / targetDiapers) * 100);
 
@@ -1350,14 +1350,12 @@
                   </div>
                 )}
 
-                {/* --- אזור כפתורי הפעולות המשולב באקורדיון מדורג --- */}
+                {/* אזור כפתורי פעולות ואקורדיון */}
                 <div className="grid grid-cols-2 gap-3 pt-1">
                   
-                  {/* שורה 1: הנקה + בקבוק */}
                   <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'breast' ? null : 'breast'); setFeedType('breastfeeding'); }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'breast' ? 'bg-rose-400 text-white shadow-lg shadow-rose-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-rose-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm mb-1">🤱</span> הנקה</button>
                   <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'bottle' ? null : 'bottle'); setFeedType('bottle'); }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'bottle' ? 'bg-cyan-400 text-white shadow-lg shadow-cyan-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-cyan-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm mb-1">🍼</span> בקבוק</button>
 
-                  {/* טפסי שורה 1 */}
                   {(activeSection === 'breast' || activeSection === 'bottle') && (
                     <div className="col-span-2 -mt-1 mb-2">
                       {activeSection === 'breast' && (
@@ -1402,7 +1400,6 @@
                         </div>
                       )}
 
-                      {/* טופס בקבוק */}
                       {activeSection === 'bottle' && (
                         <div className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] shadow-xl shadow-cyan-100/60 dark:shadow-none border border-gray-100 dark:border-gray-700 space-y-5 animate-in slide-in-from-top-2 duration-300">
                           <div className="flex justify-between items-center"><h3 className="font-black text-cyan-500 text-sm flex items-center gap-2"><span className="text-lg">🍼</span> עדכון בקבוק</h3><button onClick={()=>{triggerVibration(10); setActiveSection(null)}} className="text-sm bg-gray-100 dark:bg-gray-700 w-8 h-8 rounded-full flex items-center justify-center font-bold text-gray-500 dark:text-gray-300">✕</button></div>
@@ -1446,11 +1443,9 @@
                     </div>
                   )}
 
-                  {/* שורה 2: שאיבה + חיתול */}
                   <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'pumping' ? null : 'pumping'); setFeedType('pumping'); }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'pumping' ? 'bg-purple-400 text-white shadow-lg shadow-purple-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-purple-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm mb-1">🥛</span> שאיבה</button>
                   <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'diaper' ? null : 'diaper') }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'diaper' ? 'bg-amber-400 text-white shadow-lg shadow-amber-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-amber-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm mb-1">🚼</span> חיתול</button>
 
-                  {/* טפסי שורה 2 */}
                   {(activeSection === 'pumping' || activeSection === 'diaper') && (
                     <div className="col-span-2 -mt-1 mb-2">
                       {activeSection === 'pumping' && (
@@ -1493,7 +1488,7 @@
                         <div className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] shadow-xl shadow-amber-100/60 dark:shadow-none border border-gray-100 dark:border-gray-700 space-y-5 animate-in slide-in-from-top-2 duration-300">
                           <div className="flex justify-between items-center"><h3 className="font-black text-amber-500 text-sm flex items-center gap-2"><span className="text-lg">🚼</span> עדכון חיתול</h3><button onClick={()=>{triggerVibration(10); setActiveSection(null)}} className="text-sm bg-gray-100 dark:bg-gray-700 w-8 h-8 rounded-full flex items-center justify-center font-bold text-gray-500 dark:text-gray-300">✕</button></div>
                           <div className="grid grid-cols-3 gap-3">
-                            {['wet', 'dirty', 'both'].map(t => <button key={t} onClick={() => {triggerVibration(10); setDiaperType(t)}} className={`py-5 rounded-2xl text-sm font-bold shadow-sm active:scale-95 transition border flex flex-col items-center gap-2 ${diaperType === t ? 'bg-amber-400 text-white border-amber-400' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-600'}`}>{t === 'wet' ? '💧' : t === 'dirty' ? '💩' : '✨'}</span>{t === 'wet' ? 'פיפי' : t === 'dirty' ? 'קקי' : 'שניהם'}</button>)}
+                            {['wet', 'dirty', 'both'].map(t => <button key={t} onClick={() => {triggerVibration(10); setDiaperType(t)}} className={`py-5 rounded-2xl text-sm font-bold shadow-sm active:scale-95 transition border flex flex-col items-center gap-2 ${diaperType === t ? 'bg-amber-400 text-white border-amber-400' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-600'}`}><span className="text-2xl drop-shadow-sm">{t === 'wet' ? '💧' : t === 'dirty' ? '💩' : '✨'}</span>{t === 'wet' ? 'פיפי' : t === 'dirty' ? 'קקי' : 'שניהם'}</button>)}
                           </div>
                           <div>
                             <input type="text" value={diaperNotes} onChange={e => setDiaperNotes(e.target.value)} placeholder="הערות לחיתול (צבע, מרקם וכו')..." className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-200 dark:border-gray-600 text-xs focus:outline-none dark:text-white font-medium shadow-sm" />
@@ -1509,10 +1504,8 @@
                     </div>
                   )}
 
-                  {/* שורה 3: טעימות מוצקים */}
                   <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'solid' ? null : 'solid') }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 col-span-2 active:scale-95 ${activeSection === 'solid' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-emerald-600 shadow-sm border border-gray-100 dark:border-gray-700'}`}>🥑 טעימות מוצקים</button>
 
-                  {/* טופס שורה 3 */}
                   {activeSection === 'solid' && (
                     <div className="col-span-2 -mt-1 mb-2">
                       <div className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] shadow-xl shadow-emerald-100/60 dark:shadow-none border border-gray-100 dark:border-gray-700 space-y-5 animate-in slide-in-from-top-2 duration-300">
@@ -1557,7 +1550,6 @@
                   )}
                 </div>
 
-                {/* --- כפתור ויטמין D מהיר --- */}
                 {showVitaminDButton && (
                   <button onClick={logVitaminD} className={`w-full p-3.5 mt-2 rounded-3xl text-center flex flex-row items-center justify-center gap-2 font-bold text-sm transition-all duration-200 shadow-sm border active:scale-95 ${vitDSuccess ? 'bg-teal-400 text-white border-teal-400 shadow-teal-200/50 animate-success' : 'bg-white dark:bg-gray-800 text-violet-500 border-gray-100 dark:border-gray-700'}`}>
                     💊 ויטמין D (2 טיפות)
