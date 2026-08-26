@@ -245,7 +245,7 @@
 
       const quickSolids = ['בטטה', 'גזר', 'קישוא', 'דלעת', 'בננה', 'אבוקדו', 'טחינה', 'תפוח'];
 
-      // --- הוגדרו כאן למעלה בצורה תקינה כדי ששאר הפונקציות יוכלו לגשת אליהם ---
+      // הגדרת פונקציות עזר למעלה כדי שלא יהיו שגיאות ReferenceError
       const isToday = (timestamp) => {
         if (!timestamp) return false;
         const date = new Date(timestamp); const today = new Date();
@@ -255,7 +255,6 @@
       const actualBabyFeedings = timeline.filter(f => f.logType === 'feeding' && !f.notes?.includes('ויטמין D') && !f.notes?.includes('[שאיבת_חלב]') && f.type !== 'pumping');
       const actualFeedingsToday = actualBabyFeedings.filter(f => isToday(f.timestamp));
       const todaysDiapers = timeline.filter(d => d.logType === 'diaper' && isToday(d.timestamp));
-      // ------------------------------------------------------------------------
 
       useEffect(() => {
         const metaTheme = document.querySelector('meta[name="theme-color"]');
@@ -943,7 +942,7 @@
       };
 
       const deleteTimelineItem = async (item) => {
-        if (!confirm('האם למחוק פעולה זו מהיומן לחלוטין?')) return;
+        if (!confirm('למחוק פעולה זו מהיומן לחלוטין?')) return;
         triggerVibration(15);
         if (item.isOfflinePending) {
           const queue = getOfflineQueue().filter(q => q.client_id !== item.id);
@@ -1350,7 +1349,7 @@
                   </div>
                 )}
 
-                {/* אזור כפתורי פעולות ואקורדיון */}
+                {/* כפתורי פעולות + אקורדיון */}
                 <div className="grid grid-cols-2 gap-3 pt-1">
                   
                   <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'breast' ? null : 'breast'); setFeedType('breastfeeding'); }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'breast' ? 'bg-rose-400 text-white shadow-lg shadow-rose-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-rose-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm mb-1">🤱</span> הנקה</button>
@@ -1836,11 +1835,11 @@
                   
                   <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-white/60 dark:border-gray-700/50 shadow-xl shadow-cyan-100/30 dark:shadow-black/20">
                     <h3 className="text-xs font-black mb-6 text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/30 px-3 py-1.5 rounded-xl inline-block shadow-sm">🍼 סה"כ בקבוקים (מ"ל)</h3>
-                    <div className="flex items-end justify-between h-32 gap-2.5 relative">
+                    <div className="flex items-end justify-between h-32 gap-2.5 relative pt-4">
                       <div className="absolute w-full border-t-[2px] border-dashed border-gray-100 dark:border-gray-700 bottom-0"></div>
                       {stats7Days.map((item, idx) => (
-                        <div key={idx} className="flex flex-col items-center flex-1 h-full justify-end relative z-10 group">
-                          <span className="text-[10px] font-black text-cyan-600 dark:text-cyan-400 mb-1.5 opacity-0 group-hover:opacity-100 transition-opacity">{item.bottleMl > 0 ? item.bottleMl : ''}</span>
+                        <div key={idx} className="flex flex-col items-center flex-1 h-full justify-end relative z-10">
+                          <span className="text-[10px] font-black text-cyan-600 dark:text-cyan-400 mb-1">{item.bottleMl > 0 ? item.bottleMl : ''}</span>
                           <div className={`w-full max-w-[28px] rounded-t-xl transition-all duration-700 ease-out shadow-sm ${item.bottleMl > 0 ? 'bg-gradient-to-t from-cyan-400 to-cyan-300 dark:from-cyan-600 dark:to-cyan-400' : 'bg-transparent'}`} style={{ height: item.bottleMl > 0 ? `${(item.bottleMl / maxBottle) * 100}%` : '0%' }}></div>
                           <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500 mt-2">{item.dateStr}</span>
                         </div>
@@ -1850,11 +1849,11 @@
 
                   <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-white/60 dark:border-gray-700/50 shadow-xl shadow-purple-100/30 dark:shadow-black/20">
                     <h3 className="text-xs font-black mb-6 text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 px-3 py-1.5 rounded-xl inline-block shadow-sm">🥛 סה"כ שאיבות (מ"ל)</h3>
-                    <div className="flex items-end justify-between h-32 gap-2.5 relative">
+                    <div className="flex items-end justify-between h-32 gap-2.5 relative pt-4">
                       <div className="absolute w-full border-t-[2px] border-dashed border-gray-100 dark:border-gray-700 bottom-0"></div>
                       {stats7Days.map((item, idx) => (
-                        <div key={idx} className="flex flex-col items-center flex-1 h-full justify-end relative z-10 group">
-                          <span className="text-[10px] font-black text-purple-600 dark:text-purple-400 mb-1.5 opacity-0 group-hover:opacity-100 transition-opacity">{item.pumpingMl > 0 ? item.pumpingMl : ''}</span>
+                        <div key={idx} className="flex flex-col items-center flex-1 h-full justify-end relative z-10">
+                          <span className="text-[10px] font-black text-purple-600 dark:text-purple-400 mb-1">{item.pumpingMl > 0 ? item.pumpingMl : ''}</span>
                           <div className={`w-full max-w-[28px] rounded-t-xl transition-all duration-700 delay-100 ease-out shadow-sm ${item.pumpingMl > 0 ? 'bg-gradient-to-t from-purple-400 to-purple-300 dark:from-purple-600 dark:to-purple-400' : 'bg-transparent'}`} style={{ height: item.pumpingMl > 0 ? `${(item.pumpingMl / maxPumping) * 100}%` : '0%' }}></div>
                           <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500 mt-2">{item.dateStr}</span>
                         </div>
@@ -1864,11 +1863,11 @@
 
                   <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-white/60 dark:border-gray-700/50 shadow-xl shadow-rose-100/30 dark:shadow-black/20">
                     <h3 className="text-xs font-black mb-6 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30 px-3 py-1.5 rounded-xl inline-block shadow-sm">🤱 סה"כ הנקה (דקות)</h3>
-                    <div className="flex items-end justify-between h-32 gap-2.5 relative">
+                    <div className="flex items-end justify-between h-32 gap-2.5 relative pt-4">
                       <div className="absolute w-full border-t-[2px] border-dashed border-gray-100 dark:border-gray-700 bottom-0"></div>
                       {stats7Days.map((item, idx) => (
-                        <div key={idx} className="flex flex-col items-center flex-1 h-full justify-end relative z-10 group">
-                          <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 mb-1.5 opacity-0 group-hover:opacity-100 transition-opacity">{item.breastMins > 0 ? item.breastMins : ''}</span>
+                        <div key={idx} className="flex flex-col items-center flex-1 h-full justify-end relative z-10">
+                          <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 mb-1">{item.breastMins > 0 ? item.breastMins : ''}</span>
                           <div className={`w-full max-w-[28px] rounded-t-xl transition-all duration-700 delay-200 ease-out shadow-sm ${item.breastMins > 0 ? 'bg-gradient-to-t from-rose-400 to-rose-300 dark:from-rose-600 dark:to-rose-400' : 'bg-transparent'}`} style={{ height: item.breastMins > 0 ? `${(item.breastMins / maxBreast) * 100}%` : '0%' }}></div>
                           <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500 mt-2">{item.dateStr}</span>
                         </div>
@@ -1899,11 +1898,11 @@
                   {weights.length > 0 && (
                     <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-white/60 dark:border-gray-700/50 shadow-xl shadow-teal-100/30 dark:shadow-black/20">
                       <h3 className="text-xs font-black mb-6 text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30 px-3 py-1.5 rounded-xl inline-block shadow-sm">📈 מגמת עליית משקל (ק"ג)</h3>
-                      <div className="flex items-end justify-between h-32 gap-2.5 relative">
+                      <div className="flex items-end justify-between h-32 gap-2.5 relative pt-4">
                         <div className="absolute w-full border-t-[2px] border-dashed border-gray-100 dark:border-gray-700 bottom-0"></div>
                         {weights.map((item, idx) => (
-                          <div key={idx} className="flex flex-col items-center flex-1 h-full justify-end relative z-10 group">
-                            <span className="text-[10px] font-black text-teal-600 dark:text-teal-400 mb-1.5 opacity-0 group-hover:opacity-100 transition-opacity">{item.value}</span>
+                          <div key={idx} className="flex flex-col items-center flex-1 h-full justify-end relative z-10">
+                            <span className="text-[10px] font-black text-teal-600 dark:text-teal-400 mb-1">{item.value}</span>
                             <div className="w-full max-w-[28px] bg-gradient-to-t from-teal-500 to-teal-400 dark:from-teal-600 dark:to-teal-400 rounded-t-xl shadow-sm transition-all duration-700 ease-out" style={{ height: `${(parseFloat(item.value || 0) / maxW) * 100}%` }}></div>
                             <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500 mt-2">{new Date(item.timestamp).toLocaleDateString('he-IL', {day:'2-digit', month:'2-digit'})}</span>
                           </div>
