@@ -117,7 +117,6 @@
     });
     window.supabaseClient = supabaseClient;
 
-    // שליחת התראה ייעודית (מופעלת רק לקראת האכלה או בבדיקה ידנית)
     const triggerPushNotification = async (payloadData) => {
       try {
         await fetch('https://zebyzpsffpvdaoqrhonq.supabase.co/functions/v1/smooth-handler', {
@@ -143,8 +142,8 @@
     };
 
     function App() {
-      const [user, setUser] = useState(() => supabaseClient.auth.getSession()?.data?.session?.user || null);
-      const [authLoading, setAuthLoading] = useState(!user);
+      const [user, setUser] = useState(null);
+      const [authLoading, setAuthLoading] = useState(true);
       const [email, setEmail] = useState('');
       const [password, setPassword] = useState('');
       const [authError, setAuthError] = useState('');
@@ -478,13 +477,11 @@
           try {
             const { error } = await supabaseClient.from(item.table).insert(item.payload);
             if (error) {
-              console.error(`שגיאת סנכרון ב-${item.table}:`, error);
               remaining.push(item);
             } else {
               anySuccess = true;
             }
           } catch (e) { 
-            console.error('שגיאת רשת בסנכרון:', e);
             remaining.push(item); 
           }
         }
@@ -589,7 +586,6 @@
         }
       };
 
-      // בדיקת פוש ידנית לבדיקה מיידית מול שרתי אפל וגוגל
       const testPushNotification = async () => {
         triggerVibration(15);
         await triggerPushNotification({
@@ -599,6 +595,22 @@
         });
         alert('ההתראה נשלחה כעת לכל המכשירים הרשומים!');
       };
+
+      // מנגנון Auth בטוח שלא נתקע לעולם על מסך טעינה
+      useEffect(() => {
+        supabaseClient.auth.getSession().then(({ data: { session } }) => {
+          setUser(session?.user || null);
+          setAuthLoading(false);
+        }).catch(() => {
+          setAuthLoading(false);
+        });
+
+        const { data: { subscription } } = supabaseClient.auth.onAuthStateChange((_event, session) => {
+          setUser(session?.user || null);
+          setAuthLoading(false);
+        });
+        return () => subscription.unsubscribe();
+      }, []);
 
       useEffect(() => {
         const handleOnline = () => { setIsOnline(true); syncOfflineData(); };
@@ -615,7 +627,6 @@
           if (res.error) throw res.error; 
           return { success: true };
         } catch (e) {
-          console.warn('שמירה מקומית לתור אופליין:', e);
           const queue = getOfflineQueue(); 
           queue.push({ table, payload, client_id: Date.now() }); 
           setOfflineQueue(queue); 
@@ -662,12 +673,6 @@
         if (item.logType === 'growth') return 'text-teal-700 bg-teal-100 dark:text-teal-200 dark:bg-teal-900/50';
         return 'text-gray-600 bg-gray-50 dark:text-gray-300 dark:bg-gray-800';
       };
-
-      useEffect(() => {
-        supabaseClient.auth.getSession().then(({ data: { session } }) => { setUser(session?.user || null); setAuthLoading(false); });
-        const { data: { subscription } } = supabaseClient.auth.onAuthStateChange((_event, session) => { setUser(session?.user || null); });
-        return () => subscription.unsubscribe();
-      }, []);
 
       const loadAllData = async () => {
         if (!user) return;
@@ -763,7 +768,6 @@
         }
       }, [timeline]);
 
-      // לוגיקת תזמון התראת פוש לקראת האכלה
       useEffect(() => {
         if (!lastFeedTime) { setTimeToNextFeed(null); return; }
         const updateCountdown = () => {
@@ -772,7 +776,6 @@
           const diff = nextFeed - now;
           setTimeToNextFeed(diff);
 
-          // האם הגענו לזמן ההתראה מראש (למשל 10 דקות לפני)?
           const leadMs = notifyLeadMinutes * 60 * 1000;
           if (diff > 0 && diff <= leadMs && !hasNotifiedLeadRef.current) {
             hasNotifiedLeadRef.current = true;
@@ -1074,7 +1077,13 @@
       const lastSide = lastActionWithSide?.side || 'both';
       const statColsCount = showLastSideStat ? "grid-cols-3" : "grid-cols-2";
 
-      if (authLoading) return null;
+      if (authLoading) {
+        return (
+          <div className="flex h-screen items-center justify-center font-bold text-rose-500 text-lg">
+            <div className="animate-bounce">👶 בובו מתעורר...</div>
+          </div>
+        );
+      }
 
       if (!user) {
         return (
