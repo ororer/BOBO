@@ -161,7 +161,6 @@
       const [activeTab, setActiveTab] = useState('home');
       const [activeSection, setActiveSection] = useState(null); 
       
-      // --- אופטימיזציה: טעינה מיידית מהקאש המקומי לאפס זמן המתנה בעלייה ---
       const [feedings, setFeedings] = useState(() => { try { return JSON.parse(localStorage.getItem('bobo_cache_feedings') || '[]'); } catch(e) { return []; } });
       const [diapers, setDiapers] = useState(() => { try { return JSON.parse(localStorage.getItem('bobo_cache_diapers') || '[]'); } catch(e) { return []; } });
       const [solids, setSolids] = useState(() => { try { return JSON.parse(localStorage.getItem('bobo_cache_solids') || '[]'); } catch(e) { return []; } });
@@ -463,6 +462,82 @@
       const getOfflineQueue = () => { try { return JSON.parse(localStorage.getItem('bobo_offline_queue') || '[]'); } catch(e) { return []; } };
       const setOfflineQueue = (q) => { localStorage.setItem('bobo_offline_queue', JSON.stringify(q)); setPendingSyncCount(q.length); };
 
+      const syncOfflineData = async () => {
+        const queue = getOfflineQueue();
+        if (queue.length === 0) {
+          setPendingSyncCount(0);
+          return;
+        }
+        
+        const remaining = [];
+        let anySuccess = false;
+        
+        for (const item of queue) {
+          try {
+            const { error } = await supabaseClient.from(item.table).insert(item.payload);
+            if (error) {
+              console.error(`שגיאת סנכרון ב-${item.table}:`, error);
+              remaining.push(item);
+            } else {
+              anySuccess = true;
+            }
+          } catch (e) { 
+            console.error('שגיאת רשת בסנכרון:', e);
+            remaining.push(item); 
+          }
+        }
+        
+        setOfflineQueue(remaining);
+        if (anySuccess) {
+          loadAllDataRef.current();
+        }
+      };
+
+      // לחיצה על כפתור ההמתנה לסנכרון ידני ומיידי
+      const handleManualSyncClick = async () => {
+        triggerVibration(10);
+        const queue = getOfflineQueue();
+        if (queue.length === 0) {
+          alert('אין פעולות בהמתנה!');
+          return;
+        }
+
+        const confirmSync = confirm(`יש ${queue.length} פעולות שממתינות לסנכרון.\nלנסות לשלוח אותן כעת ל-Supabase?`);
+        if (!confirmSync) return;
+
+        let failedCount = 0;
+        let lastErrorMsg = '';
+        const remaining = [];
+
+        for (const item of queue) {
+          try {
+            const { error } = await supabaseClient.from(item.table).insert(item.payload);
+            if (error) {
+              failedCount++;
+              lastErrorMsg = error.message;
+              remaining.push(item);
+            }
+          } catch (e) {
+            failedCount++;
+            lastErrorMsg = e.message || 'שגיאת רשת';
+            remaining.push(item);
+          }
+        }
+
+        setOfflineQueue(remaining);
+        loadAllDataRef.current();
+
+        if (failedCount === 0) {
+          alert('✅ כל הפעולות סונכרנו בהצלחה!');
+        } else {
+          const forceClear = confirm(`❌ ${failedCount} פעולות לא נשמרו בגלל השגיאה:\n"${lastErrorMsg}"\n\nהאם למחוק אותן מהתור כדי לאפס את ההתראה?`);
+          if (forceClear) {
+            setOfflineQueue([]);
+            loadAllDataRef.current();
+          }
+        }
+      };
+
       const requestNotificationPermission = async () => {
         if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
           alert('התראות פוש אינן נתמכות בדפדפן זה. באייפון יש להוסיף את האפליקציה למסך הבית (iOS 16.4+).');
@@ -513,20 +588,6 @@
         }
       };
 
-      const syncOfflineData = async () => {
-        const queue = getOfflineQueue();
-        if (queue.length === 0 || !navigator.onLine || !user) return;
-        const remaining = [];
-        for (const item of queue) {
-          try {
-            const { error } = await supabaseClient.from(item.table).insert(item.payload);
-            if (error) remaining.push(item);
-          } catch (e) { remaining.push(item); }
-        }
-        setOfflineQueue(remaining);
-        if (remaining.length === 0) { loadAllDataRef.current(); }
-      };
-
       useEffect(() => {
         const handleOnline = () => { setIsOnline(true); syncOfflineData(); };
         const handleOffline = () => setIsOnline(false);
@@ -537,16 +598,17 @@
       }, [user]);
 
       const performInsert = async (table, payload) => {
-        if (!navigator.onLine) {
-          const queue = getOfflineQueue(); queue.push({ table, payload, client_id: Date.now() }); setOfflineQueue(queue); return { offline: true };
-        }
         try {
           const res = await supabaseClient.from(table).insert(payload);
           if (res.error) throw res.error; 
           triggerPushNotification(table, payload);
           return { success: true };
         } catch (e) {
-          const queue = getOfflineQueue(); queue.push({ table, payload, client_id: Date.now() }); setOfflineQueue(queue); return { offline: true };
+          console.warn('שמירה מקומית לתור אופליין:', e);
+          const queue = getOfflineQueue(); 
+          queue.push({ table, payload, client_id: Date.now() }); 
+          setOfflineQueue(queue); 
+          return { offline: true };
         }
       };
 
@@ -596,7 +658,6 @@
         return () => subscription.unsubscribe();
       }, []);
 
-      // --- אופטימיזציה: טעינה חכמה ומהירה מהשרת ברקע עם הגבלת 300 רשומות אחרונות לשיפור מהירות אדיר ---
       const loadAllData = async () => {
         if (!user) return;
         try {
@@ -641,12 +702,11 @@
       const loadAllDataRef = useRef(loadAllData);
       useEffect(() => { loadAllDataRef.current = loadAllData; });
 
-      // --- אופטימיזציה: בניית הציר מראש מהקאש ברגע העלייה לאפס זמן המתנה ---
       useEffect(() => {
         buildCombinedTimeline(feedings, diapers, solids, growthMetrics);
+        syncOfflineData();
       }, []);
 
-      // --- אופטימיזציה: הוספת השהייה קטנה (Debounce) לעדכוני ריל-טיים למניעת ריצה כפולה ואיטית ---
       useEffect(() => {
         if (!user) return;
         loadAllData();
@@ -1057,10 +1117,18 @@
                   <h1 className="font-bold text-gray-800 dark:text-white text-base">{babyName}</h1>
                   <span className="text-[10px] bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 font-bold px-2 py-0.5 rounded-full">{getBabyAge()}</span>
                 </div>
-                <p className="text-[10px] font-bold flex items-center gap-1 mt-0.5">
+                <div className="text-[10px] font-bold flex items-center gap-1 mt-0.5">
                   {isOnline ? <span className="text-teal-500">● סנכרון פעיל</span> : <span className="text-amber-500">○ מצב אופליין</span>}
-                  {pendingSyncCount > 0 && <span className="bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-200 px-1.5 py-0.2 rounded-full text-[9px] font-bold">{pendingSyncCount} בהמתנה</span>}
-                </p>
+                  {pendingSyncCount > 0 && (
+                    <button 
+                      onClick={handleManualSyncClick}
+                      className="bg-amber-100 hover:bg-amber-200 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200 px-2 py-0.5 rounded-full text-[9px] font-black shadow-sm transition active:scale-95 cursor-pointer flex items-center gap-1"
+                      title="לחץ לסנכרון מיידי או איפוס תור"
+                    >
+                      <span>🔄 {pendingSyncCount} בהמתנה</span>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -1254,7 +1322,7 @@
                   <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'breast' ? null : 'breast'); setFeedType('breastfeeding'); }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'breast' ? 'bg-rose-400 text-white shadow-lg shadow-rose-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-rose-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm mb-1">🤱</span> הנקה</button>
                   <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'bottle' ? null : 'bottle'); setFeedType('bottle'); }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'bottle' ? 'bg-cyan-400 text-white shadow-lg shadow-cyan-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-cyan-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm mb-1">🍼</span> בקבוק</button>
 
-                  {/* טפסי שורה 1 נפתחים בדיוק מתחת לכפתורים */}
+                  {/* טפסי שורה 1 */}
                   {(activeSection === 'breast' || activeSection === 'bottle') && (
                     <div className="col-span-2 -mt-1 mb-2">
                       {activeSection === 'breast' && (
@@ -1299,7 +1367,6 @@
                         </div>
                       )}
 
-                      {/* --- טופס בקבוק מעוצב ונקי --- */}
                       {activeSection === 'bottle' && (
                         <div className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] shadow-xl shadow-cyan-100/60 dark:shadow-none border border-gray-100 dark:border-gray-700 space-y-5 animate-in slide-in-from-top-2 duration-300">
                           <div className="flex justify-between items-center"><h3 className="font-black text-cyan-500 text-sm flex items-center gap-2"><span className="text-lg">🍼</span> עדכון בקבוק</h3><button onClick={()=>{triggerVibration(10); setActiveSection(null)}} className="text-sm bg-gray-100 dark:bg-gray-700 w-8 h-8 rounded-full flex items-center justify-center font-bold text-gray-500 dark:text-gray-300">✕</button></div>
@@ -1316,7 +1383,6 @@
                             </div>
                           </div>
 
-                          {/* דימר כמויות נקי לבקבוק */}
                           <div className="space-y-3 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-700">
                             <div className="flex items-center justify-between gap-2">
                               <span className="text-xs font-bold text-gray-600 dark:text-gray-300">כמות (מ"ל):</span>
@@ -1348,10 +1414,9 @@
                   <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'pumping' ? null : 'pumping'); setFeedType('pumping'); }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'pumping' ? 'bg-purple-400 text-white shadow-lg shadow-purple-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-purple-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm mb-1">🥛</span> שאיבה</button>
                   <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'diaper' ? null : 'diaper') }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'diaper' ? 'bg-amber-400 text-white shadow-lg shadow-amber-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-amber-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm mb-1">🚼</span> חיתול</button>
 
-                  {/* טפסי שורה 2 נפתחים בדיוק מתחת לכפתורים */}
+                  {/* טפסי שורה 2 */}
                   {(activeSection === 'pumping' || activeSection === 'diaper') && (
                     <div className="col-span-2 -mt-1 mb-2">
-                      {/* --- טופס שאיבה מעוצב ונקי --- */}
                       {activeSection === 'pumping' && (
                         <div className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] shadow-xl shadow-purple-100/60 dark:shadow-none border border-gray-100 dark:border-gray-700 space-y-5 animate-in slide-in-from-top-2 duration-300">
                           <div className="flex justify-between items-center"><h3 className="font-black text-purple-500 text-sm flex items-center gap-2"><span className="text-lg">🥛</span> עדכון שאיבה</h3><button onClick={()=>{triggerVibration(10); setActiveSection(null)}} className="text-sm bg-gray-100 dark:bg-gray-700 w-8 h-8 rounded-full flex items-center justify-center font-bold text-gray-500 dark:text-gray-300">✕</button></div>
@@ -1363,7 +1428,6 @@
                             </div>
                           </div>
 
-                          {/* דימר כמויות שאיבה נקי */}
                           <div className="space-y-3 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-700">
                             <div className="flex items-center justify-between gap-2">
                               <span className="text-xs font-bold text-gray-600 dark:text-gray-300">כמות שנשאבה (מ"ל):</span>
@@ -1393,7 +1457,7 @@
                         <div className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] shadow-xl shadow-amber-100/60 dark:shadow-none border border-gray-100 dark:border-gray-700 space-y-5 animate-in slide-in-from-top-2 duration-300">
                           <div className="flex justify-between items-center"><h3 className="font-black text-amber-500 text-sm flex items-center gap-2"><span className="text-lg">🚼</span> עדכון חיתול</h3><button onClick={()=>{triggerVibration(10); setActiveSection(null)}} className="text-sm bg-gray-100 dark:bg-gray-700 w-8 h-8 rounded-full flex items-center justify-center font-bold text-gray-500 dark:text-gray-300">✕</button></div>
                           <div className="grid grid-cols-3 gap-3">
-                            {['wet', 'dirty', 'both'].map(t => <button key={t} onClick={() => {triggerVibration(10); setDiaperType(t)}} className={`py-5 rounded-2xl text-sm font-bold shadow-sm active:scale-95 transition border flex flex-col items-center gap-2 ${diaperType === t ? 'bg-amber-400 text-white border-amber-400' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-600'}`}><span className="text-2xl drop-shadow-sm">{t === 'wet' ? '💧' : t === 'dirty' ? '💩' : '✨'}</span>{t === 'wet' ? 'פיפי' : t === 'dirty' ? 'קקי' : 'שניהם'}</button>)}
+                            {['wet', 'dirty', 'both'].map(t => <button key={t} onClick={() => {triggerVibration(10); setDiaperType(t)}} className={`py-5 rounded-2xl text-sm font-bold shadow-sm active:scale-95 transition border flex flex-col items-center gap-2 ${diaperType === t ? 'bg-amber-400 text-white border-amber-400' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-600'}`}>{t === 'wet' ? 'פיפי' : t === 'dirty' ? 'קקי' : 'שניהם'}</button>)}
                           </div>
                           <div>
                             <input type="text" value={diaperNotes} onChange={e => setDiaperNotes(e.target.value)} placeholder="הערות לחיתול (צבע, מרקם וכו')..." className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-200 dark:border-gray-600 text-xs focus:outline-none dark:text-white font-medium shadow-sm" />
@@ -1412,7 +1476,7 @@
                   {/* שורה 3: טעימות מוצקים */}
                   <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'solid' ? null : 'solid') }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 col-span-2 active:scale-95 ${activeSection === 'solid' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-emerald-600 shadow-sm border border-gray-100 dark:border-gray-700'}`}>🥑 טעימות מוצקים</button>
 
-                  {/* טופס שורה 3 נפתח מיד מתחת לכפתור */}
+                  {/* טופס שורה 3 */}
                   {activeSection === 'solid' && (
                     <div className="col-span-2 -mt-1 mb-2">
                       <div className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] shadow-xl shadow-emerald-100/60 dark:shadow-none border border-gray-100 dark:border-gray-700 space-y-5 animate-in slide-in-from-top-2 duration-300">
