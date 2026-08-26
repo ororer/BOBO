@@ -18,15 +18,14 @@ self.addEventListener('push', (event) => {
   }
 
   const options = {
-    body: data.body,
+    body: data.body || '',
     icon: './192.png',
     badge: './192.png',
-    vibrate: [200, 100, 200],
     data: { url: './' }
   };
 
   event.waitUntil(
-    self.registration.showNotification(data.title, options)
+    self.registration.showNotification(data.title || 'בובו 👶', options)
   );
 });
 
