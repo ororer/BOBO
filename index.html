@@ -140,6 +140,31 @@
       return outputArray;
     };
 
+    const getOfflineQueue = () => { try { return JSON.parse(localStorage.getItem('bobo_offline_queue') || '[]'); } catch(e) { return []; } };
+
+    const assembleTimeline = (fData, dData, sData, gData) => {
+      const offlineQueue = getOfflineQueue();
+      const offlineItems = offlineQueue.map(item => ({
+        ...item.payload, id: item.client_id, isOfflinePending: true,
+        logType: item.table === 'feedings' ? (item.payload.notes?.includes('ויטמין D') ? 'vitamin_d' : item.payload.notes?.includes('[שאיבת_חלב]') ? 'pumping' : 'feeding') : item.table === 'diapers' ? 'diaper' : item.table === 'solids' ? 'solid' : 'growth',
+        timestamp: item.payload.created_at || item.payload.measured_at || new Date().toISOString()
+      }));
+
+      const combined = [
+        ...fData.map(f => {
+          let logType = 'feeding';
+          if (f.notes?.includes('ויטמין D')) logType = 'vitamin_d';
+          else if (f.type === 'pumping' || f.notes?.includes('[שאיבת_חלב]')) logType = 'pumping';
+          return { ...f, logType, timestamp: f.created_at };
+        }),
+        ...dData.map(d => ({ ...d, logType: 'diaper', timestamp: d.created_at })),
+        ...sData.map(s => ({ ...s, logType: 'solid', timestamp: s.created_at })),
+        ...gData.map(g => ({ ...g, logType: 'growth', timestamp: g.measured_at })),
+        ...offlineItems
+      ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      return combined;
+    };
+
     function App() {
       const [user, setUser] = useState(null);
       const [authLoading, setAuthLoading] = useState(true);
@@ -164,7 +189,19 @@
       const [diapers, setDiapers] = useState(() => { try { return JSON.parse(localStorage.getItem('bobo_cache_diapers') || '[]'); } catch(e) { return []; } });
       const [solids, setSolids] = useState(() => { try { return JSON.parse(localStorage.getItem('bobo_cache_solids') || '[]'); } catch(e) { return []; } });
       const [growthMetrics, setGrowthMetrics] = useState(() => { try { return JSON.parse(localStorage.getItem('bobo_cache_growth') || '[]'); } catch(e) { return []; } });
-      const [timeline, setTimeline] = useState([]);
+      
+      // Instant Initial Timeline from Cache
+      const [timeline, setTimeline] = useState(() => {
+        try {
+          const f = JSON.parse(localStorage.getItem('bobo_cache_feedings') || '[]');
+          const d = JSON.parse(localStorage.getItem('bobo_cache_diapers') || '[]');
+          const s = JSON.parse(localStorage.getItem('bobo_cache_solids') || '[]');
+          const g = JSON.parse(localStorage.getItem('bobo_cache_growth') || '[]');
+          return assembleTimeline(f, d, s, g);
+        } catch(e) {
+          return [];
+        }
+      });
 
       const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('bobo_dark') === 'true');
       
@@ -245,7 +282,6 @@
 
       const quickSolids = ['בטטה', 'גזר', 'קישוא', 'דלעת', 'בננה', 'אבוקדו', 'טחינה', 'תפוח'];
 
-      // הגדרת פונקציות עזר למעלה כדי שלא יהיו שגיאות ReferenceError
       const isToday = (timestamp) => {
         if (!timestamp) return false;
         const date = new Date(timestamp); const today = new Date();
@@ -470,7 +506,6 @@
         window.open(url, '_blank');
       };
 
-      const getOfflineQueue = () => { try { return JSON.parse(localStorage.getItem('bobo_offline_queue') || '[]'); } catch(e) { return []; } };
       const setOfflineQueue = (q) => { localStorage.setItem('bobo_offline_queue', JSON.stringify(q)); setPendingSyncCount(q.length); };
 
       const syncOfflineData = async () => {
@@ -497,7 +532,7 @@
         }
         
         setOfflineQueue(remaining);
-        if (anySuccess) {
+        if (anySuccess && loadAllDataRef.current) {
           loadAllDataRef.current();
         }
       };
@@ -690,45 +725,29 @@
           if (dData) { setDiapers(dData); localStorage.setItem('bobo_cache_diapers', JSON.stringify(dData)); }
           if (sData) { setSolids(sData); localStorage.setItem('bobo_cache_solids', JSON.stringify(sData)); }
           if (gData) { setGrowthMetrics(gData); localStorage.setItem('bobo_cache_growth', JSON.stringify(gData)); }
-          buildCombinedTimeline(fData || [], dData || [], sData || [], gData || []);
+          setTimeline(assembleTimeline(fData || feedings, dData || diapers, sData || solids, gData || growthMetrics));
           loadStickyNote();
         } catch (e) {}
-      };
-
-      const buildCombinedTimeline = (fData, dData, sData, gData) => {
-        const offlineQueue = getOfflineQueue();
-        const offlineItems = offlineQueue.map(item => ({
-          ...item.payload, id: item.client_id, isOfflinePending: true,
-          logType: item.table === 'feedings' ? (item.payload.notes?.includes('ויטמין D') ? 'vitamin_d' : item.payload.notes?.includes('[שאיבת_חלב]') ? 'pumping' : 'feeding') : item.table === 'diapers' ? 'diaper' : item.table === 'solids' ? 'solid' : 'growth',
-          timestamp: item.payload.created_at || item.payload.measured_at || new Date().toISOString()
-        }));
-
-        const combined = [
-          ...fData.map(f => {
-            let logType = 'feeding';
-            if (f.notes?.includes('ויטמין D')) logType = 'vitamin_d';
-            else if (f.type === 'pumping' || f.notes?.includes('[שאיבת_חלב]')) logType = 'pumping';
-            return { ...f, logType, timestamp: f.created_at };
-          }),
-          ...dData.map(d => ({ ...d, logType: 'diaper', timestamp: d.created_at })),
-          ...sData.map(s => ({ ...s, logType: 'solid', timestamp: s.created_at })),
-          ...gData.map(g => ({ ...g, logType: 'growth', timestamp: g.measured_at })),
-          ...offlineItems
-        ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-        setTimeline(combined);
       };
 
       const loadAllDataRef = useRef(loadAllData);
       useEffect(() => { loadAllDataRef.current = loadAllData; });
 
       useEffect(() => {
-        buildCombinedTimeline(feedings, diapers, solids, growthMetrics);
-        syncOfflineData();
-      }, []);
-
-      useEffect(() => {
         if (!user) return;
         loadAllData();
+        syncOfflineData();
+
+        // Auto reload on visibility/focus resume
+        const handleVisibilityChange = () => {
+          if (document.visibilityState === 'visible') {
+            loadAllDataRef.current();
+            syncOfflineData();
+          }
+        };
+        window.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('focus', handleVisibilityChange);
+
         let timeoutId = null;
         const debouncedReload = () => {
           if (timeoutId) clearTimeout(timeoutId);
@@ -751,6 +770,8 @@
         return () => { 
           if (timeoutId) clearTimeout(timeoutId);
           supabaseClient.removeChannel(channel); 
+          window.removeEventListener('visibilitychange', handleVisibilityChange);
+          window.removeEventListener('focus', handleVisibilityChange);
         };
       }, [user]);
 
@@ -947,7 +968,7 @@
         if (item.isOfflinePending) {
           const queue = getOfflineQueue().filter(q => q.client_id !== item.id);
           setOfflineQueue(queue);
-          loadAllDataRef.current();
+          setTimeline(assembleTimeline(feedings, diapers, solids, growthMetrics));
           return;
         }
         const table = (item.logType === 'feeding' || item.logType === 'vitamin_d' || item.logType === 'pumping') ? 'feedings' : item.logType === 'diaper' ? 'diapers' : item.logType === 'solid' ? 'solids' : 'growth_metrics';
@@ -1487,7 +1508,7 @@
                         <div className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] shadow-xl shadow-amber-100/60 dark:shadow-none border border-gray-100 dark:border-gray-700 space-y-5 animate-in slide-in-from-top-2 duration-300">
                           <div className="flex justify-between items-center"><h3 className="font-black text-amber-500 text-sm flex items-center gap-2"><span className="text-lg">🚼</span> עדכון חיתול</h3><button onClick={()=>{triggerVibration(10); setActiveSection(null)}} className="text-sm bg-gray-100 dark:bg-gray-700 w-8 h-8 rounded-full flex items-center justify-center font-bold text-gray-500 dark:text-gray-300">✕</button></div>
                           <div className="grid grid-cols-3 gap-3">
-                            {['wet', 'dirty', 'both'].map(t => <button key={t} onClick={() => {triggerVibration(10); setDiaperType(t)}} className={`py-5 rounded-2xl text-sm font-bold shadow-sm active:scale-95 transition border flex flex-col items-center gap-2 ${diaperType === t ? 'bg-amber-400 text-white border-amber-400' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-600'}`}><span className="text-2xl drop-shadow-sm">{t === 'wet' ? '💧' : t === 'dirty' ? '💩' : '✨'}</span>{t === 'wet' ? 'פיפי' : t === 'dirty' ? 'קקי' : 'שניהם'}</button>)}
+                            {['wet', 'dirty', 'both'].map(t => <button key={t} onClick={() => {triggerVibration(10); setDiaperType(t)}} className={`py-5 rounded-2xl text-sm font-bold shadow-sm active:scale-95 transition border flex flex-col items-center gap-2 ${diaperType === t ? 'bg-amber-400 text-white border-amber-400' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-600'}`}>{t === 'wet' ? '💧 פיפי' : t === 'dirty' ? '💩 קקי' : '✨ שניהם'}</button>)}
                           </div>
                           <div>
                             <input type="text" value={diaperNotes} onChange={e => setDiaperNotes(e.target.value)} placeholder="הערות לחיתול (צבע, מרקם וכו')..." className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-200 dark:border-gray-600 text-xs focus:outline-none dark:text-white font-medium shadow-sm" />
