@@ -190,7 +190,6 @@
       const [solids, setSolids] = useState(() => { try { return JSON.parse(localStorage.getItem('bobo_cache_solids') || '[]'); } catch(e) { return []; } });
       const [growthMetrics, setGrowthMetrics] = useState(() => { try { return JSON.parse(localStorage.getItem('bobo_cache_growth') || '[]'); } catch(e) { return []; } });
       
-      // Instant Initial Timeline from Cache
       const [timeline, setTimeline] = useState(() => {
         try {
           const f = JSON.parse(localStorage.getItem('bobo_cache_feedings') || '[]');
@@ -204,6 +203,8 @@
       });
 
       const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('bobo_dark') === 'true');
+      const [customAvatar, setCustomAvatar] = useState(() => localStorage.getItem('bobo_avatar_img') || null);
+      const avatarInputRef = useRef(null);
       
       const [stickyNote, setStickyNote] = useState(() => localStorage.getItem('bobo_sticky_note') || '');
       const [isEditingSticky, setIsEditingSticky] = useState(false);
@@ -218,6 +219,10 @@
       const noiseSourceNodeRef = useRef(null);
       const noiseGainNodeRef = useRef(null);
       const noiseIntervalRef = useRef(null);
+
+      const [isListening, setIsListening] = useState(false);
+      const [voiceFeedback, setVoiceFeedback] = useState('');
+      const recognitionRef = useRef(null);
 
       const [defaultMl, setDefaultMl] = useState(() => parseInt(localStorage.getItem('bobo_def_ml') || '150'));
       const [targetFeeds, setTargetFeeds] = useState(() => parseInt(localStorage.getItem('bobo_target_feeds') || '8'));
@@ -291,6 +296,56 @@
       const actualBabyFeedings = timeline.filter(f => f.logType === 'feeding' && !f.notes?.includes('ויטמין D') && !f.notes?.includes('[שאיבת_חלב]') && f.type !== 'pumping');
       const actualFeedingsToday = actualBabyFeedings.filter(f => isToday(f.timestamp));
       const todaysDiapers = timeline.filter(d => d.logType === 'diaper' && isToday(d.timestamp));
+
+      const getNextAutoSide = () => {
+        const lastWithSide = timeline.find(item => (item.logType === 'feeding' || item.logType === 'pumping') && (item.side === 'left' || item.side === 'right'));
+        if (!lastWithSide) return 'both';
+        return lastWithSide.side === 'left' ? 'right' : 'left';
+      };
+
+      const openActionSection = (sectionName, fType) => {
+        triggerVibration(10);
+        if (activeSection === sectionName) {
+          setActiveSection(null);
+        } else {
+          setActiveSection(sectionName);
+          if (fType) {
+            setFeedType(fType);
+            setFeedSide(getNextAutoSide());
+          }
+        }
+      };
+
+      const handleAvatarUpload = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        triggerVibration(15);
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const maxDim = 200;
+            let w = img.width, h = img.height;
+            if (w > h) { if (w > maxDim) { h = Math.round((h * maxDim) / w); w = maxDim; } } 
+            else { if (h > maxDim) { w = Math.round((w * maxDim) / h); h = maxDim; } }
+            canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            setCustomAvatar(dataUrl);
+            localStorage.setItem('bobo_avatar_img', dataUrl);
+          };
+          img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+      };
+
+      const handleResetAvatar = () => {
+        triggerVibration(10);
+        setCustomAvatar(null);
+        localStorage.removeItem('bobo_avatar_img');
+      };
 
       useEffect(() => {
         const metaTheme = document.querySelector('meta[name="theme-color"]');
@@ -453,6 +508,102 @@
         } else {
           startNoiseSound(noiseType);
         }
+      };
+
+      const handleVoiceInput = () => {
+        triggerVibration(20);
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+          alert('זיהוי קולי אינו נתמך בדפדפן זה.');
+          return;
+        }
+
+        if (isListening) {
+          if (recognitionRef.current) recognitionRef.current.stop();
+          setIsListening(false);
+          return;
+        }
+
+        const recognition = new SpeechRecognition();
+        recognitionRef.current = recognition;
+        recognition.lang = 'he-IL';
+        recognition.continuous = false;
+        recognition.interimResults = false;
+
+        recognition.onstart = () => {
+          setIsListening(true);
+          setVoiceFeedback('מקשיב... נסו למשל: "בקבוק 150 תמ״ל" או "חיתול קקי"');
+        };
+
+        recognition.onresult = async (event) => {
+          const text = event.results[0][0].transcript.toLowerCase();
+          setVoiceFeedback(`זוהה: "${text}" - מעבד...`);
+          await processVoiceCommand(text);
+        };
+
+        recognition.onerror = () => {
+          setIsListening(false);
+          setVoiceFeedback('לא הצלחתי לשמוע. נסו שוב.');
+          setTimeout(() => setVoiceFeedback(''), 3000);
+        };
+
+        recognition.onend = () => {
+          setIsListening(false);
+        };
+
+        recognition.start();
+      };
+
+      const processVoiceCommand = async (txt) => {
+        const autoSide = getNextAutoSide();
+
+        if (txt.includes('חיתול') || txt.includes('קקי') || txt.includes('פיפי')) {
+          let dType = 'wet';
+          if (txt.includes('קקי') && txt.includes('פיפי')) dType = 'both';
+          else if (txt.includes('קקי') || txt.includes('שניהם')) dType = 'dirty';
+          await performInsert('diapers', { type: dType, notes: `הזנה קולית: ${txt}`, created_at: new Date().toISOString() });
+          setVoiceFeedback(`✅ נשמר חיתול: ${dType === 'wet' ? 'פיפי' : dType === 'dirty' ? 'קקי' : 'שניהם'}`);
+        }
+        else if (txt.includes('ויטמין') || txt.includes('די')) {
+          await performInsert('feedings', { type: 'bottle', side: 'both', amount_ml: null, duration_minutes: null, notes: '💊 ויטמין D - 2 טיפות', created_at: new Date().toISOString() });
+          setVoiceFeedback('✅ נשמר ויטמין D!');
+        }
+        else if (txt.includes('הנקה') || txt.includes('הנקתי')) {
+          const numMatch = txt.match(/\d+/);
+          const mins = numMatch ? parseInt(numMatch[0]) : defaultBreastDuration;
+          await performInsert('feedings', { type: 'breastfeeding', side: autoSide, duration_minutes: mins, amount_ml: null, notes: `הזנה קולית (צד ${autoSide === 'left' ? 'שמאל' : autoSide === 'right' ? 'ימין' : 'שניהם'})`, created_at: new Date().toISOString() });
+          setVoiceFeedback(`✅ נשמרה הנקה: ${mins} דק' (צד ${autoSide === 'left' ? 'שמאל' : 'ימין'})`);
+        }
+        else if (txt.includes('שאיבה') || txt.includes('שאבתי')) {
+          const numMatch = txt.match(/\d+/);
+          const ml = numMatch ? parseInt(numMatch[0]) : 60;
+          await performInsert('feedings', { type: 'bottle', side: autoSide, duration_minutes: null, amount_ml: ml, notes: `[שאיבת_חלב] הזנה קולית`, created_at: new Date().toISOString() });
+          setVoiceFeedback(`✅ נשמרה שאיבה: ${ml} מ"ל`);
+        }
+        else if (txt.includes('בקבוק') || txt.includes('תמל') || txt.includes('שאוב') || txt.includes('אוכל') || txt.includes('ארוחה')) {
+          const numMatch = txt.match(/\d+/);
+          const ml = numMatch ? parseInt(numMatch[0]) : defaultMl;
+          const bType = txt.includes('שאוב') ? 'expressed' : 'formula';
+          await performInsert('feedings', { type: 'bottle', side: autoSide, duration_minutes: null, amount_ml: ml, notes: `[${bType === 'expressed' ? 'שאוב' : 'תמ"ל'}] הזנה קולית`, created_at: new Date().toISOString() });
+          setVoiceFeedback(`✅ נשמר בקבוק: ${ml} מ"ל ${bType === 'expressed' ? 'שאוב' : 'תמ"ל'}`);
+        }
+        else if (txt.includes('טעימה') || txt.includes('טעימות') || txt.includes('אכל')) {
+          let reaction = 'liked';
+          if (txt.includes('לא אהב') || txt.includes('נגעל')) reaction = 'disliked';
+          else if (txt.includes('אלרגיה') || txt.includes('פריחה')) reaction = 'allergic';
+          else if (txt.includes('ככה ככה') || txt.includes('נייטרלי')) reaction = 'neutral';
+          
+          let foodName = txt.replace(/טעימה|טעימות|אכל|אהב|לא אהב|נייטרלי/g, '').trim() || 'מאכל';
+          await performInsert('solids', { food_name: foodName, reaction, notes: `הזנה קולית`, created_at: new Date().toISOString() });
+          setVoiceFeedback(`✅ נשמרה טעימה: ${foodName}`);
+        } else {
+          setVoiceFeedback(`לא זיהיתי פקודה ברורה: "${txt}"`);
+        }
+
+        setTimeout(() => {
+          setVoiceFeedback('');
+          loadAllDataRef.current();
+        }, 3000);
       };
 
       const loadStickyNote = async () => {
@@ -738,7 +889,6 @@
         loadAllData();
         syncOfflineData();
 
-        // Auto reload on visibility/focus resume
         const handleVisibilityChange = () => {
           if (document.visibilityState === 'visible') {
             loadAllDataRef.current();
@@ -1093,7 +1243,7 @@
 
       const totalDurationToday = actualFeedingsToday.filter(f => f.type === 'breastfeeding').reduce((a, c) => a + (c.duration_minutes || 0), 0);
       const totalMlToday = actualFeedingsToday.filter(f => f.type === 'bottle').reduce((a, c) => a + (c.amount_ml || 0), 0);
-      const lastActionWithSide = mainTimelineLogs.find(item => item.logType === 'feeding');
+      const lastActionWithSide = mainTimelineLogs.find(item => item.logType === 'feeding' || item.logType === 'pumping');
       const lastSide = lastActionWithSide?.side || 'both';
       const statColsCount = showLastSideStat ? "grid-cols-3" : "grid-cols-2";
 
@@ -1131,6 +1281,14 @@
       return (
         <div className="max-w-lg mx-auto min-h-screen flex flex-col pb-28 text-gray-800 dark:text-gray-100 relative">
           
+          <input 
+            type="file" 
+            ref={avatarInputRef} 
+            onChange={handleAvatarUpload} 
+            accept="image/*" 
+            className="hidden" 
+          />
+
           {showInstallPrompt && (
             <div className="fixed top-4 left-4 right-4 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md p-4 rounded-3xl shadow-2xl z-[100] border border-rose-100 dark:border-gray-700 animate-in slide-in-from-top-4 flex flex-col gap-3 max-w-md mx-auto">
               <div className="flex justify-between items-start">
@@ -1166,7 +1324,17 @@
 
           <header className="bg-white/90 dark:bg-gray-900/80 backdrop-blur-xl p-4 sticky top-0 z-50 flex justify-between items-center shadow-sm border-b border-gray-100 dark:border-gray-800 transition-colors duration-300">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 bg-gradient-to-tr from-rose-400 via-orange-300 to-amber-300 text-white rounded-full flex items-center justify-center text-2xl shadow-inner shadow-white/30">👶</div>
+              <div 
+                onClick={() => avatarInputRef.current?.click()}
+                title="לחץ להחלפת תמונת פרופיל מהגלריה"
+                className="w-11 h-11 bg-gradient-to-tr from-rose-400 via-orange-300 to-amber-300 text-white rounded-full flex items-center justify-center text-2xl shadow-inner shadow-white/30 cursor-pointer overflow-hidden relative border-2 border-rose-200 dark:border-gray-700 active:scale-95 transition"
+              >
+                {customAvatar ? (
+                  <img src={customAvatar} alt="Baby Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <span>👶</span>
+                )}
+              </div>
               <div>
                 <div className="flex items-center gap-1.5">
                   <h1 className="font-bold text-gray-800 dark:text-white text-base">{babyName}</h1>
@@ -1189,6 +1357,16 @@
 
             <div className="flex items-center gap-2">
               <button 
+                onClick={handleVoiceInput}
+                title="הזנה קולית חכמה"
+                className={`p-2 rounded-xl text-xs font-bold border transition active:scale-95 flex items-center gap-1 ${
+                  isListening ? 'bg-rose-500 border-rose-500 text-white shadow-md shadow-rose-300 animate-pulse' : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700'
+                }`}
+              >
+                <span>🎙️</span>
+              </button>
+
+              <button 
                 onClick={() => { triggerVibration(10); setShowNoisePlayer(!showNoisePlayer); }}
                 title="רעש לבן מרגיע"
                 className={`p-2 rounded-xl text-xs font-bold border transition active:scale-95 flex items-center gap-1 ${
@@ -1201,6 +1379,16 @@
               <button onClick={() => { triggerVibration(10); supabaseClient.auth.signOut(); }} className="text-xs font-bold text-red-500 bg-red-50 dark:bg-red-950/40 px-3 py-1.5 rounded-xl transition hover:bg-red-100 dark:hover:bg-red-900/60 active:scale-95 shadow-sm border border-red-100 dark:border-red-900/50">התנתק</button>
             </div>
           </header>
+
+          {voiceFeedback && (
+            <div className="mx-4 mt-3 bg-rose-500 text-white p-3 rounded-2xl text-xs font-black shadow-lg shadow-rose-200/60 flex items-center justify-between animate-in slide-in-from-top-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm">🎙️</span>
+                <span>{voiceFeedback}</span>
+              </div>
+              {isListening && <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>}
+            </div>
+          )}
 
           {showNoisePlayer && (
             <div className="bg-white/95 dark:bg-gray-800/95 p-4 mx-4 mt-3 rounded-3xl border border-teal-100 dark:border-gray-700 shadow-xl space-y-3 animate-in slide-in-from-top-2">
@@ -1337,7 +1525,7 @@
                         <span className="text-[11px] font-bold opacity-90 text-purple-50">צד אחרון</span>
                         <span className="font-black text-sm bg-white/20 px-2 py-0.5 rounded-lg">{lastSide === 'left' ? 'שמאל' : lastSide === 'right' ? 'ימין' : 'שניהם'}</span>
                       </div>
-                      <p className="text-[10px] mt-2 font-medium truncate text-purple-50/80 z-10 relative text-center bg-black/10 py-1 rounded-lg">מומלץ: <strong>{lastSide === 'left' ? 'ימין' : lastSide === 'right' ? 'שמאל' : 'איזה שבא לך'}</strong></p>
+                      <p className="text-[10px] mt-2 font-medium truncate text-purple-50/80 z-10 relative text-center bg-black/10 py-1 rounded-lg">מומלץ כעת: <strong>{lastSide === 'left' ? 'ימין' : lastSide === 'right' ? 'שמאל' : 'איזה שבא לך'}</strong></p>
                     </div>
                   )}
                 </div>
@@ -1373,8 +1561,8 @@
                 {/* כפתורי פעולות + אקורדיון */}
                 <div className="grid grid-cols-2 gap-3 pt-1">
                   
-                  <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'breast' ? null : 'breast'); setFeedType('breastfeeding'); }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'breast' ? 'bg-rose-400 text-white shadow-lg shadow-rose-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-rose-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm mb-1">🤱</span> הנקה</button>
-                  <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'bottle' ? null : 'bottle'); setFeedType('bottle'); }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'bottle' ? 'bg-cyan-400 text-white shadow-lg shadow-cyan-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-cyan-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm mb-1">🍼</span> בקבוק</button>
+                  <button onClick={() => openActionSection('breast', 'breastfeeding')} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'breast' ? 'bg-rose-400 text-white shadow-lg shadow-rose-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-rose-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm mb-1">🤱</span> הנקה</button>
+                  <button onClick={() => openActionSection('bottle', 'bottle')} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'bottle' ? 'bg-cyan-400 text-white shadow-lg shadow-cyan-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-cyan-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm mb-1">🍼</span> בקבוק</button>
 
                   {(activeSection === 'breast' || activeSection === 'bottle') && (
                     <div className="col-span-2 -mt-1 mb-2">
@@ -1463,8 +1651,8 @@
                     </div>
                   )}
 
-                  <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'pumping' ? null : 'pumping'); setFeedType('pumping'); }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'pumping' ? 'bg-purple-400 text-white shadow-lg shadow-purple-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-purple-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm mb-1">🥛</span> שאיבה</button>
-                  <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'diaper' ? null : 'diaper') }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'diaper' ? 'bg-amber-400 text-white shadow-lg shadow-amber-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-amber-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm mb-1">🚼</span> חיתול</button>
+                  <button onClick={() => openActionSection('pumping', 'pumping')} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'pumping' ? 'bg-purple-400 text-white shadow-lg shadow-purple-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-purple-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm mb-1">🥛</span> שאיבה</button>
+                  <button onClick={() => openActionSection('diaper', null)} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'diaper' ? 'bg-amber-400 text-white shadow-lg shadow-amber-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-amber-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm mb-1">🚼</span> חיתול</button>
 
                   {(activeSection === 'pumping' || activeSection === 'diaper') && (
                     <div className="col-span-2 -mt-1 mb-2">
@@ -1508,7 +1696,7 @@
                         <div className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] shadow-xl shadow-amber-100/60 dark:shadow-none border border-gray-100 dark:border-gray-700 space-y-5 animate-in slide-in-from-top-2 duration-300">
                           <div className="flex justify-between items-center"><h3 className="font-black text-amber-500 text-sm flex items-center gap-2"><span className="text-lg">🚼</span> עדכון חיתול</h3><button onClick={()=>{triggerVibration(10); setActiveSection(null)}} className="text-sm bg-gray-100 dark:bg-gray-700 w-8 h-8 rounded-full flex items-center justify-center font-bold text-gray-500 dark:text-gray-300">✕</button></div>
                           <div className="grid grid-cols-3 gap-3">
-                            {['wet', 'dirty', 'both'].map(t => <button key={t} onClick={() => {triggerVibration(10); setDiaperType(t)}} className={`py-5 rounded-2xl text-sm font-bold shadow-sm active:scale-95 transition border flex flex-col items-center gap-2 ${diaperType === t ? 'bg-amber-400 text-white border-amber-400' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-600'}`}>{t === 'wet' ? '💧 פיפי' : t === 'dirty' ? '💩 קקי' : '✨ שניהם'}</button>)}
+                            {['wet', 'dirty', 'both'].map(t => <button key={t} onClick={() => {triggerVibration(10); setDiaperType(t)}} className={`py-5 rounded-2xl text-sm font-bold shadow-sm active:scale-95 transition border flex flex-col items-center gap-2 ${diaperType === t ? 'bg-amber-400 text-white border-amber-400' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-600'}`}>{t === 'wet' ? '💧' : t === 'dirty' ? '💩' : '✨'}</span>{t === 'wet' ? 'פיפי' : t === 'dirty' ? 'קקי' : 'שניהם'}</button>)}
                           </div>
                           <div>
                             <input type="text" value={diaperNotes} onChange={e => setDiaperNotes(e.target.value)} placeholder="הערות לחיתול (צבע, מרקם וכו')..." className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-200 dark:border-gray-600 text-xs focus:outline-none dark:text-white font-medium shadow-sm" />
@@ -1524,7 +1712,7 @@
                     </div>
                   )}
 
-                  <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'solid' ? null : 'solid') }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 col-span-2 active:scale-95 ${activeSection === 'solid' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-emerald-600 shadow-sm border border-gray-100 dark:border-gray-700'}`}>🥑 טעימות מוצקים</button>
+                  <button onClick={() => openActionSection('solid', null)} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 col-span-2 active:scale-95 ${activeSection === 'solid' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-emerald-600 shadow-sm border border-gray-100 dark:border-gray-700'}`}>🥑 טעימות מוצקים</button>
 
                   {activeSection === 'solid' && (
                     <div className="col-span-2 -mt-1 mb-2">
@@ -1996,6 +2184,29 @@
                 <div className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] border border-white/60 dark:border-gray-700/50 shadow-xl shadow-gray-200/40 dark:shadow-black/20 space-y-6">
                   <h2 className="text-lg font-black pb-3 border-b border-gray-100 dark:border-gray-700/60 dark:text-white flex items-center gap-2"><span className="text-2xl drop-shadow-sm">⚙️</span> הגדרות האפליקציה</h2>
                   
+                  {/* Avatar Picker in Settings */}
+                  <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-600 shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-rose-400 flex items-center justify-center bg-white dark:bg-gray-800 text-2xl shadow-inner">
+                        {customAvatar ? <img src={customAvatar} alt="Baby" className="w-full h-full object-cover" /> : '👶'}
+                      </div>
+                      <div>
+                        <span className="text-sm font-black dark:text-white block">תמונת פרופיל</span>
+                        <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">העלה תמונה מהגלריה של הטלפון</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      {customAvatar && (
+                        <button onClick={handleResetAvatar} className="text-xs font-bold text-red-500 bg-red-50 dark:bg-red-900/30 px-3 py-2 rounded-xl border border-red-200 dark:border-red-800">
+                          איפוס
+                        </button>
+                      )}
+                      <button onClick={() => avatarInputRef.current?.click()} className="text-xs font-black text-white bg-rose-500 px-3.5 py-2 rounded-xl shadow-sm active:scale-95 transition">
+                        {customAvatar ? 'החלף' : 'בחר תמונה'}
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-600 shadow-sm">
                     <span className="text-sm font-black dark:text-white flex items-center gap-2"><span className="text-lg">🌙</span> מצב לילה (Dark Mode)</span>
                     <input type="checkbox" checked={isDarkMode} onChange={e => {triggerVibration(10); setIsDarkMode(e.target.checked);}} className="w-5 h-5 accent-rose-500 cursor-pointer" />
