@@ -2,7 +2,7 @@ name: Check Feedings and Push
 
 on:
   schedule:
-    - cron: '*/15 * * * *'  # רץ אוטומטית כל 15 דקות
+    - cron: '*/5 * * * *'  # רץ אוטומטית כל 5 דקות
   workflow_dispatch:      # מאפשר גם הפעלה ידנית מתי שתרצה
 
 jobs:
