@@ -190,7 +190,6 @@
       const [solids, setSolids] = useState(() => { try { return JSON.parse(localStorage.getItem('bobo_cache_solids') || '[]'); } catch(e) { return []; } });
       const [growthMetrics, setGrowthMetrics] = useState(() => { try { return JSON.parse(localStorage.getItem('bobo_cache_growth') || '[]'); } catch(e) { return []; } });
       
-      // Instant Initial Timeline from Cache
       const [timeline, setTimeline] = useState(() => {
         try {
           const f = JSON.parse(localStorage.getItem('bobo_cache_feedings') || '[]');
@@ -204,20 +203,17 @@
       });
 
       const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('bobo_dark') === 'true');
+      const [customAvatar, setCustomAvatar] = useState(() => localStorage.getItem('bobo_custom_avatar') || '');
+      const avatarInputRef = useRef(null);
       
       const [stickyNote, setStickyNote] = useState(() => localStorage.getItem('bobo_sticky_note') || '');
       const [isEditingSticky, setIsEditingSticky] = useState(false);
       const [tempSticky, setTempSticky] = useState('');
 
-      const [showNoisePlayer, setShowNoisePlayer] = useState(false);
-      const [noiseType, setNoiseType] = useState('white');
-      const [isNoisePlaying, setIsNoisePlaying] = useState(false);
-      const [noiseTimerMin, setNoiseTimerMin] = useState(30);
-      const [noiseTimerRemain, setNoiseTimerRemain] = useState(null);
-      const audioCtxRef = useRef(null);
-      const noiseSourceNodeRef = useRef(null);
-      const noiseGainNodeRef = useRef(null);
-      const noiseIntervalRef = useRef(null);
+      // Voice Assistant States
+      const [isListening, setIsListening] = useState(false);
+      const [voiceFeedback, setVoiceFeedback] = useState('');
+      const recognitionRef = useRef(null);
 
       const [defaultMl, setDefaultMl] = useState(() => parseInt(localStorage.getItem('bobo_def_ml') || '150'));
       const [targetFeeds, setTargetFeeds] = useState(() => parseInt(localStorage.getItem('bobo_target_feeds') || '8'));
@@ -292,6 +288,9 @@
       const actualFeedingsToday = actualBabyFeedings.filter(f => isToday(f.timestamp));
       const todaysDiapers = timeline.filter(d => d.logType === 'diaper' && isToday(d.timestamp));
 
+      const lastActionWithSide = timeline.filter(item => item.logType !== 'growth').find(item => item.logType === 'feeding');
+      const lastSide = lastActionWithSide?.side || 'both';
+
       useEffect(() => {
         const metaTheme = document.querySelector('meta[name="theme-color"]');
         if (isDarkMode) {
@@ -343,116 +342,54 @@
         setAmount(defaultMl); setBottleType(defaultBottleType); setDuration(defaultBreastDuration); 
       }, [defaultMl, defaultBottleType, defaultBreastDuration]);
 
-      const stopNoiseSound = () => {
-        if (noiseSourceNodeRef.current) {
-          try { noiseSourceNodeRef.current.stop(); } catch(e) {}
-          noiseSourceNodeRef.current.disconnect();
-          noiseSourceNodeRef.current = null;
-        }
-        if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
-          try { audioCtxRef.current.close(); } catch(e) {}
-          audioCtxRef.current = null;
-        }
-        if (noiseIntervalRef.current) {
-          clearInterval(noiseIntervalRef.current);
-          noiseIntervalRef.current = null;
-        }
-        setIsNoisePlaying(false);
-        setNoiseTimerRemain(null);
-      };
+      const handleAvatarChange = (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
 
-      const startNoiseSound = async (type = noiseType) => {
-        stopNoiseSound();
-        try {
-          const AudioContext = window.AudioContext || window.webkitAudioContext;
-          const ctx = new AudioContext();
-          audioCtxRef.current = ctx;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const img = new Image();
+          img.onload = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              const maxDimension = 240;
+              let width = img.width;
+              let height = img.height;
 
-          if (ctx.state === 'suspended') {
-            await ctx.resume();
-          }
-
-          const bufferSize = 2 * ctx.sampleRate;
-          const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-          const output = noiseBuffer.getChannelData(0);
-
-          if (type === 'white') {
-            for (let i = 0; i < bufferSize; i++) {
-              output[i] = Math.random() * 2 - 1;
-            }
-          } else if (type === 'pink') {
-            let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
-            for (let i = 0; i < bufferSize; i++) {
-              const white = Math.random() * 2 - 1;
-              b0 = 0.99886 * b0 + white * 0.0555179;
-              b1 = 0.99332 * b1 + white * 0.0750759;
-              b2 = 0.96900 * b2 + white * 0.1538520;
-              b3 = 0.86650 * b3 + white * 0.3104856;
-              b4 = 0.55000 * b4 + white * 0.5329522;
-              b5 = -0.7616 * b5 - white * 0.0168980;
-              output[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.11;
-              b6 = white * 0.115926;
-            }
-          } else if (type === 'shh') {
-            for (let i = 0; i < bufferSize; i++) {
-              const env = Math.sin((i / bufferSize) * Math.PI * 4);
-              output[i] = (Math.random() * 2 - 1) * Math.max(0, env) * 0.8;
-            }
-          } else if (type === 'heart') {
-            for (let i = 0; i < bufferSize; i++) {
-              const t = (i / ctx.sampleRate) % 1.0;
-              const beat = (t < 0.1 || (t > 0.25 && t < 0.35)) ? Math.sin(t * Math.PI * 20) * 0.9 : 0;
-              output[i] = beat + (Math.random() * 0.04 - 0.02);
-            }
-          }
-
-          const whiteNoise = ctx.createBufferSource();
-          whiteNoise.buffer = noiseBuffer;
-          whiteNoise.loop = true;
-
-          const gainNode = ctx.createGain();
-          gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
-
-          if (type === 'pink' || type === 'heart') {
-            const filter = ctx.createBiquadFilter();
-            filter.type = 'lowpass';
-            filter.frequency.setValueAtTime(type === 'heart' ? 180 : 800, ctx.currentTime);
-            whiteNoise.connect(filter);
-            filter.connect(gainNode);
-          } else {
-            whiteNoise.connect(gainNode);
-          }
-
-          gainNode.connect(ctx.destination);
-          whiteNoise.start(0);
-
-          noiseSourceNodeRef.current = whiteNoise;
-          noiseGainNodeRef.current = gainNode;
-          setIsNoisePlaying(true);
-
-          if (noiseTimerMin > 0) {
-            let remain = noiseTimerMin * 60;
-            setNoiseTimerRemain(remain);
-            noiseIntervalRef.current = setInterval(() => {
-              remain -= 1;
-              setNoiseTimerRemain(remain);
-              if (remain <= 0) {
-                stopNoiseSound();
+              if (width > height) {
+                if (width > maxDimension) {
+                  height = Math.round((height * maxDimension) / width);
+                  width = maxDimension;
+                }
+              } else {
+                if (height > maxDimension) {
+                  width = Math.round((width * maxDimension) / height);
+                  height = maxDimension;
+                }
               }
-            }, 1000);
-          }
-        } catch(e) {
-          console.error("Audio error", e);
-        }
+
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, width, height);
+
+              const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+              setCustomAvatar(compressedBase64);
+              localStorage.setItem('bobo_custom_avatar', compressedBase64);
+              triggerVibration(15);
+            } catch(err) {
+              console.error('Avatar error:', err);
+            }
+          };
+          img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
       };
 
-      const handleToggleNoise = () => {
+      const handleRemoveAvatar = () => {
         triggerVibration(10);
-        if (isNoisePlaying) {
-          stopNoiseSound();
-        } else {
-          startNoiseSound(noiseType);
-        }
+        setCustomAvatar('');
+        localStorage.removeItem('bobo_custom_avatar');
       };
 
       const loadStickyNote = async () => {
@@ -738,7 +675,6 @@
         loadAllData();
         syncOfflineData();
 
-        // Auto reload on visibility/focus resume
         const handleVisibilityChange = () => {
           if (document.visibilityState === 'visible') {
             loadAllDataRef.current();
@@ -856,7 +792,7 @@
         await performInsert('feedings', { type: finalType, side: feedSide, duration_minutes: currentType === 'breastfeeding' ? duration : null, amount_ml: (currentType === 'bottle' || currentType === 'pumping') ? amount : null, notes: finalNotes || null, created_at: new Date().toISOString() });
         setFeedSaveStatus('success');
         setTimeout(() => {
-          setFeedNotes(''); setTimerTime(0); setIsTimerActive(false); setActiveSection(null); setFeedSide('both'); setFeedSaveStatus('idle');
+          setFeedNotes(''); setTimerTime(0); setIsTimerActive(false); setActiveSection(null); setFeedSaveStatus('idle');
           loadAllDataRef.current();
         }, 800);
       };
@@ -888,6 +824,127 @@
         await performInsert('feedings', { type: 'bottle', side: 'both', amount_ml: null, duration_minutes: null, notes: finalNotes, created_at: new Date().toISOString() });
         setVitDSuccess(true); setTimeout(() => setVitDSuccess(false), 1500);
         loadAllDataRef.current();
+      };
+
+      // Voice Input Handler (Web Speech API)
+      const handleProcessVoiceText = async (transcript) => {
+        const text = transcript.toLowerCase();
+        let feedbackMsg = '';
+
+        const numMatch = text.match(/\d+/);
+        const extractedNum = numMatch ? parseInt(numMatch[0]) : null;
+
+        let recognizedSide = 'both';
+        if (text.includes('שמאל')) recognizedSide = 'left';
+        else if (text.includes('ימין')) recognizedSide = 'right';
+
+        if (text.includes('ויטמין') || text.includes('די') || text.includes('טיפות')) {
+          await logVitaminD();
+          feedbackMsg = '💊 תועד ויטמין D (2 טיפות)';
+        } else if (text.includes('חיתול') || text.includes('קקי') || text.includes('פיפי')) {
+          let dType = 'wet';
+          if ((text.includes('קקי') || text.includes('צואה')) && (text.includes('פיפי') || text.includes('שתן') || text.includes('שניהם'))) {
+            dType = 'both';
+          } else if (text.includes('קקי') || text.includes('צואה')) {
+            dType = 'dirty';
+          }
+          await performInsert('diapers', { type: dType, notes: 'הוזן בהקלטה קולית', created_at: new Date().toISOString() });
+          feedbackMsg = `🚼 תועד חיתול ${dType === 'wet' ? 'פיפי' : dType === 'dirty' ? 'קקי' : 'משולב'}`;
+          loadAllDataRef.current();
+        } else if (text.includes('שאיבה') || text.includes('שאבתי')) {
+          const pumpMl = extractedNum || 100;
+          await performInsert('feedings', { 
+            type: 'bottle', 
+            side: recognizedSide, 
+            amount_ml: pumpMl, 
+            notes: '[שאיבת_חלב] הוזן קולית', 
+            created_at: new Date().toISOString() 
+          });
+          feedbackMsg = `🥛 תועדה שאיבה: ${pumpMl} מ"ל`;
+          loadAllDataRef.current();
+        } else if (text.includes('הנקה') || text.includes('הנקתי') || text.includes('ציצי')) {
+          const breastMins = extractedNum || defaultBreastDuration || 10;
+          const targetSide = (recognizedSide !== 'both') ? recognizedSide : (lastSide === 'left' ? 'right' : lastSide === 'right' ? 'left' : 'both');
+          await performInsert('feedings', { 
+            type: 'breastfeeding', 
+            side: targetSide, 
+            duration_minutes: breastMins, 
+            notes: 'הוזן קולית', 
+            created_at: new Date().toISOString() 
+          });
+          feedbackMsg = `🤱 תועדה הנקה: ${breastMins} דק' (${targetSide === 'left' ? 'שמאל' : targetSide === 'right' ? 'ימין' : 'שניהם'})`;
+          loadAllDataRef.current();
+        } else if (text.includes('בקבוק') || text.includes('תמל') || text.includes('תמ"ל') || text.includes('מטרנה') || text.includes('סימילאק') || text.includes('שאוב') || text.includes('אכל') || text.includes('אוכל') || text.includes('מ״ל') || text.includes('מל')) {
+          const bottleMl = extractedNum || defaultMl || 150;
+          const isExpressed = text.includes('שאוב') || (defaultBottleType === 'expressed' && !text.includes('תמל') && !text.includes('תמ"ל'));
+          const prefix = isExpressed ? '[שאוב]' : '[תמ"ל]';
+          await performInsert('feedings', { 
+            type: 'bottle', 
+            side: recognizedSide, 
+            amount_ml: bottleMl, 
+            notes: `${prefix} הוזן קולית`, 
+            created_at: new Date().toISOString() 
+          });
+          feedbackMsg = `🍼 תועד בקבוק: ${bottleMl} מ"ל (${isExpressed ? 'שאוב' : 'תמ"ל'})`;
+          loadAllDataRef.current();
+        } else {
+          feedbackMsg = `⚠️ לא זוהתה פקודה מדויקת ("${transcript}")`;
+        }
+
+        setVoiceFeedback(feedbackMsg);
+        setTimeout(() => setVoiceFeedback(''), 4000);
+      };
+
+      const handleToggleVoiceAssistant = () => {
+        triggerVibration(15);
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+          alert('זיהוי קולי אינו נתמך בדפדפן זה (מומלץ Chrome באנדרואיד/PC או Safari עדכני).');
+          return;
+        }
+
+        if (isListening) {
+          if (recognitionRef.current) {
+            try { recognitionRef.current.stop(); } catch(e) {}
+          }
+          setIsListening(false);
+          return;
+        }
+
+        try {
+          const recognition = new SpeechRecognition();
+          recognition.lang = 'he-IL';
+          recognition.continuous = false;
+          recognition.interimResults = false;
+
+          recognition.onstart = () => {
+            setIsListening(true);
+            setVoiceFeedback('מקשיב... אמור למשל: "בקבוק 120" או "חיתול קקי"');
+          };
+
+          recognition.onresult = (event) => {
+            const transcript = event.results && event.results[0] && event.results[0][0] && event.results[0][0].transcript;
+            setIsListening(false);
+            if (transcript) handleProcessVoiceText(transcript);
+          };
+
+          recognition.onerror = (err) => {
+            console.error('Speech error:', err);
+            setIsListening(false);
+            setVoiceFeedback('שגיאה בזיהוי הקולי. נסו שוב.');
+            setTimeout(() => setVoiceFeedback(''), 3000);
+          };
+
+          recognition.onend = () => {
+            setIsListening(false);
+          };
+
+          recognitionRef.current = recognition;
+          recognition.start();
+        } catch (e) {
+          console.error(e);
+          setIsListening(false);
+        }
       };
 
       const saveGrowth = async () => {
@@ -1093,8 +1150,6 @@
 
       const totalDurationToday = actualFeedingsToday.filter(f => f.type === 'breastfeeding').reduce((a, c) => a + (c.duration_minutes || 0), 0);
       const totalMlToday = actualFeedingsToday.filter(f => f.type === 'bottle').reduce((a, c) => a + (c.amount_ml || 0), 0);
-      const lastActionWithSide = mainTimelineLogs.find(item => item.logType === 'feeding');
-      const lastSide = lastActionWithSide?.side || 'both';
       const statColsCount = showLastSideStat ? "grid-cols-3" : "grid-cols-2";
 
       if (authLoading) {
@@ -1131,6 +1186,14 @@
       return (
         <div className="max-w-lg mx-auto min-h-screen flex flex-col pb-28 text-gray-800 dark:text-gray-100 relative">
           
+          <input 
+            type="file" 
+            ref={avatarInputRef} 
+            onChange={handleAvatarChange} 
+            accept="image/*" 
+            className="hidden" 
+          />
+
           {showInstallPrompt && (
             <div className="fixed top-4 left-4 right-4 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md p-4 rounded-3xl shadow-2xl z-[100] border border-rose-100 dark:border-gray-700 animate-in slide-in-from-top-4 flex flex-col gap-3 max-w-md mx-auto">
               <div className="flex justify-between items-start">
@@ -1166,7 +1229,25 @@
 
           <header className="bg-white/90 dark:bg-gray-900/80 backdrop-blur-xl p-4 sticky top-0 z-50 flex justify-between items-center shadow-sm border-b border-gray-100 dark:border-gray-800 transition-colors duration-300">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 bg-gradient-to-tr from-rose-400 via-orange-300 to-amber-300 text-white rounded-full flex items-center justify-center text-2xl shadow-inner shadow-white/30">👶</div>
+              <button 
+                onClick={() => { triggerVibration(10); avatarInputRef.current && avatarInputRef.current.click(); }}
+                title="לחץ להחלפת תמונה מהגלריה"
+                className="relative group focus:outline-none"
+              >
+                {customAvatar ? (
+                  <img 
+                    src={customAvatar} 
+                    alt={babyName} 
+                    className="w-11 h-11 rounded-full object-cover shadow-inner border-2 border-rose-300 ring-2 ring-rose-200/50"
+                  />
+                ) : (
+                  <div className="w-11 h-11 bg-gradient-to-tr from-rose-400 via-orange-300 to-amber-300 text-white rounded-full flex items-center justify-center text-2xl shadow-inner shadow-white/30 border-2 border-rose-200/50">
+                    👶
+                  </div>
+                )}
+                <span className="absolute -bottom-1 -right-1 bg-white dark:bg-gray-800 rounded-full w-4 h-4 text-[9px] flex items-center justify-center shadow-sm border border-gray-200 dark:border-gray-600">📷</span>
+              </button>
+
               <div>
                 <div className="flex items-center gap-1.5">
                   <h1 className="font-bold text-gray-800 dark:text-white text-base">{babyName}</h1>
@@ -1189,74 +1270,26 @@
 
             <div className="flex items-center gap-2">
               <button 
-                onClick={() => { triggerVibration(10); setShowNoisePlayer(!showNoisePlayer); }}
-                title="רעש לבן מרגיע"
+                onClick={handleToggleVoiceAssistant}
+                title="הזנה קולית חכמה"
                 className={`p-2 rounded-xl text-xs font-bold border transition active:scale-95 flex items-center gap-1 ${
-                  isNoisePlaying ? 'bg-teal-500 border-teal-500 text-white shadow-md shadow-teal-200/50 animate-pulse' : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700'
+                  isListening ? 'bg-rose-500 border-rose-500 text-white shadow-md shadow-rose-200/50 animate-bounce' : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700'
                 }`}
               >
-                <span>🎧</span>
+                <span>🎙️</span>
               </button>
 
               <button onClick={() => { triggerVibration(10); supabaseClient.auth.signOut(); }} className="text-xs font-bold text-red-500 bg-red-50 dark:bg-red-950/40 px-3 py-1.5 rounded-xl transition hover:bg-red-100 dark:hover:bg-red-900/60 active:scale-95 shadow-sm border border-red-100 dark:border-red-900/50">התנתק</button>
             </div>
           </header>
 
-          {showNoisePlayer && (
-            <div className="bg-white/95 dark:bg-gray-800/95 p-4 mx-4 mt-3 rounded-3xl border border-teal-100 dark:border-gray-700 shadow-xl space-y-3 animate-in slide-in-from-top-2">
-              <div className="flex justify-between items-center">
-                <h3 className="text-xs font-black text-teal-600 dark:text-teal-400 flex items-center gap-1.5">
-                  <span>🎧</span> נגן צלילים מרגיעים (שינה והרגעה)
-                </h3>
-                <button onClick={() => setShowNoisePlayer(false)} className="text-xs font-bold text-gray-400">✕</button>
-              </div>
-              <div className="grid grid-cols-4 gap-1.5 text-xs">
-                {[
-                  { id: 'white', label: 'רעש לבן', icon: '💨' },
-                  { id: 'pink', label: 'רעש ורוד', icon: '🌊' },
-                  { id: 'shh', label: 'ששש...', icon: '🤫' },
-                  { id: 'heart', label: 'פעימות רחם', icon: '💓' }
-                ].map(n => (
-                  <button 
-                    key={n.id} 
-                    onClick={() => {
-                      triggerVibration(10);
-                      setNoiseType(n.id);
-                      if (isNoisePlaying) startNoiseSound(n.id);
-                    }}
-                    className={`py-2 rounded-xl font-bold border flex flex-col items-center gap-1 transition ${
-                      noiseType === n.id ? 'bg-teal-500 text-white border-teal-500 shadow-sm' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-600'
-                    }`}
-                  >
-                    <span>{n.icon}</span>
-                    <span className="text-[10px]">{n.label}</span>
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-center justify-between pt-1 text-xs">
-                <div className="flex items-center gap-1">
-                  <span className="text-[10px] font-bold text-gray-500">טיימר כיבוי:</span>
-                  {[15, 30, 60, 0].map(m => (
-                    <button 
-                      key={m} 
-                      onClick={() => { triggerVibration(10); setNoiseTimerMin(m); }}
-                      className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border ${
-                        noiseTimerMin === m ? 'bg-teal-500 text-white border-teal-500' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600'
-                      }`}
-                    >
-                      {m === 0 ? 'ללא' : `${m} דק'`}
-                    </button>
-                  ))}
-                </div>
-                <button 
-                  onClick={handleToggleNoise}
-                  className={`px-4 py-1.5 rounded-xl font-black text-xs transition active:scale-95 shadow-md ${
-                    isNoisePlaying ? 'bg-red-500 text-white shadow-red-200/50' : 'bg-teal-500 text-white shadow-teal-200/50'
-                  }`}
-                >
-                  {isNoisePlaying ? `עצור ${noiseTimerRemain ? `(${Math.floor(noiseTimerRemain / 60)}:${String(noiseTimerRemain % 60).padStart(2, '0')})` : ''}` : 'הפעל צליל'}
-                </button>
-              </div>
+          {voiceFeedback && (
+            <div className="mx-4 mt-2 bg-gradient-to-r from-rose-500 to-orange-400 text-white p-3 rounded-2xl shadow-lg text-xs font-bold flex items-center justify-between animate-in slide-in-from-top-2">
+              <span className="flex items-center gap-1.5">
+                <span>🎙️</span>
+                <span>{voiceFeedback}</span>
+              </span>
+              <button onClick={() => setVoiceFeedback('')} className="text-white/80 font-bold px-1">✕</button>
             </div>
           )}
 
@@ -1277,7 +1310,7 @@
                           type="text" 
                           value={tempSticky} 
                           onChange={e => setTempSticky(e.target.value)} 
-                          placeholder="רשמו הודעה קצרה..."
+                          placeholder="רשמו הודעה קצרה..." 
                           className="flex-1 px-3 py-1.5 bg-white dark:bg-gray-800 text-xs font-bold rounded-xl border border-amber-300 dark:border-amber-700 focus:outline-none dark:text-white"
                         />
                         <button onClick={handleSaveStickyNote} className="bg-amber-500 text-white px-3 py-1.5 rounded-xl text-xs font-bold">שמור</button>
@@ -1373,7 +1406,21 @@
                 {/* כפתורי פעולות + אקורדיון */}
                 <div className="grid grid-cols-2 gap-3 pt-1">
                   
-                  <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'breast' ? null : 'breast'); setFeedType('breastfeeding'); }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'breast' ? 'bg-rose-400 text-white shadow-lg shadow-rose-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-rose-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm mb-1">🤱</span> הנקה</button>
+                  <button 
+                    onClick={() => { 
+                      triggerVibration(10); 
+                      const nextSection = activeSection === 'breast' ? null : 'breast';
+                      setActiveSection(nextSection); 
+                      setFeedType('breastfeeding');
+                      if (nextSection === 'breast') {
+                        const nextSide = lastSide === 'left' ? 'right' : lastSide === 'right' ? 'left' : 'both';
+                        setFeedSide(nextSide);
+                      }
+                    }} 
+                    className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'breast' ? 'bg-rose-400 text-white shadow-lg shadow-rose-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-rose-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}
+                  >
+                    <span className="text-2xl drop-shadow-sm mb-1">🤱</span> הנקה
+                  </button>
                   <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'bottle' ? null : 'bottle'); setFeedType('bottle'); }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'bottle' ? 'bg-cyan-400 text-white shadow-lg shadow-cyan-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-cyan-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm mb-1">🍼</span> בקבוק</button>
 
                   {(activeSection === 'breast' || activeSection === 'bottle') && (
@@ -1999,6 +2046,29 @@
                   <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-600 shadow-sm">
                     <span className="text-sm font-black dark:text-white flex items-center gap-2"><span className="text-lg">🌙</span> מצב לילה (Dark Mode)</span>
                     <input type="checkbox" checked={isDarkMode} onChange={e => {triggerVibration(10); setIsDarkMode(e.target.checked);}} className="w-5 h-5 accent-rose-500 cursor-pointer" />
+                  </div>
+
+                  <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-600 shadow-sm">
+                    <div>
+                      <span className="text-sm font-black dark:text-white flex items-center gap-2 mb-1"><span className="text-lg">🖼️</span> תמונת פרופיל</span>
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">החלפה ישירה מתמונות המכשיר</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => avatarInputRef.current && avatarInputRef.current.click()} 
+                        className="text-xs font-black px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-900/50 active:scale-95 transition"
+                      >
+                        {customAvatar ? 'שנה תמונה' : 'בחר תמונה'}
+                      </button>
+                      {customAvatar && (
+                        <button 
+                          onClick={handleRemoveAvatar} 
+                          className="text-xs font-black px-3 py-2 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 active:scale-95 transition"
+                        >
+                          איפוס
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-600 shadow-sm">
