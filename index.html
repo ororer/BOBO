@@ -116,6 +116,21 @@
     });
     window.supabaseClient = supabaseClient;
 
+    const triggerPushNotification = async (payloadData) => {
+      try {
+        await fetch('https://zebyzpsffpvdaoqrhonq.supabase.co/functions/v1/smooth-handler', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseAnonKey}`
+          },
+          body: JSON.stringify(payloadData)
+        });
+      } catch (err) {
+        console.error('Push error:', err);
+      }
+    };
+
     const urlBase64ToUint8Array = (base64String) => {
       const padding = '='.repeat((4 - base64String.length % 4) % 4);
       const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
@@ -125,11 +140,9 @@
       return outputArray;
     };
 
-    const getOfflineQueue = () => { 
-      try { return JSON.parse(localStorage.getItem('bobo_offline_queue') || '[]'); } catch(e) { return []; } 
-    };
+    const getOfflineQueue = () => { try { return JSON.parse(localStorage.getItem('bobo_offline_queue') || '[]'); } catch(e) { return []; } };
 
-    const assembleTimeline = (fData = [], dData = [], sData = [], gData = []) => {
+    const assembleTimeline = (fData, dData, sData, gData) => {
       const offlineQueue = getOfflineQueue();
       const offlineItems = offlineQueue.map(item => ({
         ...item.payload, id: item.client_id, isOfflinePending: true,
@@ -138,15 +151,15 @@
       }));
 
       const combined = [
-        ...(fData || []).map(f => {
+        ...fData.map(f => {
           let logType = 'feeding';
           if (f.notes?.includes('ויטמין D')) logType = 'vitamin_d';
           else if (f.type === 'pumping' || f.notes?.includes('[שאיבת_חלב]')) logType = 'pumping';
           return { ...f, logType, timestamp: f.created_at };
         }),
-        ...(dData || []).map(d => ({ ...d, logType: 'diaper', timestamp: d.created_at })),
-        ...(sData || []).map(s => ({ ...s, logType: 'solid', timestamp: s.created_at })),
-        ...(gData || []).map(g => ({ ...g, logType: 'growth', timestamp: g.measured_at })),
+        ...dData.map(d => ({ ...d, logType: 'diaper', timestamp: d.created_at })),
+        ...sData.map(s => ({ ...s, logType: 'solid', timestamp: s.created_at })),
+        ...gData.map(g => ({ ...g, logType: 'growth', timestamp: g.measured_at })),
         ...offlineItems
       ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
       return combined;
@@ -266,6 +279,7 @@
 
       const [lastFeedTime, setLastFeedTime] = useState(null);
       const [timeToNextFeed, setTimeToNextFeed] = useState(null);
+      const hasNotifiedLeadRef = useRef(false);
       
       const [timelineFilter, setTimelineFilter] = useState('all');
       const [selectedTimelineDate, setSelectedTimelineDate] = useState('');
@@ -643,10 +657,7 @@
         window.open(url, '_blank');
       };
 
-      const setOfflineQueue = (q) => { 
-        localStorage.setItem('bobo_offline_queue', JSON.stringify(q)); 
-        setPendingSyncCount(q.length); 
-      };
+      const setOfflineQueue = (q) => { localStorage.setItem('bobo_offline_queue', JSON.stringify(q)); setPendingSyncCount(q.length); };
 
       const syncOfflineData = async () => {
         const queue = getOfflineQueue();
@@ -771,27 +782,29 @@
         }
       };
 
+      const testPushNotification = async () => {
+        triggerVibration(15);
+        await triggerPushNotification({
+          type: 'feed_reminder',
+          title: '⏰ בדיקת התראת האכלה',
+          body: `תזכורת: מתקרב מועד ההאכלה של ${babyName}! (בעוד ${notifyLeadMinutes} דק')`
+        });
+        alert('ההתראה נשלחה כעת לכל המכשירים הרשומים!');
+      };
+
       useEffect(() => {
-        let isMounted = true;
         supabaseClient.auth.getSession().then(({ data: { session } }) => {
-          if (isMounted) {
-            setUser(session?.user || null);
-            setAuthLoading(false);
-          }
+          setUser(session?.user || null);
+          setAuthLoading(false);
         }).catch(() => {
-          if (isMounted) setAuthLoading(false);
+          setAuthLoading(false);
         });
 
         const { data: { subscription } } = supabaseClient.auth.onAuthStateChange((_event, session) => {
-          if (isMounted) {
-            setUser(session?.user || null);
-            setAuthLoading(false);
-          }
+          setUser(session?.user || null);
+          setAuthLoading(false);
         });
-        return () => {
-          isMounted = false;
-          subscription.unsubscribe();
-        };
+        return () => subscription.unsubscribe();
       }, []);
 
       useEffect(() => {
@@ -863,7 +876,7 @@
           if (dData) { setDiapers(dData); localStorage.setItem('bobo_cache_diapers', JSON.stringify(dData)); }
           if (sData) { setSolids(sData); localStorage.setItem('bobo_cache_solids', JSON.stringify(sData)); }
           if (gData) { setGrowthMetrics(gData); localStorage.setItem('bobo_cache_growth', JSON.stringify(gData)); }
-          setTimeline(assembleTimeline(fData || [], dData || [], sData || [], gData || []));
+          setTimeline(assembleTimeline(fData || feedings, dData || diapers, sData || solids, gData || growthMetrics));
           loadStickyNote();
         } catch (e) {}
       };
@@ -923,6 +936,7 @@
         if (significantFeedings.length > 0) { 
           const feedTime = new Date(significantFeedings[0].timestamp).getTime();
           setLastFeedTime(feedTime);
+          hasNotifiedLeadRef.current = false;
         } else { 
           setLastFeedTime(null); 
         }
@@ -935,11 +949,21 @@
           const nextFeed = lastFeedTime + (feedIntervalHours * 60 * 60 * 1000);
           const diff = nextFeed - now;
           setTimeToNextFeed(diff);
+
+          const leadMs = notifyLeadMinutes * 60 * 1000;
+          if (diff > 0 && diff <= leadMs && !hasNotifiedLeadRef.current) {
+            hasNotifiedLeadRef.current = true;
+            triggerPushNotification({
+              type: 'feed_reminder',
+              title: '⏰ מתקרב מועד האכלה!',
+              body: `תזכורת: האכלה הבאה של ${babyName} בעוד כ-${notifyLeadMinutes} דקות.`
+            });
+          }
         };
         updateCountdown();
         const interval = setInterval(updateCountdown, 1000);
         return () => clearInterval(interval);
-      }, [lastFeedTime, feedIntervalHours]);
+      }, [lastFeedTime, feedIntervalHours, notifyLeadMinutes, babyName]);
 
       useEffect(() => {
         if (isTimerActive) {
@@ -2160,6 +2184,7 @@
                 <div className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] border border-white/60 dark:border-gray-700/50 shadow-xl shadow-gray-200/40 dark:shadow-black/20 space-y-6">
                   <h2 className="text-lg font-black pb-3 border-b border-gray-100 dark:border-gray-700/60 dark:text-white flex items-center gap-2"><span className="text-2xl drop-shadow-sm">⚙️</span> הגדרות האפליקציה</h2>
                   
+                  {/* Avatar Picker in Settings */}
                   <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-600 shadow-sm">
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-rose-400 flex items-center justify-center bg-white dark:bg-gray-800 text-2xl shadow-inner">
@@ -2192,9 +2217,14 @@
                       <span className="text-sm font-black dark:text-white flex items-center gap-2 mb-1"><span className="text-lg">🔔</span> התראות פוש</span>
                       <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium leading-tight block max-w-[200px]">רישום המכשיר לקבלת התראות האכלה בזמן אמת</span>
                     </div>
-                    <button onClick={()=>{triggerVibration(10); requestNotificationPermission();}} className={`text-xs font-black px-4 py-2.5 rounded-xl shadow-sm transition active:scale-95 ${notificationsEnabled ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300' : 'bg-rose-500 text-white shadow-rose-200/50'}`}>
-                      {notificationsEnabled ? 'פעיל ✓' : 'הפעל'}
-                    </button>
+                    <div className="flex gap-2">
+                      <button onClick={testPushNotification} className="text-[11px] font-black px-3 py-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 active:scale-95 transition">
+                        בדיקת פוש 🚀
+                      </button>
+                      <button onClick={()=>{triggerVibration(10); requestNotificationPermission();}} className={`text-xs font-black px-4 py-2.5 rounded-xl shadow-sm transition active:scale-95 ${notificationsEnabled ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300' : 'bg-rose-500 text-white shadow-rose-200/50'}`}>
+                        {notificationsEnabled ? 'פעיל ✓' : 'הפעל'}
+                      </button>
+                    </div>
                   </div>
 
                   <div className="space-y-2 border-t border-gray-100 dark:border-gray-700/60 pt-5">
