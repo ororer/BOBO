@@ -98,7 +98,7 @@
     const { useState, useEffect, useRef } = React;
 
     const triggerVibration = (ms = 15) => {
-      if (typeof window !== 'undefined' && navigator.vibrate) {
+      if (typeof window !== 'undefined' && navigator && navigator.vibrate) {
         try { navigator.vibrate(ms); } catch(e) {}
       }
     };
@@ -116,21 +116,6 @@
     });
     window.supabaseClient = supabaseClient;
 
-    const triggerPushNotification = async (payloadData) => {
-      try {
-        await fetch('https://zebyzpsffpvdaoqrhonq.supabase.co/functions/v1/smooth-handler', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabaseAnonKey}`
-          },
-          body: JSON.stringify(payloadData)
-        });
-      } catch (err) {
-        console.error('Push error:', err);
-      }
-    };
-
     const urlBase64ToUint8Array = (base64String) => {
       const padding = '='.repeat((4 - base64String.length % 4) % 4);
       const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
@@ -140,29 +125,36 @@
       return outputArray;
     };
 
-    const getOfflineQueue = () => { try { return JSON.parse(localStorage.getItem('bobo_offline_queue') || '[]'); } catch(e) { return []; } };
+    const getOfflineQueue = () => { 
+      try { return JSON.parse(localStorage.getItem('bobo_offline_queue') || '[]'); } catch(e) { return []; } 
+    };
 
-    const assembleTimeline = (fData, dData, sData, gData) => {
-      const offlineQueue = getOfflineQueue();
-      const offlineItems = offlineQueue.map(item => ({
-        ...item.payload, id: item.client_id, isOfflinePending: true,
-        logType: item.table === 'feedings' ? (item.payload.notes?.includes('ויטמין D') ? 'vitamin_d' : item.payload.notes?.includes('[שאיבת_חלב]') ? 'pumping' : 'feeding') : item.table === 'diapers' ? 'diaper' : item.table === 'solids' ? 'solid' : 'growth',
-        timestamp: item.payload.created_at || item.payload.measured_at || new Date().toISOString()
-      }));
+    const assembleTimeline = (fData = [], dData = [], sData = [], gData = []) => {
+      try {
+        const offlineQueue = getOfflineQueue();
+        const offlineItems = (offlineQueue || []).map(item => ({
+          ...item.payload, id: item.client_id, isOfflinePending: true,
+          logType: item.table === 'feedings' ? (item.payload?.notes?.includes('ויטמין D') ? 'vitamin_d' : item.payload?.notes?.includes('[שאיבת_חלב]') ? 'pumping' : 'feeding') : item.table === 'diapers' ? 'diaper' : item.table === 'solids' ? 'solid' : 'growth',
+          timestamp: item.payload?.created_at || item.payload?.measured_at || new Date().toISOString()
+        }));
 
-      const combined = [
-        ...fData.map(f => {
-          let logType = 'feeding';
-          if (f.notes?.includes('ויטמין D')) logType = 'vitamin_d';
-          else if (f.type === 'pumping' || f.notes?.includes('[שאיבת_חלב]')) logType = 'pumping';
-          return { ...f, logType, timestamp: f.created_at };
-        }),
-        ...dData.map(d => ({ ...d, logType: 'diaper', timestamp: d.created_at })),
-        ...sData.map(s => ({ ...s, logType: 'solid', timestamp: s.created_at })),
-        ...gData.map(g => ({ ...g, logType: 'growth', timestamp: g.measured_at })),
-        ...offlineItems
-      ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-      return combined;
+        const combined = [
+          ...(fData || []).map(f => {
+            let logType = 'feeding';
+            if (f.notes?.includes('ויטמין D')) logType = 'vitamin_d';
+            else if (f.type === 'pumping' || f.notes?.includes('[שאיבת_חלב]')) logType = 'pumping';
+            return { ...f, logType, timestamp: f.created_at };
+          }),
+          ...(dData || []).map(d => ({ ...d, logType: 'diaper', timestamp: d.created_at })),
+          ...(sData || []).map(s => ({ ...s, logType: 'solid', timestamp: s.created_at })),
+          ...(gData || []).map(g => ({ ...g, logType: 'growth', timestamp: g.measured_at })),
+          ...offlineItems
+        ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        return combined;
+      } catch (err) {
+        console.error("Assemble error:", err);
+        return [];
+      }
     };
 
     function App() {
@@ -172,7 +164,7 @@
       const [password, setPassword] = useState('');
       const [authError, setAuthError] = useState('');
 
-      const [isOnline, setIsOnline] = useState(navigator.onLine);
+      const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
       const [pendingSyncCount, setPendingSyncCount] = useState(0);
       const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
         try { return typeof window !== 'undefined' && 'Notification' in window && window.Notification.permission === 'granted'; } catch(e) { return false; }
@@ -219,10 +211,6 @@
       const noiseSourceNodeRef = useRef(null);
       const noiseGainNodeRef = useRef(null);
       const noiseIntervalRef = useRef(null);
-
-      const [isListening, setIsListening] = useState(false);
-      const [voiceFeedback, setVoiceFeedback] = useState('');
-      const recognitionRef = useRef(null);
 
       const [defaultMl, setDefaultMl] = useState(() => parseInt(localStorage.getItem('bobo_def_ml') || '150'));
       const [targetFeeds, setTargetFeeds] = useState(() => parseInt(localStorage.getItem('bobo_target_feeds') || '8'));
@@ -279,7 +267,6 @@
 
       const [lastFeedTime, setLastFeedTime] = useState(null);
       const [timeToNextFeed, setTimeToNextFeed] = useState(null);
-      const hasNotifiedLeadRef = useRef(false);
       
       const [timelineFilter, setTimelineFilter] = useState('all');
       const [selectedTimelineDate, setSelectedTimelineDate] = useState('');
@@ -293,12 +280,12 @@
         return date.getDate() === today.getDate() && date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear();
       };
 
-      const actualBabyFeedings = timeline.filter(f => f.logType === 'feeding' && !f.notes?.includes('ויטמין D') && !f.notes?.includes('[שאיבת_חלב]') && f.type !== 'pumping');
+      const actualBabyFeedings = (timeline || []).filter(f => f.logType === 'feeding' && !f.notes?.includes('ויטמין D') && !f.notes?.includes('[שאיבת_חלב]') && f.type !== 'pumping');
       const actualFeedingsToday = actualBabyFeedings.filter(f => isToday(f.timestamp));
-      const todaysDiapers = timeline.filter(d => d.logType === 'diaper' && isToday(d.timestamp));
+      const todaysDiapers = (timeline || []).filter(d => d.logType === 'diaper' && isToday(d.timestamp));
 
       const getNextAutoSide = () => {
-        const lastWithSide = timeline.find(item => (item.logType === 'feeding' || item.logType === 'pumping') && (item.side === 'left' || item.side === 'right'));
+        const lastWithSide = (timeline || []).find(item => (item.logType === 'feeding' || item.logType === 'pumping') && (item.side === 'left' || item.side === 'right'));
         if (!lastWithSide) return 'both';
         return lastWithSide.side === 'left' ? 'right' : 'left';
       };
@@ -510,102 +497,6 @@
         }
       };
 
-      const handleVoiceInput = () => {
-        triggerVibration(20);
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-          alert('זיהוי קולי אינו נתמך בדפדפן זה.');
-          return;
-        }
-
-        if (isListening) {
-          if (recognitionRef.current) recognitionRef.current.stop();
-          setIsListening(false);
-          return;
-        }
-
-        const recognition = new SpeechRecognition();
-        recognitionRef.current = recognition;
-        recognition.lang = 'he-IL';
-        recognition.continuous = false;
-        recognition.interimResults = false;
-
-        recognition.onstart = () => {
-          setIsListening(true);
-          setVoiceFeedback('מקשיב... נסו למשל: "בקבוק 150 תמ״ל" או "חיתול קקי"');
-        };
-
-        recognition.onresult = async (event) => {
-          const text = event.results[0][0].transcript.toLowerCase();
-          setVoiceFeedback(`זוהה: "${text}" - מעבד...`);
-          await processVoiceCommand(text);
-        };
-
-        recognition.onerror = () => {
-          setIsListening(false);
-          setVoiceFeedback('לא הצלחתי לשמוע. נסו שוב.');
-          setTimeout(() => setVoiceFeedback(''), 3000);
-        };
-
-        recognition.onend = () => {
-          setIsListening(false);
-        };
-
-        recognition.start();
-      };
-
-      const processVoiceCommand = async (txt) => {
-        const autoSide = getNextAutoSide();
-
-        if (txt.includes('חיתול') || txt.includes('קקי') || txt.includes('פיפי')) {
-          let dType = 'wet';
-          if (txt.includes('קקי') && txt.includes('פיפי')) dType = 'both';
-          else if (txt.includes('קקי') || txt.includes('שניהם')) dType = 'dirty';
-          await performInsert('diapers', { type: dType, notes: `הזנה קולית: ${txt}`, created_at: new Date().toISOString() });
-          setVoiceFeedback(`✅ נשמר חיתול: ${dType === 'wet' ? 'פיפי' : dType === 'dirty' ? 'קקי' : 'שניהם'}`);
-        }
-        else if (txt.includes('ויטמין') || txt.includes('די')) {
-          await performInsert('feedings', { type: 'bottle', side: 'both', amount_ml: null, duration_minutes: null, notes: '💊 ויטמין D - 2 טיפות', created_at: new Date().toISOString() });
-          setVoiceFeedback('✅ נשמר ויטמין D!');
-        }
-        else if (txt.includes('הנקה') || txt.includes('הנקתי')) {
-          const numMatch = txt.match(/\d+/);
-          const mins = numMatch ? parseInt(numMatch[0]) : defaultBreastDuration;
-          await performInsert('feedings', { type: 'breastfeeding', side: autoSide, duration_minutes: mins, amount_ml: null, notes: `הזנה קולית (צד ${autoSide === 'left' ? 'שמאל' : autoSide === 'right' ? 'ימין' : 'שניהם'})`, created_at: new Date().toISOString() });
-          setVoiceFeedback(`✅ נשמרה הנקה: ${mins} דק' (צד ${autoSide === 'left' ? 'שמאל' : 'ימין'})`);
-        }
-        else if (txt.includes('שאיבה') || txt.includes('שאבתי')) {
-          const numMatch = txt.match(/\d+/);
-          const ml = numMatch ? parseInt(numMatch[0]) : 60;
-          await performInsert('feedings', { type: 'bottle', side: autoSide, duration_minutes: null, amount_ml: ml, notes: `[שאיבת_חלב] הזנה קולית`, created_at: new Date().toISOString() });
-          setVoiceFeedback(`✅ נשמרה שאיבה: ${ml} מ"ל`);
-        }
-        else if (txt.includes('בקבוק') || txt.includes('תמל') || txt.includes('שאוב') || txt.includes('אוכל') || txt.includes('ארוחה')) {
-          const numMatch = txt.match(/\d+/);
-          const ml = numMatch ? parseInt(numMatch[0]) : defaultMl;
-          const bType = txt.includes('שאוב') ? 'expressed' : 'formula';
-          await performInsert('feedings', { type: 'bottle', side: autoSide, duration_minutes: null, amount_ml: ml, notes: `[${bType === 'expressed' ? 'שאוב' : 'תמ"ל'}] הזנה קולית`, created_at: new Date().toISOString() });
-          setVoiceFeedback(`✅ נשמר בקבוק: ${ml} מ"ל ${bType === 'expressed' ? 'שאוב' : 'תמ"ל'}`);
-        }
-        else if (txt.includes('טעימה') || txt.includes('טעימות') || txt.includes('אכל')) {
-          let reaction = 'liked';
-          if (txt.includes('לא אהב') || txt.includes('נגעל')) reaction = 'disliked';
-          else if (txt.includes('אלרגיה') || txt.includes('פריחה')) reaction = 'allergic';
-          else if (txt.includes('ככה ככה') || txt.includes('נייטרלי')) reaction = 'neutral';
-          
-          let foodName = txt.replace(/טעימה|טעימות|אכל|אהב|לא אהב|נייטרלי/g, '').trim() || 'מאכל';
-          await performInsert('solids', { food_name: foodName, reaction, notes: `הזנה קולית`, created_at: new Date().toISOString() });
-          setVoiceFeedback(`✅ נשמרה טעימה: ${foodName}`);
-        } else {
-          setVoiceFeedback(`לא זיהיתי פקודה ברורה: "${txt}"`);
-        }
-
-        setTimeout(() => {
-          setVoiceFeedback('');
-          loadAllDataRef.current();
-        }, 3000);
-      };
-
       const loadStickyNote = async () => {
         try {
           const { data } = await supabaseClient.from('sticky_notes').select('*').eq('id', 'shared_family_note').maybeSingle();
@@ -637,10 +528,10 @@
         const todayStr = new Date().toLocaleDateString('he-IL');
         const bottleMl = actualFeedingsToday.filter(f => f.type === 'bottle').reduce((a, c) => a + (c.amount_ml || 0), 0);
         const breastMins = actualFeedingsToday.filter(f => f.type === 'breastfeeding').reduce((a, c) => a + (c.duration_minutes || 0), 0);
-        const pumpingMl = timeline.filter(l => l.logType === 'pumping' && isToday(l.timestamp)).reduce((a, c) => a + (c.amount_ml || 0), 0);
+        const pumpingMl = (timeline || []).filter(l => l.logType === 'pumping' && isToday(l.timestamp)).reduce((a, c) => a + (c.amount_ml || 0), 0);
         const wetDiapers = todaysDiapers.filter(d => d.type === 'wet' || d.type === 'both').length;
         const dirtyDiapers = todaysDiapers.filter(d => d.type === 'dirty' || d.type === 'both').length;
-        const todaySolids = solids.filter(s => isToday(s.created_at)).map(s => s.food_name).join(', ');
+        const todaySolids = (solids || []).filter(s => isToday(s.created_at)).map(s => s.food_name).join(', ');
 
         let msg = `👶 *סיכום יום עבור ${babyName} (${todayStr})*\n\n`;
         msg += `🍼 *אכילות:* ${actualFeedingsToday.length} ארוחות`;
@@ -657,7 +548,10 @@
         window.open(url, '_blank');
       };
 
-      const setOfflineQueue = (q) => { localStorage.setItem('bobo_offline_queue', JSON.stringify(q)); setPendingSyncCount(q.length); };
+      const setOfflineQueue = (q) => { 
+        localStorage.setItem('bobo_offline_queue', JSON.stringify(q)); 
+        setPendingSyncCount(q.length); 
+      };
 
       const syncOfflineData = async () => {
         const queue = getOfflineQueue();
@@ -782,29 +676,36 @@
         }
       };
 
-      const testPushNotification = async () => {
-        triggerVibration(15);
-        await triggerPushNotification({
-          type: 'feed_reminder',
-          title: '⏰ בדיקת התראת האכלה',
-          body: `תזכורת: מתקרב מועד ההאכלה של ${babyName}! (בעוד ${notifyLeadMinutes} דק')`
-        });
-        alert('ההתראה נשלחה כעת לכל המכשירים הרשומים!');
-      };
-
       useEffect(() => {
+        let isMounted = true;
+        const safetyTimer = setTimeout(() => {
+          if (isMounted) setAuthLoading(false);
+        }, 1500);
+
         supabaseClient.auth.getSession().then(({ data: { session } }) => {
-          setUser(session?.user || null);
-          setAuthLoading(false);
+          if (isMounted) {
+            clearTimeout(safetyTimer);
+            setUser(session?.user || null);
+            setAuthLoading(false);
+          }
         }).catch(() => {
-          setAuthLoading(false);
+          if (isMounted) {
+            clearTimeout(safetyTimer);
+            setAuthLoading(false);
+          }
         });
 
         const { data: { subscription } } = supabaseClient.auth.onAuthStateChange((_event, session) => {
-          setUser(session?.user || null);
-          setAuthLoading(false);
+          if (isMounted) {
+            setUser(session?.user || null);
+            setAuthLoading(false);
+          }
         });
-        return () => subscription.unsubscribe();
+        return () => {
+          isMounted = false;
+          clearTimeout(safetyTimer);
+          subscription.unsubscribe();
+        };
       }, []);
 
       useEffect(() => {
@@ -876,7 +777,7 @@
           if (dData) { setDiapers(dData); localStorage.setItem('bobo_cache_diapers', JSON.stringify(dData)); }
           if (sData) { setSolids(sData); localStorage.setItem('bobo_cache_solids', JSON.stringify(sData)); }
           if (gData) { setGrowthMetrics(gData); localStorage.setItem('bobo_cache_growth', JSON.stringify(gData)); }
-          setTimeline(assembleTimeline(fData || feedings, dData || diapers, sData || solids, gData || growthMetrics));
+          setTimeline(assembleTimeline(fData || [], dData || [], sData || [], gData || []));
           loadStickyNote();
         } catch (e) {}
       };
@@ -926,7 +827,7 @@
       }, [user]);
 
       useEffect(() => {
-        const significantFeedings = timeline.filter(f => {
+        const significantFeedings = (timeline || []).filter(f => {
           if (f.logType !== 'feeding') return false;
           const isNotVitD = !f.notes?.includes('ויטמין D');
           const isNotPumping = !f.notes?.includes('[שאיבת_חלב]') && f.type !== 'pumping';
@@ -936,7 +837,6 @@
         if (significantFeedings.length > 0) { 
           const feedTime = new Date(significantFeedings[0].timestamp).getTime();
           setLastFeedTime(feedTime);
-          hasNotifiedLeadRef.current = false;
         } else { 
           setLastFeedTime(null); 
         }
@@ -949,21 +849,11 @@
           const nextFeed = lastFeedTime + (feedIntervalHours * 60 * 60 * 1000);
           const diff = nextFeed - now;
           setTimeToNextFeed(diff);
-
-          const leadMs = notifyLeadMinutes * 60 * 1000;
-          if (diff > 0 && diff <= leadMs && !hasNotifiedLeadRef.current) {
-            hasNotifiedLeadRef.current = true;
-            triggerPushNotification({
-              type: 'feed_reminder',
-              title: '⏰ מתקרב מועד האכלה!',
-              body: `תזכורת: האכלה הבאה של ${babyName} בעוד כ-${notifyLeadMinutes} דקות.`
-            });
-          }
         };
         updateCountdown();
         const interval = setInterval(updateCountdown, 1000);
         return () => clearInterval(interval);
-      }, [lastFeedTime, feedIntervalHours, notifyLeadMinutes, babyName]);
+      }, [lastFeedTime, feedIntervalHours]);
 
       useEffect(() => {
         if (isTimerActive) {
@@ -1032,7 +922,7 @@
 
       const logVitaminD = async () => {
         triggerVibration(15);
-        const alreadyGivenToday = timeline.some(f => f.notes?.includes('ויטמין D') && isToday(f.timestamp));
+        const alreadyGivenToday = (timeline || []).some(f => f.notes?.includes('ויטמין D') && isToday(f.timestamp));
         if (alreadyGivenToday) { alert('💊 שימו לב: כבר ניתן ויטמין D היום! אין צורך במנה נוספת.'); return; }
         const finalNotes = `💊 ויטמין D - 2 טיפות`;
         await performInsert('feedings', { type: 'bottle', side: 'both', amount_ml: null, duration_minutes: null, notes: finalNotes, created_at: new Date().toISOString() });
@@ -1144,9 +1034,9 @@
       };
 
       const exportToCSV = () => {
-        if (timeline.length === 0) return alert("אין נתונים לייצוא");
+        if ((timeline || []).length === 0) return alert("אין נתונים לייצוא");
         let csvContent = "\uFEFFסוג פעולה,פירוט,כמות/משך,צד/החזקה,תאריך,שעה,הערות\n";
-        timeline.forEach(item => {
+        (timeline || []).forEach(item => {
           const type = item.logType === 'vitamin_d' ? 'ויטמין D' : item.logType === 'pumping' ? 'שאיבה' : item.logType === 'feeding' ? (item.type === 'breastfeeding' ? 'הנקה' : 'בקבוק') : item.logType === 'diaper' ? 'חיתול' : item.logType === 'solid' ? 'טעימות מוצקים' : 'גדילה';
           const subType = item.logType === 'vitamin_d' ? 'תוסף תזונה' : item.logType === 'pumping' ? 'שאיבת חלב' : item.logType === 'feeding' ? (item.type === 'breastfeeding' ? 'הנקה' : 'האכלה') : item.logType === 'diaper' ? (item.type === 'wet' ? 'פיפי' : item.type === 'dirty' ? 'קקי' : 'שניהם') : item.logType === 'solid' ? item.food_name : (item.metric_type === 'weight' ? 'משקל' : 'גובה');
           const value = item.logType === 'vitamin_d' ? '2 טיפות' : item.logType === 'pumping' ? `${item.amount_ml} מ"ל` : item.logType === 'feeding' ? (item.duration_minutes ? `${item.duration_minutes} דקות` : `${item.amount_ml} מ"ל`) : item.logType === 'diaper' ? '' : item.logType === 'solid' ? (item.reaction === 'liked' ? 'אהב' : item.reaction === 'neutral' ? 'נייטרלי' : item.reaction === 'disliked' ? 'לא אהב' : 'חשש לאלרגיה') : `${item.value} ${item.unit === 'kg' ? 'ק"ג' : 'ס"מ'}`;
@@ -1167,7 +1057,7 @@
       };
 
       const getDailyPumpingStats = () => {
-        const pumpingLogs = timeline.filter(item => item.logType === 'pumping');
+        const pumpingLogs = (timeline || []).filter(item => item.logType === 'pumping');
         const grouped = {};
         pumpingLogs.forEach(log => {
           const date = new Date(log.timestamp);
@@ -1187,7 +1077,7 @@
           const d = new Date(today); d.setDate(d.getDate() - i);
           const daysNames = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
           const dateStr = `${daysNames[d.getDay()]} ${d.getDate()}`;
-          const dayLogs = timeline.filter(log => { const logDate = new Date(log.timestamp); return logDate.getDate() === d.getDate() && logDate.getMonth() === d.getMonth() && logDate.getFullYear() === d.getFullYear(); });
+          const dayLogs = (timeline || []).filter(log => { const logDate = new Date(log.timestamp); return logDate.getDate() === d.getDate() && logDate.getMonth() === d.getMonth() && logDate.getFullYear() === d.getFullYear(); });
           const bottleMl = dayLogs.filter(l => l.logType === 'feeding' && l.type === 'bottle').reduce((sum, l) => sum + (l.amount_ml || 0), 0);
           const pumpingMl = dayLogs.filter(l => l.logType === 'pumping').reduce((sum, l) => sum + (l.amount_ml || 0), 0);
           const breastMins = dayLogs.filter(l => l.logType === 'feeding' && l.type === 'breastfeeding').reduce((sum, l) => sum + (l.duration_minutes || 0), 0);
@@ -1199,7 +1089,7 @@
       const getWeeklyMedicalSummary = () => {
         const today = new Date(); today.setHours(23, 59, 59, 999);
         const sevenDaysAgo = new Date(today); sevenDaysAgo.setDate(today.getDate() - 7); sevenDaysAgo.setHours(0,0,0,0);
-        const recentLogs = timeline.filter(log => { const logDate = new Date(log.timestamp); return logDate >= sevenDaysAgo && logDate <= today; });
+        const recentLogs = (timeline || []).filter(log => { const logDate = new Date(log.timestamp); return logDate >= sevenDaysAgo && logDate <= today; });
         const diapersLogs = recentLogs.filter(l => l.logType === 'diaper');
         const wetCount = diapersLogs.filter(d => d.type === 'wet' || d.type === 'both').length;
         const dirtyCount = diapersLogs.filter(d => d.type === 'dirty' || d.type === 'both').length;
@@ -1221,8 +1111,8 @@
       const feedPercentage = Math.min(100, (actualFeedingsToday.length / targetFeeds) * 100);
       const diaperPercentage = Math.min(100, (todaysDiapers.length / targetDiapers) * 100);
 
-      const growthLogs = timeline.filter(item => item.logType === 'growth');
-      const mainTimelineLogs = timeline.filter(item => item.logType !== 'growth');
+      const growthLogs = (timeline || []).filter(item => item.logType === 'growth');
+      const mainTimelineLogs = (timeline || []).filter(item => item.logType !== 'growth');
       const todaysTimeline = mainTimelineLogs.filter(item => isToday(item.timestamp));
 
       const displayedTimelineLogs = mainTimelineLogs.filter(item => {
@@ -1357,16 +1247,6 @@
 
             <div className="flex items-center gap-2">
               <button 
-                onClick={handleVoiceInput}
-                title="הזנה קולית חכמה"
-                className={`p-2 rounded-xl text-xs font-bold border transition active:scale-95 flex items-center gap-1 ${
-                  isListening ? 'bg-rose-500 border-rose-500 text-white shadow-md shadow-rose-300 animate-pulse' : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700'
-                }`}
-              >
-                <span>🎙️</span>
-              </button>
-
-              <button 
                 onClick={() => { triggerVibration(10); setShowNoisePlayer(!showNoisePlayer); }}
                 title="רעש לבן מרגיע"
                 className={`p-2 rounded-xl text-xs font-bold border transition active:scale-95 flex items-center gap-1 ${
@@ -1379,16 +1259,6 @@
               <button onClick={() => { triggerVibration(10); supabaseClient.auth.signOut(); }} className="text-xs font-bold text-red-500 bg-red-50 dark:bg-red-950/40 px-3 py-1.5 rounded-xl transition hover:bg-red-100 dark:hover:bg-red-900/60 active:scale-95 shadow-sm border border-red-100 dark:border-red-900/50">התנתק</button>
             </div>
           </header>
-
-          {voiceFeedback && (
-            <div className="mx-4 mt-3 bg-rose-500 text-white p-3 rounded-2xl text-xs font-black shadow-lg shadow-rose-200/60 flex items-center justify-between animate-in slide-in-from-top-2">
-              <div className="flex items-center gap-2">
-                <span className="text-sm">🎙️</span>
-                <span>{voiceFeedback}</span>
-              </div>
-              {isListening && <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>}
-            </div>
-          )}
 
           {showNoisePlayer && (
             <div className="bg-white/95 dark:bg-gray-800/95 p-4 mx-4 mt-3 rounded-3xl border border-teal-100 dark:border-gray-700 shadow-xl space-y-3 animate-in slide-in-from-top-2">
@@ -1751,8 +1621,8 @@
                           className={`w-full font-black text-base py-4 rounded-2xl shadow-xl transition-all duration-300 flex items-center justify-center gap-2 ${
                             solidSaveStatus === 'success' ? 'bg-green-500 text-white shadow-green-200/50 animate-success' : 'bg-emerald-500 text-white shadow-emerald-200/50 active:scale-95'
                           }`}>
-                          {solidSaveStatus === 'saving' ? '⏳ שומר...' : solidSaveStatus === 'success' ? '✅ נשמר בהצלחה!' : 'שמור טעימה'}
-                        </button>
+                            {solidSaveStatus === 'saving' ? '⏳ שומר...' : solidSaveStatus === 'success' ? '✅ נשמר בהצלחה!' : 'שמור טעימה'}
+                          </button>
                       </div>
                     </div>
                   )}
@@ -1918,7 +1788,7 @@
 
             {activeTab === 'solids_board' && (() => {
               const uniqueFoods = {};
-              solids.forEach(s => { if (!uniqueFoods[s.food_name] || new Date(s.created_at) > new Date(uniqueFoods[s.food_name].created_at)) { uniqueFoods[s.food_name] = s; } });
+              (solids || []).forEach(s => { if (!uniqueFoods[s.food_name] || new Date(s.created_at) > new Date(uniqueFoods[s.food_name].created_at)) { uniqueFoods[s.food_name] = s; } });
               const foodsList = Object.values(uniqueFoods);
               const allergicFoods = foodsList.filter(f => f.reaction === 'allergic');
 
@@ -2217,14 +2087,9 @@
                       <span className="text-sm font-black dark:text-white flex items-center gap-2 mb-1"><span className="text-lg">🔔</span> התראות פוש</span>
                       <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium leading-tight block max-w-[200px]">רישום המכשיר לקבלת התראות האכלה בזמן אמת</span>
                     </div>
-                    <div className="flex gap-2">
-                      <button onClick={testPushNotification} className="text-[11px] font-black px-3 py-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 active:scale-95 transition">
-                        בדיקת פוש 🚀
-                      </button>
-                      <button onClick={()=>{triggerVibration(10); requestNotificationPermission();}} className={`text-xs font-black px-4 py-2.5 rounded-xl shadow-sm transition active:scale-95 ${notificationsEnabled ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300' : 'bg-rose-500 text-white shadow-rose-200/50'}`}>
-                        {notificationsEnabled ? 'פעיל ✓' : 'הפעל'}
-                      </button>
-                    </div>
+                    <button onClick={()=>{triggerVibration(10); requestNotificationPermission();}} className={`text-xs font-black px-4 py-2.5 rounded-xl shadow-sm transition active:scale-95 ${notificationsEnabled ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300' : 'bg-rose-500 text-white shadow-rose-200/50'}`}>
+                      {notificationsEnabled ? 'פעיל ✓' : 'הפעל'}
+                    </button>
                   </div>
 
                   <div className="space-y-2 border-t border-gray-100 dark:border-gray-700/60 pt-5">
