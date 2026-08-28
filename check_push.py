@@ -3,7 +3,6 @@ import requests
 from datetime import datetime, timezone
 from pywebpush import webpush, WebPushException
 
-# הגדרות Supabase
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://zebyzpsffpvdaoqrhonq.supabase.co")
 SUPABASE_KEY = os.environ.get("SUPABASE_ANON_KEY")
 
@@ -29,7 +28,6 @@ def check_and_send_push():
     feedings = res.json()
     significant_feed = None
 
-    # סינון: רק הנקה או בקבוק של 60 מ"ל ומעלה (מתעלם מויטמין D ושאיבות)
     for f in feedings:
         notes = f.get("notes", "") or ""
         f_type = f.get("type")
@@ -52,7 +50,7 @@ def check_and_send_push():
     last_time = datetime.fromisoformat(last_time_str.replace("Z", "+00:00"))
     now = datetime.now(timezone.utc)
 
-    interval_hours = 3.0 
+    interval_hours = 3.0
     lead_minutes = 10
 
     elapsed_hours = (now - last_time).total_seconds() / 3600.0
@@ -60,7 +58,7 @@ def check_and_send_push():
 
     print(f"Remaining: {remaining_minutes:.2f} mins")
 
-    # בדיקה האם כבר נשלחה התראה להאכלה זו
+    # בדיקה האם כבר נשלחה התראה להאכלה זו (מונע כפילות)
     note_res = requests.get(f"{SUPABASE_URL}/rest/v1/sticky_notes?id=eq.last_push_id&select=content", headers=headers)
     if note_res.status_code == 200 and len(note_res.json()) > 0:
         if note_res.json()[0].get("content") == str(feed_id):
@@ -72,12 +70,14 @@ def check_and_send_push():
         print("Time to send notification!")
         subs_res = requests.get(f"{SUPABASE_URL}/rest/v1/push_subscriptions?select=*", headers=headers)
         if subs_res.status_code == 200:
+            unique_endpoints = set()
             for sub in subs_res.json():
                 endpoint = sub.get('endpoint')
                 p256dh = sub.get('p256dh')
                 auth = sub.get('auth')
                 
-                if endpoint and p256dh and auth:
+                if endpoint and p256dh and auth and endpoint not in unique_endpoints:
+                    unique_endpoints.add(endpoint)
                     push_info = {
                         "endpoint": endpoint,
                         "keys": {
@@ -97,7 +97,7 @@ def check_and_send_push():
                     except Exception as e:
                         print(f"Error sending push: {e}")
             
-            # שמירת ה-ID כדי למנוע כפילות בריצות הבאות של ה-Action
+            # רישום נעילה למניעת ריצות כפולות
             requests.post(
                 f"{SUPABASE_URL}/rest/v1/sticky_notes",
                 headers={**headers, "Prefer": "resolution=merge-duplicates"},
