@@ -257,7 +257,6 @@
       const actualFeedingsToday = actualBabyFeedings.filter(f => isToday(f.timestamp));
       const todaysDiapers = timeline.filter(d => d.logType === 'diaper' && isToday(d.timestamp));
       
-      // משתני בדיקת הגעה ליעד עבור פידבק חזותי
       const isFeedGoalReached = actualFeedingsToday.length >= targetFeeds && targetFeeds > 0;
       const isDiaperGoalReached = todaysDiapers.length >= targetDiapers && targetDiapers > 0;
 
@@ -1304,7 +1303,7 @@
                   </button>
                 </div>
 
-                {/* שלב 2: אנימציות חגיגיות קטנות (Pulse + Trophy) בקוביית היעדים */}
+                {/* שלב 2: אנימציות חגיגיות (Pulse + Trophy) בקוביית היעדים */}
                 <div className={`grid ${statColsCount} gap-3 text-white`}>
                   <div className={`bg-gradient-to-br from-rose-400 to-rose-500 p-4 rounded-3xl shadow-lg relative overflow-hidden border transition-all duration-500 ${isFeedGoalReached ? 'border-rose-300 shadow-rose-300/50 animate-soft-pulse' : 'border-rose-300/30 shadow-rose-200/50 dark:shadow-none'}`}>
                     <div className="flex justify-between items-center z-10 relative">
@@ -1510,7 +1509,7 @@
                         <div className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] shadow-xl shadow-amber-100/60 dark:shadow-none border border-gray-100 dark:border-gray-700 space-y-5 animate-in slide-in-from-top-2 duration-300">
                           <div className="flex justify-between items-center"><h3 className="font-black text-amber-500 text-sm flex items-center gap-2"><span className="text-lg">🚼</span> עדכון חיתול</h3><button onClick={()=>{triggerVibration(10); setActiveSection(null)}} className="text-sm bg-gray-100 dark:bg-gray-700 w-8 h-8 rounded-full flex items-center justify-center font-bold text-gray-500 dark:text-gray-300">✕</button></div>
                           <div className="grid grid-cols-3 gap-3">
-                            {['wet', 'dirty', 'both'].map(t => <button key={t} onClick={() => {triggerVibration(10); setDiaperType(t)}} className={`py-5 rounded-2xl text-sm font-bold shadow-sm active:scale-95 transition border flex flex-col items-center gap-2 ${diaperType === t ? 'bg-amber-400 text-white border-amber-400' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-600'}`}><span className="text-2xl drop-shadow-sm">{t === 'wet' ? '💧' : t === 'dirty' ? '💩' : '✨'}</span>{t === 'wet' ? 'פיפי' : t === 'dirty' ? 'קקי' : 'שניהם'}</button>)}
+                            {['wet', 'dirty', 'both'].map(t => <button key={t} onClick={() => {triggerVibration(10); setDiaperType(t)}} className={`py-5 rounded-2xl text-sm font-bold shadow-sm active:scale-95 transition border flex flex-col items-center gap-2 ${diaperType === t ? 'bg-amber-400 text-white border-amber-400' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-600'}`}>{t === 'wet' ? '💧' : t === 'dirty' ? '💩' : '✨'}</span>{t === 'wet' ? 'פיפי' : t === 'dirty' ? 'קקי' : 'שניהם'}</button>)}
                           </div>
                           <div>
                             <input type="text" value={diaperNotes} onChange={e => setDiaperNotes(e.target.value)} placeholder="הערות לחיתול (צבע, מרקם וכו')..." className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-200 dark:border-gray-600 text-xs focus:outline-none dark:text-white font-medium shadow-sm" />
@@ -1752,7 +1751,7 @@
                       <h3 className="text-sm font-black text-red-600 dark:text-red-300 flex items-center gap-2">
                         <span className="text-lg animate-pulse">⚠️</span> חשש לאלרגיה או רגישות ({allergicFoods.length})
                       </h3>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-2.5">
                         {allergicFoods.map((f, idx) => (
                           <span key={idx} className="bg-red-100 dark:bg-red-900/60 text-red-700 dark:text-red-200 px-3 py-1.5 rounded-xl text-xs font-bold border border-red-200 dark:border-red-700 shadow-sm">{f.food_name}</span>
                         ))}
@@ -1841,11 +1840,18 @@
               </div>
             )}
 
+            {/* --- שלב 3: הוספת כרטיסיית סטטיסטיקות השוואתיות מעל הגרפים בטאב מגמות --- */}
             {activeTab === 'trends' && (() => {
               const stats7Days = getLast7DaysStats();
               const maxBottle = Math.max(...stats7Days.map(s => s.bottleMl), 50);
               const maxPumping = Math.max(...stats7Days.map(s => s.pumpingMl), 50);
               const maxBreast = Math.max(...stats7Days.map(s => s.breastMins), 30);
+
+              // חישוב ממוצע שבועי מול היום (סטטיסטיקה השוואתית)
+              const avgBottle = Math.round(stats7Days.reduce((acc, c) => acc + c.bottleMl, 0) / 7);
+              const avgBreast = Math.round(stats7Days.reduce((acc, c) => acc + c.breastMins, 0) / 7);
+              const todayBottleDiff = totalMlToday - avgBottle;
+              const todayBreastDiff = totalDurationToday - avgBreast;
 
               return (
                 <div className="animate-tab space-y-5">
@@ -1855,6 +1861,27 @@
                       <p className="text-xs font-bold opacity-90 mt-1 bg-black/10 px-2 py-0.5 rounded-lg inline-block">סיכום 7 הימים האחרונים</p>
                     </div>
                     <div className="text-4xl drop-shadow-md">📈</div>
+                  </div>
+
+                  {/* כרטיסיית השוואה חכמה */}
+                  <div className="bg-white dark:bg-gray-800 p-4 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-3">
+                    <h3 className="text-xs font-black text-gray-500 dark:text-gray-400 px-1">💡 השוואה יומית מול ממוצע שבועי:</h3>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div className="bg-cyan-50/70 dark:bg-cyan-900/30 p-3.5 rounded-2xl border border-cyan-100 dark:border-cyan-800">
+                        <span className="font-bold text-cyan-800 dark:text-cyan-200 block mb-1">🍼 בקבוקים (מ"ל)</span>
+                        <div className="text-base font-black text-cyan-600 dark:text-cyan-400">{totalMlToday} <span className="text-[10px] text-gray-500">/ ממוצע {avgBottle}</span></div>
+                        <span className={`text-[10px] font-bold mt-1 inline-block ${todayBottleDiff >= 0 ? 'text-teal-600 dark:text-teal-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                          {todayBottleDiff >= 0 ? `▲ ${todayBottleDiff} מ"ל יותר` : `▼ ${Math.abs(todayBottleDiff)} מ"ל פחות`}
+                        </span>
+                      </div>
+                      <div className="bg-rose-50/70 dark:bg-rose-900/30 p-3.5 rounded-2xl border border-rose-100 dark:border-rose-800">
+                        <span className="font-bold text-rose-800 dark:text-rose-200 block mb-1">🤱 הנקה (דקות)</span>
+                        <div className="text-base font-black text-rose-600 dark:text-rose-400">{totalDurationToday} <span className="text-[10px] text-gray-500">/ ממוצע {avgBreast}</span></div>
+                        <span className={`text-[10px] font-bold mt-1 inline-block ${todayBreastDiff >= 0 ? 'text-teal-600 dark:text-teal-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                          {todayBreastDiff >= 0 ? `▲ ${todayBreastDiff} דק' יותר` : `▼ ${Math.abs(todayBreastDiff)} דק' פחות`}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                   
                   <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-white/60 dark:border-gray-700/50 shadow-xl shadow-cyan-100/30 dark:shadow-black/20">
