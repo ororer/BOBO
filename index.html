@@ -27,48 +27,88 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   
   <style>
-    body { font-family: 'Heebo', sans-serif !important; }
-    html.dark body { background-image: none !important; background-color: #000000 !important; color: #f3f4f6 !important; }
-    
-    html.dark .bg-white, html.dark .bg-white\/80, html.dark .bg-white\/90, html.dark .bg-white\/95, html.dark .bg-gray-800, html.dark .bg-gray-800\/95 {
-      background-color: #121212 !important; color: #f3f4f6 !important; border-color: #27272a !important; 
+    body { 
+      font-family: 'Heebo', sans-serif !important; 
+      background-attachment: fixed;
     }
     
-    html.dark .bg-gray-50, html.dark .bg-slate-100, html.dark .bg-slate-100\/80, html.dark .bg-gray-700, html.dark .bg-gray-700\/50 {
-      background-color: #1c1c1e !important; color: #e5e7eb !important; border-color: #3f3f46 !important;
+    html.dark body { 
+      background-color: #09090b !important; 
+      color: #f4f4f5 !important; 
     }
+    
+    .glass-card {
+      background: rgba(255, 255, 255, 0.82);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.04), 0 4px 12px -2px rgba(0, 0, 0, 0.02);
+    }
+    
+    html.dark .glass-card {
+      background: rgba(24, 24, 27, 0.8);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.4);
+    }
+
+    .glass-nav {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.08);
+    }
+
+    html.dark .glass-nav {
+      background: rgba(24, 24, 27, 0.88);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.6);
+    }
+
+    html.dark .bg-gray-50, html.dark .bg-slate-100, html.dark .bg-gray-700 {
+      background-color: #27272a !important; 
+      color: #e4e4e7 !important; 
+      border-color: #3f3f46 !important;
+    }
+    
     html.dark input, html.dark select {
-      background-color: #1c1c1e !important; color: #ffffff !important; border-color: #3f3f46 !important;
+      background-color: #18181b !important; 
+      color: #ffffff !important; 
+      border-color: #3f3f46 !important;
     }
-    html.dark .text-gray-800, html.dark .text-gray-900, html.dark .text-gray-700, html.dark .text-gray-950 { color: #f3f4f6 !important; }
+    
+    html.dark .text-gray-800, html.dark .text-gray-900, html.dark .text-gray-700 { color: #f4f4f5 !important; }
     html.dark .text-gray-600, html.dark .text-gray-500 { color: #a1a1aa !important; }
-    html.dark header, html.dark nav { border-color: #27272a !important; }
     
     .hide-scrollbar::-webkit-scrollbar { display: none; }
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
     @keyframes successPop {
       0% { transform: scale(0.95); opacity: 0.8; }
-      50% { transform: scale(1.05); }
+      50% { transform: scale(1.04); }
       100% { transform: scale(1); opacity: 1; }
     }
     .animate-success { animation: successPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
 
     @keyframes slideUpFade {
-      0% { opacity: 0; transform: translateY(20px) scale(0.98); }
-      100% { opacity: 1; transform: translateY(0) scale(1); }
+      0% { opacity: 0; transform: translateY(16px); }
+      100% { opacity: 1; transform: translateY(0); }
     }
-    .animate-tab { animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    .animate-tab { animation: slideUpFade 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
     @keyframes softPulse {
       0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.85; transform: scale(1.02); }
+      50% { opacity: 0.9; transform: scale(1.02); }
     }
     .animate-soft-pulse { animation: softPulse 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
 
     @keyframes recordingPulse {
-      0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-      50% { transform: scale(1.08); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+      0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
+      50% { transform: scale(1.06); box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
     }
     .animate-recording { animation: recordingPulse 1.5s infinite; }
 
@@ -92,7 +132,7 @@
     }
   </style>
 </head>
-<body class="bg-gradient-to-br from-rose-50/80 via-orange-50/40 to-teal-50/50 min-h-screen font-sans antialiased transition-colors duration-300 selection:bg-rose-200">
+<body class="bg-gradient-to-br from-rose-50/70 via-orange-50/30 to-teal-50/40 min-h-screen font-sans antialiased transition-colors duration-300 selection:bg-rose-200">
 
   <div id="root">
     <div style="display:flex;height:100vh;align-items:center;justify-content:center;font-family:sans-serif;font-weight:bold;color:#fb7185;font-size:20px;">
@@ -188,7 +228,6 @@
       const noiseGainNodeRef = useRef(null);
       const noiseIntervalRef = useRef(null);
 
-      // משתני זיהוי קולי
       const [isListening, setIsListening] = useState(false);
       const [voiceFeedback, setVoiceFeedback] = useState('');
       const recognitionRef = useRef(null);
@@ -256,7 +295,6 @@
 
       const quickSolids = ['בטטה', 'גזר', 'קישוא', 'דלעת', 'בננה', 'אבוקדו', 'טחינה', 'תפוח'];
 
-      // הגדרות סדר נכונות למניעת שגיאות ReferenceError
       const isToday = (timestamp) => {
         if (!timestamp) return false;
         const date = new Date(timestamp); const today = new Date();
@@ -288,7 +326,7 @@
         const metaTheme = document.querySelector('meta[name="theme-color"]');
         if (isDarkMode) {
           document.documentElement.classList.add('dark');
-          if (metaTheme) metaTheme.setAttribute('content', '#121212');
+          if (metaTheme) metaTheme.setAttribute('content', '#09090b');
         } else {
           document.documentElement.classList.remove('dark');
           if (metaTheme) metaTheme.setAttribute('content', '#ffffff');
@@ -447,7 +485,6 @@
         }
       };
 
-      // מנגנון פקודה קולית חכם בלחיצה אחת
       const handleVoiceCommand = () => {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
@@ -465,7 +502,7 @@
           triggerVibration(20);
           const recognition = new SpeechRecognition();
           recognition.lang = 'he-IL';
-          recognition.continuous = false; // עוצר אוטומטית כשיש שתיקה
+          recognition.continuous = false;
           recognition.interimResults = false;
 
           recognition.onstart = () => {
@@ -529,7 +566,7 @@
           await logVitaminD();
           setVoiceFeedback(`✅ נרשם ויטמין D`);
         } else {
-          setVoiceFeedback(`⚠️ לא זוהתה פעולה ברורה במשפט: "${text}"`);
+          setVoiceFeedback(`⚠️ לא זוהתה פקודה: "${text}"`);
         }
         loadAllDataRef.current();
       };
@@ -783,13 +820,13 @@
       };
 
       const getTagColor = (item) => {
-        if (item.logType === 'vitamin_d') return 'text-violet-700 bg-violet-100 dark:text-violet-200 dark:bg-violet-900/50';
-        if (item.logType === 'pumping') return 'text-purple-700 bg-purple-100 dark:text-purple-200 dark:bg-purple-900/50';
-        if (item.logType === 'feeding') { return item.type === 'breastfeeding' ? 'text-rose-700 bg-rose-100 dark:text-rose-200 dark:bg-rose-900/50' : 'text-cyan-700 bg-cyan-100 dark:text-cyan-200 dark:bg-cyan-900/50'; }
-        if (item.logType === 'diaper') return 'text-amber-700 bg-amber-100 dark:text-amber-200 dark:bg-amber-900/50';
-        if (item.logType === 'solid') return 'text-emerald-700 bg-emerald-100 dark:text-emerald-200 dark:bg-emerald-900/50';
-        if (item.logType === 'growth') return 'text-teal-700 bg-teal-100 dark:text-teal-200 dark:bg-teal-900/50';
-        return 'text-gray-600 bg-gray-50 dark:text-gray-300 dark:bg-gray-800';
+        if (item.logType === 'vitamin_d') return 'text-violet-700 bg-violet-100/70 dark:text-violet-200 dark:bg-violet-900/40';
+        if (item.logType === 'pumping') return 'text-purple-700 bg-purple-100/70 dark:text-purple-200 dark:bg-purple-900/40';
+        if (item.logType === 'feeding') { return item.type === 'breastfeeding' ? 'text-rose-700 bg-rose-100/70 dark:text-rose-200 dark:bg-rose-900/40' : 'text-cyan-700 bg-cyan-100/70 dark:text-cyan-200 dark:bg-cyan-900/40'; }
+        if (item.logType === 'diaper') return 'text-amber-700 bg-amber-100/70 dark:text-amber-200 dark:bg-amber-900/40';
+        if (item.logType === 'solid') return 'text-emerald-700 bg-emerald-100/70 dark:text-emerald-200 dark:bg-emerald-900/40';
+        if (item.logType === 'growth') return 'text-teal-700 bg-teal-100/70 dark:text-teal-200 dark:bg-teal-900/40';
+        return 'text-gray-600 bg-gray-100/70 dark:text-gray-300 dark:bg-gray-800/40';
       };
 
       const loadAllData = async () => {
@@ -1199,17 +1236,17 @@
 
       if (!user) {
         return (
-          <div className="max-w-md mx-auto mt-20 p-6 bg-white dark:bg-gray-800 rounded-3xl shadow-xl border border-rose-100 dark:border-gray-700 animate-in fade-in">
+          <div className="max-w-md mx-auto mt-20 p-6 md:p-8 glass-card rounded-[2.5rem] animate-in fade-in">
             <div className="text-center mb-6">
               <div className="w-16 h-16 bg-gradient-to-tr from-rose-400 to-orange-300 text-white rounded-full flex items-center justify-center mx-auto text-3xl shadow-lg shadow-rose-200/50 mb-3 animate-bounce">👶</div>
-              <h2 className="text-2xl font-bold text-gray-800 dark:text-white">בובו - סנכרון הורים</h2>
-              <p className="text-xs text-gray-500 mt-1">התחבר כדי לראות את כל ההיסטוריה והנתונים</p>
+              <h2 className="text-2xl font-black text-gray-800 dark:text-white">בובו - סנכרון הורים</h2>
+              <p className="text-xs text-gray-500 mt-1 font-medium">התחבר כדי לראות את כל ההיסטוריה והנתונים</p>
             </div>
-            {authError && <div className="mb-4 bg-red-50 text-red-600 text-xs p-3 rounded-xl text-center font-bold">{authError}</div>}
+            {authError && <div className="mb-4 bg-red-50 text-red-600 text-xs p-3 rounded-2xl text-center font-bold">{authError}</div>}
             <form onSubmit={handleLogin} className="space-y-4">
-              <input type="email" placeholder="אימייל משפחתי" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 dark:text-white rounded-xl border border-gray-200 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-rose-400 font-medium transition" required />
-              <input type="password" placeholder="סיסמה" value={password} onChange={e => setPassword(e.target.value)} className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 dark:text-white rounded-xl border border-gray-200 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-rose-400 font-medium transition" required />
-              <button type="submit" className="w-full bg-gradient-to-r from-rose-400 via-orange-400 to-amber-400 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-rose-200/50 cursor-pointer transition active:scale-95">התחבר עכשיו</button>
+              <input type="email" placeholder="אימייל משפחתי" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-4 py-3.5 bg-white/60 dark:bg-gray-800/60 dark:text-white rounded-2xl border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-rose-400 font-medium transition" required />
+              <input type="password" placeholder="סיסמה" value={password} onChange={e => setPassword(e.target.value)} className="w-full px-4 py-3.5 bg-white/60 dark:bg-gray-800/60 dark:text-white rounded-2xl border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-rose-400 font-medium transition" required />
+              <button type="submit" className="w-full bg-gradient-to-r from-rose-400 via-orange-400 to-amber-400 text-white font-black py-4 rounded-2xl shadow-xl shadow-rose-200/50 cursor-pointer transition active:scale-95">התחבר עכשיו</button>
             </form>
           </div>
         );
@@ -1224,52 +1261,52 @@
         <div className="max-w-lg mx-auto min-h-screen flex flex-col pb-28 text-gray-800 dark:text-gray-100 relative">
           
           {showInstallPrompt && (
-            <div className="fixed top-4 left-4 right-4 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md p-4 rounded-3xl shadow-2xl z-[100] border border-rose-100 dark:border-gray-700 animate-in slide-in-from-top-4 flex flex-col gap-3 max-w-md mx-auto">
+            <div className="fixed top-4 left-4 right-4 glass-card p-5 rounded-[2rem] z-[100] animate-in slide-in-from-top-4 flex flex-col gap-3 max-w-md mx-auto">
               <div className="flex justify-between items-start">
                 <div className="flex gap-3 items-center">
                   <div className="w-12 h-12 bg-gradient-to-tr from-rose-400 to-orange-300 rounded-2xl flex items-center justify-center text-2xl shadow-inner text-white">📱</div>
                   <div>
                     <h4 className="font-black text-sm text-gray-800 dark:text-white">התקן את האפליקציה</h4>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">חוויית PWA אמיתית ומהירה יותר.</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">חוויית PWA אמיתית ומהירה יותר.</p>
                   </div>
                 </div>
-                <button onClick={handleDismissInstallPrompt} className="text-gray-400 font-bold p-2 bg-gray-50 dark:bg-gray-700 rounded-full hover:bg-gray-100 dark:hover:bg-gray-600 transition">✕</button>
+                <button onClick={handleDismissInstallPrompt} className="text-gray-400 font-bold p-2 bg-gray-100/50 dark:bg-gray-700/50 rounded-full hover:bg-gray-200/60 transition">✕</button>
               </div>
 
               {installDeviceType === 'android' ? (
                 <button 
                   onClick={triggerAndroidInstall}
-                  className="w-full bg-rose-500 text-white font-bold py-3 rounded-2xl text-xs shadow-md shadow-rose-200/50 active:scale-95 transition flex items-center justify-center gap-2"
+                  className="w-full bg-rose-500 text-white font-bold py-3.5 rounded-2xl text-xs shadow-md shadow-rose-200/50 active:scale-95 transition flex items-center justify-center gap-2"
                 >
                   <span>📲</span>
                   <span>לחץ כאן להתקנה במכשיר הגלאקסי</span>
                 </button>
               ) : installDeviceType === 'ios' ? (
-                <div className="text-[11px] font-bold text-gray-700 dark:text-gray-300 bg-rose-50 dark:bg-gray-700/50 border border-rose-100 dark:border-gray-600 p-3 rounded-xl">
+                <div className="text-[11px] font-bold text-gray-700 dark:text-gray-300 bg-rose-50/70 dark:bg-gray-800/70 border border-rose-100/60 dark:border-gray-700 p-3 rounded-xl">
                   בספארי, לחץ על כפתור ה<strong>שיתוף</strong> (ריבוע עם חץ) ואז על <strong>הוסף למסך הבית ➕</strong>
                 </div>
               ) : (
-                <div className="text-[11px] font-bold text-gray-700 dark:text-gray-300 bg-rose-50 dark:bg-gray-700/50 border border-rose-100 dark:border-gray-600 p-3 rounded-xl">
+                <div className="text-[11px] font-bold text-gray-700 dark:text-gray-300 bg-rose-50/70 dark:bg-gray-800/70 border border-rose-100/60 dark:border-gray-700 p-3 rounded-xl">
                   לחץ על סמל ההתקנה (➕) בשורת הכתובת של הדפדפן להורדה למחשב.
                 </div>
               )}
             </div>
           )}
 
-          <header className="bg-white/90 dark:bg-gray-900/80 backdrop-blur-xl p-4 sticky top-0 z-50 flex justify-between items-center shadow-sm border-b border-gray-100 dark:border-gray-800 transition-colors duration-300">
+          <header className="glass-card !rounded-none !border-t-0 !border-x-0 !border-b p-4 sticky top-0 z-50 flex justify-between items-center transition-colors duration-300">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 bg-gradient-to-tr from-rose-400 via-orange-300 to-amber-300 text-white rounded-full flex items-center justify-center text-2xl shadow-inner shadow-white/30">👶</div>
+              <div className="w-11 h-11 bg-gradient-to-tr from-rose-400 via-orange-300 to-amber-300 text-white rounded-2xl flex items-center justify-center text-2xl shadow-inner shadow-white/30">👶</div>
               <div>
                 <div className="flex items-center gap-1.5">
-                  <h1 className="font-bold text-gray-800 dark:text-white text-base">{babyName}</h1>
-                  <span className="text-[10px] bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 font-bold px-2 py-0.5 rounded-full">{getBabyAge()}</span>
+                  <h1 className="font-black text-gray-800 dark:text-white text-base">{babyName}</h1>
+                  <span className="text-[10px] bg-rose-100/80 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 font-black px-2.5 py-0.5 rounded-full border border-rose-200/50 dark:border-rose-900/50">{getBabyAge()}</span>
                 </div>
                 <div className="text-[10px] font-bold flex items-center gap-1 mt-0.5">
                   {isOnline ? <span className="text-teal-500">● סנכרון פעיל</span> : <span className="text-amber-500">○ מצב אופליין</span>}
                   {pendingSyncCount > 0 && (
                     <button 
                       onClick={handleManualSyncClick}
-                      className="bg-amber-100 hover:bg-amber-200 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200 px-2 py-0.5 rounded-full text-[9px] font-black shadow-sm transition active:scale-95 cursor-pointer flex items-center gap-1"
+                      className="bg-amber-100/80 hover:bg-amber-200 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200 px-2.5 py-0.5 rounded-full text-[9px] font-black shadow-sm transition active:scale-95 cursor-pointer flex items-center gap-1 border border-amber-200"
                       title="לחץ לסנכרון מיידי או איפוס תור"
                     >
                       <span>🔄 {pendingSyncCount} בהמתנה</span>
@@ -1280,12 +1317,11 @@
             </div>
 
             <div className="flex items-center gap-2">
-              {/* כפתור פקודה קולית חכם */}
               <button 
                 onClick={handleVoiceCommand}
                 title="פקודה קולית (לחיצה אחת והקלטה)"
-                className={`p-2 rounded-xl text-xs font-bold border transition active:scale-95 flex items-center gap-1 ${
-                  isListening ? 'bg-red-500 border-red-500 text-white shadow-md shadow-red-200/50 animate-recording' : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700'
+                className={`p-2.5 rounded-2xl text-xs font-bold border transition active:scale-95 flex items-center gap-1 shadow-sm ${
+                  isListening ? 'bg-red-500 border-red-500 text-white shadow-md shadow-red-200/50 animate-recording' : 'bg-white/70 dark:bg-gray-800/70 text-gray-600 dark:text-gray-300 border-white/60 dark:border-gray-700'
                 }`}
               >
                 <span>🎙️</span>
@@ -1294,33 +1330,32 @@
               <button 
                 onClick={() => { triggerVibration(10); setShowNoisePlayer(!showNoisePlayer); }}
                 title="רעש לבן מרגיע"
-                className={`p-2 rounded-xl text-xs font-bold border transition active:scale-95 flex items-center gap-1 ${
-                  isNoisePlaying ? 'bg-teal-500 border-teal-500 text-white shadow-md shadow-teal-200/50 animate-pulse' : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700'
+                className={`p-2.5 rounded-2xl text-xs font-bold border transition active:scale-95 flex items-center gap-1 shadow-sm ${
+                  isNoisePlaying ? 'bg-teal-500 border-teal-500 text-white shadow-md shadow-teal-200/50 animate-pulse' : 'bg-white/70 dark:bg-gray-800/70 text-gray-600 dark:text-gray-300 border-white/60 dark:border-gray-700'
                 }`}
               >
                 <span>🎧</span>
               </button>
 
-              <button onClick={() => { triggerVibration(10); supabaseClient.auth.signOut(); }} className="text-xs font-bold text-red-500 bg-red-50 dark:bg-red-950/40 px-3 py-1.5 rounded-xl transition hover:bg-red-100 dark:hover:bg-red-900/60 active:scale-95 shadow-sm border border-red-100 dark:border-red-900/50">התנתק</button>
+              <button onClick={() => { triggerVibration(10); supabaseClient.auth.signOut(); }} className="text-xs font-black text-red-500 bg-red-50/80 dark:bg-red-950/40 px-3 py-2 rounded-2xl transition hover:bg-red-100 dark:hover:bg-red-900/60 active:scale-95 shadow-sm border border-red-100/60 dark:border-red-900/50">התנתק</button>
             </div>
           </header>
 
-          {/* חיווי פקודה קולית */}
           {voiceFeedback && (
-            <div className="bg-white/95 dark:bg-gray-800/95 p-3.5 mx-4 mt-3 rounded-2xl border border-rose-200 dark:border-gray-700 shadow-lg text-center text-xs font-black text-rose-600 dark:text-rose-400 animate-in fade-in">
+            <div className="glass-card p-3.5 mx-4 mt-3 rounded-2xl text-center text-xs font-black text-rose-600 dark:text-rose-400 animate-in fade-in">
               {voiceFeedback}
             </div>
           )}
 
           {showNoisePlayer && (
-            <div className="bg-white/95 dark:bg-gray-800/95 p-4 mx-4 mt-3 rounded-3xl border border-teal-100 dark:border-gray-700 shadow-xl space-y-3 animate-in slide-in-from-top-2">
+            <div className="glass-card p-5 mx-4 mt-3 rounded-[2rem] space-y-4 animate-in slide-in-from-top-2">
               <div className="flex justify-between items-center">
                 <h3 className="text-xs font-black text-teal-600 dark:text-teal-400 flex items-center gap-1.5">
                   <span>🎧</span> נגן צלילים מרגיעים (שינה והרגעה)
                 </h3>
-                <button onClick={() => setShowNoisePlayer(false)} className="text-xs font-bold text-gray-400">✕</button>
+                <button onClick={() => setShowNoisePlayer(false)} className="text-xs font-bold text-gray-400 bg-gray-100/60 dark:bg-gray-700/60 w-7 h-7 rounded-full flex items-center justify-center">✕</button>
               </div>
-              <div className="grid grid-cols-4 gap-1.5 text-xs">
+              <div className="grid grid-cols-4 gap-2 text-xs">
                 {[
                   { id: 'white', label: 'רעש לבן', icon: '💨' },
                   { id: 'pink', label: 'רעש ורוד', icon: '🌊' },
@@ -1334,8 +1369,8 @@
                       setNoiseType(n.id);
                       if (isNoisePlaying) startNoiseSound(n.id);
                     }}
-                    className={`py-2 rounded-xl font-bold border flex flex-col items-center gap-1 transition ${
-                      noiseType === n.id ? 'bg-teal-500 text-white border-teal-500 shadow-sm' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-600'
+                    className={`py-3 rounded-2xl font-black border flex flex-col items-center gap-1 transition ${
+                      noiseType === n.id ? 'bg-teal-500 text-white border-teal-500 shadow-md shadow-teal-200/40' : 'bg-white/60 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300 border-white/60 dark:border-gray-700'
                     }`}
                   >
                     <span>{n.icon}</span>
@@ -1350,8 +1385,8 @@
                     <button 
                       key={m} 
                       onClick={() => { triggerVibration(10); setNoiseTimerMin(m); }}
-                      className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border ${
-                        noiseTimerMin === m ? 'bg-teal-500 text-white border-teal-500' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600'
+                      className={`px-2.5 py-1 rounded-xl text-[10px] font-black border ${
+                        noiseTimerMin === m ? 'bg-teal-500 text-white border-teal-500 shadow-sm' : 'bg-white/50 dark:bg-gray-800/50 text-gray-600 dark:text-gray-300 border-white/60 dark:border-gray-700'
                       }`}
                     >
                       {m === 0 ? 'ללא' : `${m} דק'`}
@@ -1360,7 +1395,7 @@
                 </div>
                 <button 
                   onClick={handleToggleNoise}
-                  className={`px-4 py-1.5 rounded-xl font-black text-xs transition active:scale-95 shadow-md ${
+                  className={`px-5 py-2 rounded-2xl font-black text-xs transition active:scale-95 shadow-md ${
                     isNoisePlaying ? 'bg-red-500 text-white shadow-red-200/50' : 'bg-teal-500 text-white shadow-teal-200/50'
                   }`}
                 >
@@ -1375,22 +1410,22 @@
             {activeTab === 'home' && (
               <div className="animate-tab space-y-5">
                 
-                <div className="bg-amber-50/80 dark:bg-amber-950/30 p-3.5 rounded-3xl border border-amber-200/70 dark:border-amber-900/50 shadow-sm flex items-center justify-between gap-3">
+                <div className="glass-card !bg-amber-50/70 dark:!bg-amber-950/20 p-4 rounded-[2rem] border-amber-200/60 dark:border-amber-900/40 shadow-sm flex items-center justify-between gap-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-1.5 mb-1">
                       <span className="text-sm">📌</span>
                       <span className="text-[11px] font-black text-amber-800 dark:text-amber-300">פתקית מקרר משפחתית</span>
                     </div>
                     {isEditingSticky ? (
-                      <div className="flex gap-2 mt-1.5">
+                      <div className="flex gap-2 mt-2">
                         <input 
                           type="text" 
                           value={tempSticky} 
                           onChange={e => setTempSticky(e.target.value)} 
                           placeholder="רשמו הודעה קצרה..."
-                          className="flex-1 px-3 py-1.5 bg-white dark:bg-gray-800 text-xs font-bold rounded-xl border border-amber-300 dark:border-amber-700 focus:outline-none dark:text-white"
+                          className="flex-1 px-3 py-2 bg-white/80 dark:bg-gray-800/80 text-xs font-bold rounded-xl border border-amber-300 dark:border-amber-700 focus:outline-none dark:text-white"
                         />
-                        <button onClick={handleSaveStickyNote} className="bg-amber-500 text-white px-3 py-1.5 rounded-xl text-xs font-bold">שמור</button>
+                        <button onClick={handleSaveStickyNote} className="bg-amber-500 text-white px-4 py-2 rounded-xl text-xs font-black shadow-sm">שמור</button>
                       </div>
                     ) : (
                       <p className="text-xs font-medium text-amber-900 dark:text-amber-200">
@@ -1401,7 +1436,7 @@
                   {!isEditingSticky && (
                     <button 
                       onClick={() => { triggerVibration(10); setTempSticky(stickyNote); setIsEditingSticky(true); }}
-                      className="text-xs bg-amber-200/60 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 px-2.5 py-1.5 rounded-xl font-bold"
+                      className="text-xs bg-amber-200/60 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 px-3 py-2 rounded-2xl font-black active:scale-95 transition"
                     >
                       ✏️
                     </button>
@@ -1411,58 +1446,57 @@
                 <div className="flex justify-end items-center">
                   <button 
                     onClick={shareDayToWhatsApp}
-                    className="flex items-center gap-1.5 bg-emerald-500 text-white px-4 py-2 rounded-2xl text-xs font-black shadow-md shadow-emerald-200/50 active:scale-95 transition"
+                    className="flex items-center gap-1.5 bg-emerald-500 text-white px-4 py-2.5 rounded-2xl text-xs font-black shadow-lg shadow-emerald-200/50 active:scale-95 transition"
                   >
                     <span>💬</span>
                     <span>סיכום יום לוואטסאפ</span>
                   </button>
                 </div>
 
-                {/* שלב 2: אנימציות חגיגיות (Pulse + Trophy) בקוביית היעדים */}
                 <div className={`grid ${statColsCount} gap-3 text-white`}>
-                  <div className={`bg-gradient-to-br from-rose-400 to-rose-500 p-4 rounded-3xl shadow-lg relative overflow-hidden border transition-all duration-500 ${isFeedGoalReached ? 'border-rose-300 shadow-rose-300/50 animate-soft-pulse' : 'border-rose-300/30 shadow-rose-200/50 dark:shadow-none'}`}>
+                  <div className={`bg-gradient-to-br from-rose-400 to-rose-500 p-5 rounded-[2rem] shadow-xl relative overflow-hidden border transition-all duration-500 ${isFeedGoalReached ? 'border-rose-200 shadow-rose-300/50 animate-soft-pulse' : 'border-rose-300/30 shadow-rose-200/40'}`}>
                     <div className="flex justify-between items-center z-10 relative">
-                      <span className="text-[11px] font-bold opacity-90 text-rose-50">אכילות (היום)</span>
-                      <span className="font-black text-lg">{actualFeedingsToday.length}/{targetFeeds} {isFeedGoalReached && '🏆'}</span>
+                      <span className="text-[11px] font-black opacity-90 text-rose-50">אכילות (היום)</span>
+                      <span className="font-black text-xl">{actualFeedingsToday.length}/{targetFeeds} {isFeedGoalReached && '🏆'}</span>
                     </div>
-                    <div className="w-full bg-black/10 rounded-full h-1.5 mt-2.5 mb-1.5 overflow-hidden z-10 relative shadow-inner">
+                    <div className="w-full bg-black/15 rounded-full h-2 mt-3 mb-1.5 overflow-hidden z-10 relative shadow-inner">
                       <div className="bg-white h-full rounded-full transition-all duration-1000 ease-out shadow-sm" style={{width: `${feedPercentage}%`}}></div>
                     </div>
-                    <p className="text-[10px] font-medium truncate text-rose-50/80 z-10 relative">{totalDurationToday > 0 && `${totalDurationToday} דק'`} {totalMlToday > 0 && `| ${totalMlToday} מ"ל`}</p>
+                    <p className="text-[10px] font-medium truncate text-rose-50/90 z-10 relative">{totalDurationToday > 0 && `${totalDurationToday} דק'`} {totalMlToday > 0 && `| ${totalMlToday} מ"ל`}</p>
                   </div>
 
-                  <div className={`bg-gradient-to-br from-amber-400 to-orange-400 p-4 rounded-3xl shadow-lg relative overflow-hidden border transition-all duration-500 ${isDiaperGoalReached ? 'border-amber-300 shadow-amber-300/50 animate-soft-pulse' : 'border-amber-300/30 shadow-amber-200/50 dark:shadow-none'}`}>
+                  <div className={`bg-gradient-to-br from-amber-400 to-orange-400 p-5 rounded-[2rem] shadow-xl relative overflow-hidden border transition-all duration-500 ${isDiaperGoalReached ? 'border-amber-200 shadow-amber-300/50 animate-soft-pulse' : 'border-amber-300/30 shadow-amber-200/40'}`}>
                     <div className="flex justify-between items-center z-10 relative">
-                      <span className="text-[11px] font-bold opacity-90 text-amber-50">חיתולים (היום)</span>
-                      <span className="font-black text-lg">{todaysDiapers.length}/{targetDiapers} {isDiaperGoalReached && '🏆'}</span>
+                      <span className="text-[11px] font-black opacity-90 text-amber-50">חיתולים (היום)</span>
+                      <span className="font-black text-xl">{todaysDiapers.length}/{targetDiapers} {isDiaperGoalReached && '🏆'}</span>
                     </div>
-                    <div className="w-full bg-black/10 rounded-full h-1.5 mt-2.5 mb-1.5 overflow-hidden z-10 relative shadow-inner">
+                    <div className="w-full bg-black/15 rounded-full h-2 mt-3 mb-1.5 overflow-hidden z-10 relative shadow-inner">
                       <div className="bg-white h-full rounded-full transition-all duration-1000 ease-out shadow-sm" style={{width: `${diaperPercentage}%`}}></div>
                     </div>
-                    <p className="text-[10px] font-medium truncate text-amber-50/80 z-10 relative">מעקב יציאות נוכחי</p>
+                    <p className="text-[10px] font-medium truncate text-amber-50/90 z-10 relative">מעקב יציאות נוכחי</p>
                   </div>
 
                   {showLastSideStat && (
-                    <div className="bg-gradient-to-br from-purple-400 to-fuchsia-500 p-4 rounded-3xl shadow-lg shadow-purple-200/50 dark:shadow-none relative overflow-hidden border border-purple-300/30 flex flex-col justify-between">
+                    <div className="bg-gradient-to-br from-purple-400 to-fuchsia-500 p-5 rounded-[2rem] shadow-xl shadow-purple-200/40 relative overflow-hidden border border-purple-300/30 flex flex-col justify-between">
                       <div className="flex justify-between items-center z-10 relative">
-                        <span className="text-[11px] font-bold opacity-90 text-purple-50">צד אחרון</span>
-                        <span className="font-black text-sm bg-white/20 px-2 py-0.5 rounded-lg">{lastSide === 'left' ? 'שמאל' : lastSide === 'right' ? 'ימין' : 'שניהם'}</span>
+                        <span className="text-[11px] font-black opacity-90 text-purple-50">צד אחרון</span>
+                        <span className="font-black text-sm bg-white/20 px-2.5 py-0.5 rounded-xl">{lastSide === 'left' ? 'שמאל' : lastSide === 'right' ? 'ימין' : 'שניהם'}</span>
                       </div>
-                      <p className="text-[10px] mt-2 font-medium truncate text-purple-50/80 z-10 relative text-center bg-black/10 py-1 rounded-lg">מומלץ: <strong>{lastSide === 'left' ? 'ימין' : lastSide === 'right' ? 'שמאל' : 'איזה שבא לך'}</strong></p>
+                      <p className="text-[10px] mt-2 font-medium truncate text-purple-50/90 z-10 relative text-center bg-black/15 py-1 rounded-xl">מומלץ: <strong>{lastSide === 'left' ? 'ימין' : lastSide === 'right' ? 'שמאל' : 'איזה שבא לך'}</strong></p>
                     </div>
                   )}
                 </div>
 
-                <div className={`mt-2 p-4 rounded-3xl flex justify-between items-center shadow-md border transition-colors duration-300 ${timeToNextFeed !== null && timeToNextFeed <= 0 ? 'bg-red-50 border-red-100 dark:bg-red-900/20 dark:border-red-800 shadow-red-100/50 dark:shadow-none text-red-600 dark:text-red-400' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 text-gray-800 dark:text-white'}`}>
+                <div className={`mt-2 p-5 rounded-[2rem] flex justify-between items-center transition-colors duration-300 ${timeToNextFeed !== null && timeToNextFeed <= 0 ? 'bg-red-50/80 border border-red-200 dark:bg-red-900/20 dark:border-red-800 text-red-600 dark:text-red-400' : 'glass-card text-gray-800 dark:text-white'}`}>
                   <div className="flex items-center gap-3">
-                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center text-xl shadow-inner ${timeToNextFeed !== null && timeToNextFeed <= 0 ? 'bg-red-100 dark:bg-red-900/50' : 'bg-rose-50 dark:bg-gray-700'}`}>⏰</div>
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-inner ${timeToNextFeed !== null && timeToNextFeed <= 0 ? 'bg-red-100 dark:bg-red-900/50' : 'bg-rose-50/80 dark:bg-gray-800'}`}>⏰</div>
                     <div>
                       <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 mb-0.5">האכלה הבאה בעוד:</p>
-                      <p className="text-xl font-black font-mono tracking-wider drop-shadow-sm" dir="ltr">{renderCountdownText()}</p>
+                      <p className="text-2xl font-black font-mono tracking-wider drop-shadow-sm" dir="ltr">{renderCountdownText()}</p>
                     </div>
                   </div>
                   {lastFeedTime && (
-                    <div className="text-left bg-gray-50/80 dark:bg-gray-700/80 px-3 py-2 rounded-xl border border-gray-100 dark:border-gray-600 shadow-sm flex flex-col items-center">
+                    <div className="text-left bg-white/50 dark:bg-gray-800/50 px-3.5 py-2 rounded-2xl border border-white/60 dark:border-gray-700 shadow-sm flex flex-col items-center">
                       <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold mb-0.5">שעת יעד:</p>
                       <p className="text-sm font-black text-gray-700 dark:text-gray-200">
                         {new Date(lastFeedTime + feedIntervalHours * 3600000).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'})}
@@ -1472,56 +1506,53 @@
                 </div>
 
                 {!notificationsEnabled && typeof window !== 'undefined' && 'Notification' in window && (
-                  <div onClick={requestNotificationPermission} className="bg-rose-50 dark:bg-rose-950/40 p-3.5 rounded-2xl border border-rose-200 dark:border-rose-800/50 flex justify-between items-center cursor-pointer shadow-sm active:scale-95 transition-transform">
-                    <div className="flex items-center gap-2 text-xs font-bold text-rose-700 dark:text-rose-300">
-                      <span className="text-lg">🔔</span>
+                  <div onClick={requestNotificationPermission} className="glass-card !bg-rose-50/70 dark:!bg-rose-950/30 p-4 rounded-[2rem] border-rose-200/60 dark:border-rose-800/40 flex justify-between items-center cursor-pointer shadow-sm active:scale-95 transition-transform">
+                    <div className="flex items-center gap-2.5 text-xs font-bold text-rose-700 dark:text-rose-300">
+                      <span className="text-xl">🔔</span>
                       <span>הפעל התראות פוש אמיתיות למכשיר</span>
                     </div>
-                    <span className="text-[10px] bg-rose-500 text-white font-bold px-3 py-1.5 rounded-xl shadow-sm">הפעל</span>
+                    <span className="text-[10px] bg-rose-500 text-white font-black px-3.5 py-1.5 rounded-xl shadow-md shadow-rose-200/50">הפעל</span>
                   </div>
                 )}
 
-                {/* --- אזור כפתורי הפעולות המשולב באקורדיון מדורג --- */}
                 <div className="grid grid-cols-2 gap-3 pt-1">
                   
-                  {/* שורה 1: הנקה + בקבוק */}
-                  <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'breast' ? null : 'breast'); setFeedType('breastfeeding'); }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'breast' ? 'bg-rose-400 text-white shadow-lg shadow-rose-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-rose-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm mb-1">🤱</span> הנקה</button>
-                  <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'bottle' ? null : 'bottle'); setFeedType('bottle'); }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'bottle' ? 'bg-cyan-400 text-white shadow-lg shadow-cyan-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-cyan-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm mb-1">🍼</span> בקבוק</button>
+                  <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'breast' ? null : 'breast'); setFeedType('breastfeeding'); }} className={`p-5 rounded-[2rem] text-center flex flex-col items-center justify-center gap-2 font-black text-sm transition-all duration-200 active:scale-95 ${activeSection === 'breast' ? 'bg-rose-400 text-white shadow-xl shadow-rose-200/50' : 'glass-card text-rose-500'}`}><span className="text-3xl drop-shadow-sm mb-1">🤱</span> הנקה</button>
+                  <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'bottle' ? null : 'bottle'); setFeedType('bottle'); }} className={`p-5 rounded-[2rem] text-center flex flex-col items-center justify-center gap-2 font-black text-sm transition-all duration-200 active:scale-95 ${activeSection === 'bottle' ? 'bg-cyan-400 text-white shadow-xl shadow-cyan-200/50' : 'glass-card text-cyan-500'}`}><span className="text-3xl drop-shadow-sm mb-1">🍼</span> בקבוק</button>
 
-                  {/* טפסי שורה 1 */}
                   {(activeSection === 'breast' || activeSection === 'bottle') && (
                     <div className="col-span-2 -mt-1 mb-2">
                       {activeSection === 'breast' && (
-                        <div className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] shadow-xl shadow-rose-100/60 dark:shadow-none border border-gray-100 dark:border-gray-700 space-y-5 animate-in slide-in-from-top-2 duration-300 relative overflow-hidden">
-                          <div className="flex justify-between items-center relative z-10"><h3 className="font-black text-rose-500 text-sm flex items-center gap-2"><span className="text-lg">🤱</span> עדכון הנקה</h3><button onClick={()=>{triggerVibration(10); setActiveSection(null)}} className="text-sm bg-gray-100 dark:bg-gray-700 w-8 h-8 rounded-full flex items-center justify-center font-bold text-gray-500 hover:text-gray-700 dark:text-gray-300">✕</button></div>
+                        <div className="glass-card p-6 md:p-8 rounded-[2.5rem] space-y-6 animate-in slide-in-from-top-2 duration-300 relative overflow-hidden">
+                          <div className="flex justify-between items-center relative z-10"><h3 className="font-black text-rose-500 text-sm flex items-center gap-2"><span className="text-xl">🤱</span> עדכון הנקה</h3><button onClick={()=>{triggerVibration(10); setActiveSection(null)}} className="text-sm bg-gray-100/80 dark:bg-gray-700/80 w-8 h-8 rounded-full flex items-center justify-center font-bold text-gray-500 hover:text-gray-700 dark:text-gray-300">✕</button></div>
                           
                           <div className="relative text-center mx-auto my-2 w-full flex flex-col items-center justify-center pt-2">
-                            <div className="relative w-40 h-40 flex items-center justify-center">
+                            <div className="relative w-44 h-44 flex items-center justify-center">
                               {isTimerActive && <div className="absolute inset-0 bg-teal-400/20 rounded-full animate-soft-pulse pointer-events-none"></div>}
-                              <div className={`relative z-10 flex flex-col items-center justify-center w-32 h-32 rounded-full border-4 shadow-inner bg-white dark:bg-gray-800 transition-colors duration-300 ${isTimerActive ? 'border-teal-400' : 'border-rose-100 dark:border-gray-600'}`}>
+                              <div className={`relative z-10 flex flex-col items-center justify-center w-36 h-36 rounded-full border-4 shadow-inner bg-white/90 dark:bg-gray-800/90 transition-colors duration-300 ${isTimerActive ? 'border-teal-400' : 'border-rose-100 dark:border-gray-700'}`}>
                                 <div className="text-3xl font-mono font-black text-gray-800 dark:text-white mb-1" dir="ltr">
                                   {String(Math.floor(timerTime / 60)).padStart(2, '0')}:{String(timerTime % 60).padStart(2, '0')}
                                 </div>
                                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{isTimerActive ? 'פעיל' : 'מושהה'}</span>
                               </div>
                             </div>
-                            <button onClick={handleToggleTimer} className={`mt-4 px-8 py-3 rounded-2xl text-sm font-bold shadow-lg transition-transform active:scale-95 text-white ${isTimerActive ? 'bg-rose-400 shadow-rose-200/50' : 'bg-teal-400 shadow-teal-200/50'}`}>{isTimerActive ? 'השהה טיימר' : '▶ התחל טיימר'}</button>
+                            <button onClick={handleToggleTimer} className={`mt-4 px-8 py-3 rounded-2xl text-sm font-black shadow-lg transition-transform active:scale-95 text-white ${isTimerActive ? 'bg-rose-400 shadow-rose-200/50' : 'bg-teal-400 shadow-teal-200/50'}`}>{isTimerActive ? 'השהה טיימר' : '▶ התחל טיימר'}</button>
                           </div>
 
                           <div>
-                            <span className="text-[11px] font-bold text-gray-400 dark:text-gray-500 block mb-2 px-1">צד הנקה:</span>
+                            <span className="text-[11px] font-black text-gray-400 dark:text-gray-500 block mb-2 px-1">צד הנקה:</span>
                             <div className="grid grid-cols-3 gap-2">
-                              {['left', 'both', 'right'].map(s => <button key={s} onClick={() => {triggerVibration(10); setFeedSide(s)}} className={`py-3.5 rounded-2xl text-sm font-bold shadow-sm active:scale-95 transition ${feedSide === s ? 'bg-rose-400 text-white' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-100 dark:border-gray-600'}`}>{s === 'left' ? 'שמאל' : s === 'right' ? 'ימין' : 'שניהם'}</button>)}
+                              {['left', 'both', 'right'].map(s => <button key={s} onClick={() => {triggerVibration(10); setFeedSide(s)}} className={`py-3.5 rounded-2xl text-sm font-black shadow-sm active:scale-95 transition ${feedSide === s ? 'bg-rose-400 text-white' : 'bg-white/60 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300 border border-white/80 dark:border-gray-700'}`}>{s === 'left' ? 'שמאל' : s === 'right' ? 'ימין' : 'שניהם'}</button>)}
                             </div>
                           </div>
                           
-                          <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 flex items-center justify-between gap-3">
+                          <div className="bg-white/40 dark:bg-gray-800/40 p-4 rounded-2xl border border-white/60 dark:border-gray-700 flex items-center justify-between gap-3">
                             <span className="text-xs font-bold text-gray-600 dark:text-gray-300">הזנה ידנית (דקות):</span>
-                            <input type="number" value={duration} onChange={e => setDuration(parseInt(e.target.value || 1))} className="w-20 text-center font-black text-lg p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none dark:text-white shadow-sm" />
+                            <input type="number" value={duration} onChange={e => setDuration(parseInt(e.target.value || 1))} className="w-20 text-center font-black text-lg p-2 bg-white/80 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none dark:text-white shadow-sm" />
                           </div>
 
                           <div>
-                            <input type="text" value={feedNotes} onChange={e => setFeedNotes(e.target.value)} placeholder="הערות להנקה..." className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-200 dark:border-gray-600 text-xs focus:outline-none dark:text-white font-medium shadow-sm" />
+                            <input type="text" value={feedNotes} onChange={e => setFeedNotes(e.target.value)} placeholder="הערות להנקה..." className="w-full px-4 py-3.5 bg-white/60 dark:bg-gray-800/60 rounded-2xl border border-white/80 dark:border-gray-700 text-xs focus:outline-none dark:text-white font-medium shadow-sm" />
                           </div>
 
                           <button onClick={() => saveFeeding('breastfeeding')} disabled={feedSaveStatus !== 'idle'} 
@@ -1533,37 +1564,36 @@
                         </div>
                       )}
 
-                      {/* טופס בקבוק */}
                       {activeSection === 'bottle' && (
-                        <div className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] shadow-xl shadow-cyan-100/60 dark:shadow-none border border-gray-100 dark:border-gray-700 space-y-5 animate-in slide-in-from-top-2 duration-300">
-                          <div className="flex justify-between items-center"><h3 className="font-black text-cyan-500 text-sm flex items-center gap-2"><span className="text-lg">🍼</span> עדכון בקבוק</h3><button onClick={()=>{triggerVibration(10); setActiveSection(null)}} className="text-sm bg-gray-100 dark:bg-gray-700 w-8 h-8 rounded-full flex items-center justify-center font-bold text-gray-500 dark:text-gray-300">✕</button></div>
+                        <div className="glass-card p-6 md:p-8 rounded-[2.5rem] space-y-6 animate-in slide-in-from-top-2 duration-300">
+                          <div className="flex justify-between items-center"><h3 className="font-black text-cyan-500 text-sm flex items-center gap-2"><span className="text-xl">🍼</span> עדכון בקבוק</h3><button onClick={()=>{triggerVibration(10); setActiveSection(null)}} className="text-sm bg-gray-100/80 dark:bg-gray-700/80 w-8 h-8 rounded-full flex items-center justify-center font-bold text-gray-500 dark:text-gray-300">✕</button></div>
                           
-                          <div className="grid grid-cols-2 gap-2 bg-gray-50 dark:bg-gray-700/50 p-1.5 rounded-2xl border border-gray-100 dark:border-gray-700">
-                            <button onClick={() => {triggerVibration(10); setBottleType('formula')}} className={`py-3 rounded-xl text-xs font-bold transition shadow-sm ${bottleType === 'formula' ? 'bg-cyan-400 text-white' : 'text-gray-500 dark:text-gray-300 bg-transparent'}`}>תמ"ל</button>
-                            <button onClick={() => {triggerVibration(10); setBottleType('expressed')}} className={`py-3 rounded-xl text-xs font-bold transition shadow-sm ${bottleType === 'expressed' ? 'bg-cyan-400 text-white' : 'text-gray-500 dark:text-gray-300 bg-transparent'}`}>שאוב</button>
+                          <div className="grid grid-cols-2 gap-2 bg-white/40 dark:bg-gray-800/40 p-1.5 rounded-2xl border border-white/60 dark:border-gray-700">
+                            <button onClick={() => {triggerVibration(10); setBottleType('formula')}} className={`py-3 rounded-xl text-xs font-black transition shadow-sm ${bottleType === 'formula' ? 'bg-cyan-400 text-white' : 'text-gray-500 dark:text-gray-300 bg-transparent'}`}>תמ"ל</button>
+                            <button onClick={() => {triggerVibration(10); setBottleType('expressed')}} className={`py-3 rounded-xl text-xs font-black transition shadow-sm ${bottleType === 'expressed' ? 'bg-cyan-400 text-white' : 'text-gray-500 dark:text-gray-300 bg-transparent'}`}>שאוב</button>
                           </div>
 
                           <div>
-                            <span className="text-[11px] font-bold text-gray-400 dark:text-gray-500 block mb-2 px-1">צד / החזקה:</span>
+                            <span className="text-[11px] font-black text-gray-400 dark:text-gray-500 block mb-2 px-1">צד / החזקה:</span>
                             <div className="grid grid-cols-3 gap-2">
-                              {['left', 'both', 'right'].map(s => <button key={s} onClick={() => {triggerVibration(10); setFeedSide(s)}} className={`py-3 rounded-2xl text-xs font-bold shadow-sm active:scale-95 transition ${feedSide === s ? 'bg-cyan-400 text-white' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-100 dark:border-gray-600'}`}>{s === 'left' ? 'שמאל' : s === 'right' ? 'ימין' : 'שניהם'}</button>)}
+                              {['left', 'both', 'right'].map(s => <button key={s} onClick={() => {triggerVibration(10); setFeedSide(s)}} className={`py-3 rounded-2xl text-xs font-black shadow-sm active:scale-95 transition ${feedSide === s ? 'bg-cyan-400 text-white' : 'bg-white/60 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300 border border-white/80 dark:border-gray-700'}`}>{s === 'left' ? 'שמאל' : s === 'right' ? 'ימין' : 'שניהם'}</button>)}
                             </div>
                           </div>
 
-                          <div className="space-y-3 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-700">
+                          <div className="space-y-3 bg-white/40 dark:bg-gray-800/40 p-4 rounded-2xl border border-white/60 dark:border-gray-700">
                             <div className="flex items-center justify-between gap-2">
                               <span className="text-xs font-bold text-gray-600 dark:text-gray-300">כמות (מ"ל):</span>
-                              <input type="number" value={amount} onChange={e => setAmount(parseInt(e.target.value || 0))} className="w-24 text-center font-black text-lg p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none dark:text-white shadow-sm" />
+                              <input type="number" value={amount} onChange={e => setAmount(parseInt(e.target.value || 0))} className="w-24 text-center font-black text-lg p-2 bg-white/80 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none dark:text-white shadow-sm" />
                             </div>
-                            <div className="grid grid-cols-4 gap-2 pt-2 border-t border-gray-200 dark:border-gray-600/50">
+                            <div className="grid grid-cols-4 gap-2 pt-2 border-t border-gray-200/50 dark:border-gray-700/50">
                               {[90, 120, 150, 180].map(v => (
-                                <button key={v} type="button" onClick={() => {triggerVibration(10); setAmount(v)}} className={`py-3 rounded-xl text-xs font-bold shadow-sm active:scale-95 transition border ${amount === v ? 'bg-cyan-400 text-white border-cyan-400 shadow-cyan-200/50' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-600'}`}>{v}</button>
+                                <button key={v} type="button" onClick={() => {triggerVibration(10); setAmount(v)}} className={`py-3 rounded-xl text-xs font-black shadow-sm active:scale-95 transition border ${amount === v ? 'bg-cyan-400 text-white border-cyan-400 shadow-cyan-200/50' : 'bg-white/80 dark:bg-gray-800/80 text-gray-600 dark:text-gray-300 border-white/80 dark:border-gray-700'}`}>{v}</button>
                               ))}
                             </div>
                           </div>
 
                           <div>
-                            <input type="text" value={feedNotes} onChange={e => setFeedNotes(e.target.value)} placeholder="הערות לבקבוק..." className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-200 dark:border-gray-600 text-xs focus:outline-none dark:text-white font-medium shadow-sm" />
+                            <input type="text" value={feedNotes} onChange={e => setFeedNotes(e.target.value)} placeholder="הערות לבקבוק..." className="w-full px-4 py-3.5 bg-white/60 dark:bg-gray-800/60 rounded-2xl border border-white/80 dark:border-gray-700 text-xs focus:outline-none dark:text-white font-medium shadow-sm" />
                           </div>
 
                           <button onClick={() => saveFeeding('bottle')} disabled={feedSaveStatus !== 'idle'} 
@@ -1577,38 +1607,36 @@
                     </div>
                   )}
 
-                  {/* שורה 2: שאיבה + חיתול */}
-                  <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'pumping' ? null : 'pumping'); setFeedType('pumping'); }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'pumping' ? 'bg-purple-400 text-white shadow-lg shadow-purple-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-purple-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm mb-1">🥛</span> שאיבה</button>
-                  <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'diaper' ? null : 'diaper') }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'diaper' ? 'bg-amber-400 text-white shadow-lg shadow-amber-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-amber-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm mb-1">🚼</span> חיתול</button>
+                  <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'pumping' ? null : 'pumping'); setFeedType('pumping'); }} className={`p-5 rounded-[2rem] text-center flex flex-col items-center justify-center gap-2 font-black text-sm transition-all duration-200 active:scale-95 ${activeSection === 'pumping' ? 'bg-purple-400 text-white shadow-xl shadow-purple-200/50' : 'glass-card text-purple-500'}`}><span className="text-3xl drop-shadow-sm mb-1">🥛</span> שאיבה</button>
+                  <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'diaper' ? null : 'diaper') }} className={`p-5 rounded-[2rem] text-center flex flex-col items-center justify-center gap-2 font-black text-sm transition-all duration-200 active:scale-95 ${activeSection === 'diaper' ? 'bg-amber-400 text-white shadow-xl shadow-amber-200/50' : 'glass-card text-amber-500'}`}><span className="text-3xl drop-shadow-sm mb-1">🚼</span> חיתול</button>
 
-                  {/* טפסי שורה 2 */}
                   {(activeSection === 'pumping' || activeSection === 'diaper') && (
                     <div className="col-span-2 -mt-1 mb-2">
                       {activeSection === 'pumping' && (
-                        <div className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] shadow-xl shadow-purple-100/60 dark:shadow-none border border-gray-100 dark:border-gray-700 space-y-5 animate-in slide-in-from-top-2 duration-300">
-                          <div className="flex justify-between items-center"><h3 className="font-black text-purple-500 text-sm flex items-center gap-2"><span className="text-lg">🥛</span> עדכון שאיבה</h3><button onClick={()=>{triggerVibration(10); setActiveSection(null)}} className="text-sm bg-gray-100 dark:bg-gray-700 w-8 h-8 rounded-full flex items-center justify-center font-bold text-gray-500 dark:text-gray-300">✕</button></div>
+                        <div className="glass-card p-6 md:p-8 rounded-[2.5rem] space-y-6 animate-in slide-in-from-top-2 duration-300">
+                          <div className="flex justify-between items-center"><h3 className="font-black text-purple-500 text-sm flex items-center gap-2"><span className="text-xl">🥛</span> עדכון שאיבה</h3><button onClick={()=>{triggerVibration(10); setActiveSection(null)}} className="text-sm bg-gray-100/80 dark:bg-gray-700/80 w-8 h-8 rounded-full flex items-center justify-center font-bold text-gray-500 dark:text-gray-300">✕</button></div>
                           
                           <div>
-                            <span className="text-[11px] font-bold text-gray-400 dark:text-gray-500 block mb-2 px-1">צד השאיבה:</span>
+                            <span className="text-[11px] font-black text-gray-400 dark:text-gray-500 block mb-2 px-1">צד השאיבה:</span>
                             <div className="grid grid-cols-3 gap-2">
-                              {['left', 'both', 'right'].map(s => <button key={s} onClick={() => {triggerVibration(10); setFeedSide(s)}} className={`py-3 rounded-2xl text-xs font-bold shadow-sm active:scale-95 transition ${feedSide === s ? 'bg-purple-400 text-white' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-100 dark:border-gray-600'}`}>{s === 'left' ? 'שמאל' : s === 'right' ? 'ימין' : 'שניהם'}</button>)}
+                              {['left', 'both', 'right'].map(s => <button key={s} onClick={() => {triggerVibration(10); setFeedSide(s)}} className={`py-3 rounded-2xl text-xs font-black shadow-sm active:scale-95 transition ${feedSide === s ? 'bg-purple-400 text-white' : 'bg-white/60 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300 border border-white/80 dark:border-gray-700'}`}>{s === 'left' ? 'שמאל' : s === 'right' ? 'ימין' : 'שניהם'}</button>)}
                             </div>
                           </div>
 
-                          <div className="space-y-3 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-700">
+                          <div className="space-y-3 bg-white/40 dark:bg-gray-800/40 p-4 rounded-2xl border border-white/60 dark:border-gray-700">
                             <div className="flex items-center justify-between gap-2">
                               <span className="text-xs font-bold text-gray-600 dark:text-gray-300">כמות שנשאבה (מ"ל):</span>
-                              <input type="number" value={amount} onChange={e => setAmount(parseInt(e.target.value || 0))} className="w-24 text-center font-black text-lg p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none dark:text-white shadow-sm" />
+                              <input type="number" value={amount} onChange={e => setAmount(parseInt(e.target.value || 0))} className="w-24 text-center font-black text-lg p-2 bg-white/80 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none dark:text-white shadow-sm" />
                             </div>
-                            <div className="grid grid-cols-5 gap-2 pt-2 border-t border-gray-200 dark:border-gray-600/50">
+                            <div className="grid grid-cols-5 gap-2 pt-2 border-t border-gray-200/50 dark:border-gray-700/50">
                               {[30, 60, 90, 120, 150].map(v => (
-                                <button key={v} type="button" onClick={() => {triggerVibration(10); setAmount(v)}} className={`py-3 rounded-xl text-xs font-bold shadow-sm active:scale-95 transition border ${amount === v ? 'bg-purple-400 text-white border-purple-400 shadow-purple-200/50' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-600'}`}>{v}</button>
+                                <button key={v} type="button" onClick={() => {triggerVibration(10); setAmount(v)}} className={`py-3 rounded-xl text-xs font-black shadow-sm active:scale-95 transition border ${amount === v ? 'bg-purple-400 text-white border-purple-400 shadow-purple-200/50' : 'bg-white/80 dark:bg-gray-800/80 text-gray-600 dark:text-gray-300 border-white/80 dark:border-gray-700'}`}>{v}</button>
                               ))}
                             </div>
                           </div>
 
                           <div>
-                            <input type="text" value={feedNotes} onChange={e => setFeedNotes(e.target.value)} placeholder="הערות לשאיבה..." className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-200 dark:border-gray-600 text-xs focus:outline-none dark:text-white font-medium shadow-sm" />
+                            <input type="text" value={feedNotes} onChange={e => setFeedNotes(e.target.value)} placeholder="הערות לשאיבה..." className="w-full px-4 py-3.5 bg-white/60 dark:bg-gray-800/60 rounded-2xl border border-white/80 dark:border-gray-700 text-xs focus:outline-none dark:text-white font-medium shadow-sm" />
                           </div>
 
                           <button onClick={() => saveFeeding('pumping')} disabled={feedSaveStatus !== 'idle'} 
@@ -1621,13 +1649,13 @@
                       )}
 
                       {activeSection === 'diaper' && (
-                        <div className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] shadow-xl shadow-amber-100/60 dark:shadow-none border border-gray-100 dark:border-gray-700 space-y-5 animate-in slide-in-from-top-2 duration-300">
-                          <div className="flex justify-between items-center"><h3 className="font-black text-amber-500 text-sm flex items-center gap-2"><span className="text-lg">🚼</span> עדכון חיתול</h3><button onClick={()=>{triggerVibration(10); setActiveSection(null)}} className="text-sm bg-gray-100 dark:bg-gray-700 w-8 h-8 rounded-full flex items-center justify-center font-bold text-gray-500 dark:text-gray-300">✕</button></div>
+                        <div className="glass-card p-6 md:p-8 rounded-[2.5rem] space-y-6 animate-in slide-in-from-top-2 duration-300">
+                          <div className="flex justify-between items-center"><h3 className="font-black text-amber-500 text-sm flex items-center gap-2"><span className="text-xl">🚼</span> עדכון חיתול</h3><button onClick={()=>{triggerVibration(10); setActiveSection(null)}} className="text-sm bg-gray-100/80 dark:bg-gray-700/80 w-8 h-8 rounded-full flex items-center justify-center font-bold text-gray-500 dark:text-gray-300">✕</button></div>
                           <div className="grid grid-cols-3 gap-3">
-                            {['wet', 'dirty', 'both'].map(t => <button key={t} onClick={() => {triggerVibration(10); setDiaperType(t)}} className={`py-5 rounded-2xl text-sm font-bold shadow-sm active:scale-95 transition border flex flex-col items-center gap-2 ${diaperType === t ? 'bg-amber-400 text-white border-amber-400' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-600'}`}>{t === 'wet' ? '💧' : t === 'dirty' ? '💩' : '✨'}{t === 'wet' ? 'פיפי' : t === 'dirty' ? 'קקי' : 'שניהם'}</button>)}
+                            {['wet', 'dirty', 'both'].map(t => <button key={t} onClick={() => {triggerVibration(10); setDiaperType(t)}} className={`py-5 rounded-2xl text-sm font-black shadow-sm active:scale-95 transition border flex flex-col items-center gap-2 ${diaperType === t ? 'bg-amber-400 text-white border-amber-400 shadow-md shadow-amber-200/40' : 'bg-white/60 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300 border-white/80 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm">{t === 'wet' ? '💧' : t === 'dirty' ? '💩' : '✨'}</span>{t === 'wet' ? 'פיפי' : t === 'dirty' ? 'קקי' : 'שניהם'}</button>)}
                           </div>
                           <div>
-                            <input type="text" value={diaperNotes} onChange={e => setDiaperNotes(e.target.value)} placeholder="הערות לחיתול (צבע, מרקם וכו')..." className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-200 dark:border-gray-600 text-xs focus:outline-none dark:text-white font-medium shadow-sm" />
+                            <input type="text" value={diaperNotes} onChange={e => setDiaperNotes(e.target.value)} placeholder="הערות לחיתול (צבע, מרקם וכו')..." className="w-full px-4 py-3.5 bg-white/60 dark:bg-gray-800/60 rounded-2xl border border-white/80 dark:border-gray-700 text-xs focus:outline-none dark:text-white font-medium shadow-sm" />
                           </div>
                           <button onClick={saveDiaper} disabled={diaperSaveStatus !== 'idle'} 
                             className={`w-full font-black text-base py-4 rounded-2xl shadow-xl transition-all duration-300 flex items-center justify-center gap-2 ${
@@ -1640,27 +1668,25 @@
                     </div>
                   )}
 
-                  {/* שורה 3: טעימות מוצקים */}
-                  <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'solid' ? null : 'solid') }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 col-span-2 active:scale-95 ${activeSection === 'solid' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-emerald-600 shadow-sm border border-gray-100 dark:border-gray-700'}`}>🥑 טעימות מוצקים</button>
+                  <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'solid' ? null : 'solid') }} className={`p-5 rounded-[2rem] text-center flex flex-col items-center justify-center gap-2 font-black text-sm transition-all duration-200 col-span-2 active:scale-95 ${activeSection === 'solid' ? 'bg-emerald-500 text-white shadow-xl shadow-emerald-200/50' : 'glass-card text-emerald-600'}`}>🥑 טעימות מוצקים</button>
 
-                  {/* טופס שורה 3 */}
                   {activeSection === 'solid' && (
                     <div className="col-span-2 -mt-1 mb-2">
-                      <div className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] shadow-xl shadow-emerald-100/60 dark:shadow-none border border-gray-100 dark:border-gray-700 space-y-5 animate-in slide-in-from-top-2 duration-300">
-                        <div className="flex justify-between items-center"><h3 className="font-black text-emerald-600 text-sm flex items-center gap-2"><span className="text-lg">🥑</span> עדכון טעימות</h3><button onClick={()=>{triggerVibration(10); setActiveSection(null)}} className="text-sm bg-gray-100 dark:bg-gray-700 w-8 h-8 rounded-full flex items-center justify-center font-bold text-gray-500 dark:text-gray-300">✕</button></div>
+                      <div className="glass-card p-6 md:p-8 rounded-[2.5rem] space-y-6 animate-in slide-in-from-top-2 duration-300">
+                        <div className="flex justify-between items-center"><h3 className="font-black text-emerald-600 text-sm flex items-center gap-2"><span className="text-xl">🥑</span> עדכון טעימות</h3><button onClick={()=>{triggerVibration(10); setActiveSection(null)}} className="text-sm bg-gray-100/80 dark:bg-gray-700/80 w-8 h-8 rounded-full flex items-center justify-center font-bold text-gray-500 dark:text-gray-300">✕</button></div>
                         
                         <div>
-                          <label className="text-[11px] font-bold text-gray-400 dark:text-gray-500 block mb-2 px-1">בחירה מהירה:</label>
+                          <label className="text-[11px] font-black text-gray-400 dark:text-gray-500 block mb-2 px-1">בחירה מהירה:</label>
                           <div className="flex flex-wrap gap-2 mb-3">
                             {quickSolids.map(food => (
-                              <button key={food} type="button" onClick={() => {triggerVibration(10); setSolidFood(food)}} className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition shadow-sm ${solidFood === food ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-600'}`}>{food}</button>
+                              <button key={food} type="button" onClick={() => {triggerVibration(10); setSolidFood(food)}} className={`px-3.5 py-1.5 rounded-xl text-xs font-black border transition shadow-sm ${solidFood === food ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white/60 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300 border-white/80 dark:border-gray-700'}`}>{food}</button>
                             ))}
                           </div>
-                          <input type="text" value={solidFood} onChange={e => setSolidFood(e.target.value)} placeholder="או הקלד שם מאכל..." className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-200 dark:border-gray-600 font-bold focus:outline-none dark:text-white shadow-sm" />
+                          <input type="text" value={solidFood} onChange={e => setSolidFood(e.target.value)} placeholder="או הקלד שם מאכל..." className="w-full px-4 py-3.5 bg-white/60 dark:bg-gray-800/60 rounded-2xl border border-white/80 dark:border-gray-700 font-bold focus:outline-none dark:text-white shadow-sm" />
                         </div>
 
                         <div>
-                          <span className="text-[11px] font-bold text-gray-400 dark:text-gray-500 block mb-2 px-1">איך הייתה התגובה?</span>
+                          <span className="text-[11px] font-black text-gray-400 dark:text-gray-500 block mb-2 px-1">איך הייתה התגובה?</span>
                           <div className="grid grid-cols-4 gap-2 text-xs">
                             {[
                               { id: 'liked', label: '😋 אהב' },
@@ -1668,13 +1694,13 @@
                               { id: 'disliked', label: '😖 לא אהב' },
                               { id: 'allergic', label: '⚠️ אלרגיה' }
                             ].map(r => (
-                              <button key={r.id} type="button" onClick={() => {triggerVibration(10); setSolidReaction(r.id)}} className={`py-2.5 rounded-xl font-bold border transition shadow-sm ${solidReaction === r.id ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-600'}`}>{r.label}</button>
+                              <button key={r.id} type="button" onClick={() => {triggerVibration(10); setSolidReaction(r.id)}} className={`py-3 rounded-xl font-black border transition shadow-sm ${solidReaction === r.id ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white/60 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300 border-white/80 dark:border-gray-700'}`}>{r.label}</button>
                             ))}
                           </div>
                         </div>
 
                         <div>
-                          <input type="text" value={solidNotes} onChange={e => setSolidNotes(e.target.value)} placeholder="הערות נוספות (כמות, מרקם וכו')..." className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-200 dark:border-gray-600 text-xs focus:outline-none dark:text-white font-medium shadow-sm" />
+                          <input type="text" value={solidNotes} onChange={e => setSolidNotes(e.target.value)} placeholder="הערות נוספות (כמות, מרקם וכו')..." className="w-full px-4 py-3.5 bg-white/60 dark:bg-gray-800/60 rounded-2xl border border-white/80 dark:border-gray-700 text-xs focus:outline-none dark:text-white font-medium shadow-sm" />
                         </div>
 
                         <button onClick={saveSolid} disabled={!solidFood.trim() || solidSaveStatus !== 'idle'} 
@@ -1688,9 +1714,8 @@
                   )}
                 </div>
 
-                {/* --- כפתור ויטמין D מהיר --- */}
                 {showVitaminDButton && (
-                  <button onClick={logVitaminD} className={`w-full p-3.5 mt-2 rounded-3xl text-center flex flex-row items-center justify-center gap-2 font-bold text-sm transition-all duration-200 shadow-sm border active:scale-95 ${vitDSuccess ? 'bg-teal-400 text-white border-teal-400 shadow-teal-200/50 animate-success' : 'bg-white dark:bg-gray-800 text-violet-500 border-gray-100 dark:border-gray-700'}`}>
+                  <button onClick={logVitaminD} className={`w-full p-4 mt-2 rounded-[2rem] text-center flex flex-row items-center justify-center gap-2 font-black text-sm transition-all duration-200 shadow-sm border active:scale-95 ${vitDSuccess ? 'bg-teal-400 text-white border-teal-400 shadow-teal-200/50 animate-success' : 'glass-card text-violet-500'}`}>
                     💊 ויטמין D (2 טיפות)
                   </button>
                 )}
@@ -1700,21 +1725,21 @@
                     <h3 className="text-sm font-black text-gray-700 dark:text-gray-300">פעולות מהיום ({todaysTimeline.length})</h3>
                   </div>
                   {todaysTimeline.length === 0 ? (
-                    <div className="bg-white dark:bg-gray-800 p-8 rounded-[2rem] border border-dashed border-gray-200 dark:border-gray-700 text-center text-gray-400 text-sm font-medium shadow-sm">
+                    <div className="glass-card p-8 rounded-[2rem] text-center text-gray-400 text-sm font-bold shadow-sm">
                       לא תועדו פעולות היום עדיין.
                     </div>
                   ) : (
-                    <div className="relative border-r-[3px] border-gray-100 dark:border-gray-700/60 pr-5 ml-2 mt-4 pb-2 space-y-5">
+                    <div className="relative border-r-[3px] border-gray-200/60 dark:border-gray-700/60 pr-5 ml-2 mt-4 pb-2 space-y-5">
                       {todaysTimeline.map((item, i) => {
                         const notesText = item.notes ? item.notes.trim() : '';
                         return (
                           <div key={i} className="relative">
-                            <div className={`absolute -right-[27.5px] top-5 w-4 h-4 rounded-full border-[3px] border-white dark:border-[#121212] ${getNodeColor(item)} z-10 shadow-sm`}></div>
+                            <div className={`absolute -right-[27.5px] top-5 w-4 h-4 rounded-full border-[3px] border-white dark:border-[#09090b] ${getNodeColor(item)} z-10 shadow-sm`}></div>
                             
-                            <div className="bg-white dark:bg-gray-800 p-4 rounded-3xl border border-white/60 dark:border-gray-700/50 shadow-lg shadow-gray-200/40 dark:shadow-black/20 flex justify-between items-start">
+                            <div className="glass-card p-4 rounded-3xl flex justify-between items-start">
                               <div className="flex-1">
                                 <div className="flex items-center gap-1.5 mb-1.5">
-                                  <span className="text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 font-bold px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap">
+                                  <span className="text-[10px] bg-white/70 dark:bg-gray-800/70 text-gray-500 dark:text-gray-300 font-bold px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap border border-white/60 dark:border-gray-700">
                                     {getTimeAgo(item.timestamp)}
                                   </span>
                                   {item.isOfflinePending && <span className="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 font-bold px-2 py-0.5 rounded-full shadow-sm">⏳ ממתין לסנכרון</span>}
@@ -1732,11 +1757,11 @@
                                   {item.side && item.logType !== 'vitamin_d' && <span>| צד: <strong className="text-gray-700 dark:text-gray-300">{item.side === 'left' ? 'שמאל' : item.side === 'right' ? 'ימין' : 'שניהם'}</strong></span>}
                                   {item.logType === 'solid' && <span>| <strong className="text-gray-700 dark:text-gray-300">{item.reaction === 'liked' ? 'אהב' : item.reaction === 'neutral' ? 'נייטרלי' : item.reaction === 'disliked' ? 'לא אהב' : 'חשש לאלרגיה'}</strong></span>}
                                 </p>
-                                {notesText && notesText !== '💊 ויטמין D - 2 טיפות' && <p className="text-[11px] bg-gray-50 dark:bg-gray-700/60 p-2.5 rounded-xl text-gray-700 dark:text-gray-300 mt-2 font-medium border border-gray-100 dark:border-gray-600 leading-relaxed shadow-sm">{notesText}</p>}
+                                {notesText && notesText !== '💊 ויטמין D - 2 טיפות' && <p className="text-[11px] bg-white/50 dark:bg-gray-800/50 p-2.5 rounded-xl text-gray-700 dark:text-gray-300 mt-2 font-medium border border-white/60 dark:border-gray-700 leading-relaxed shadow-sm">{notesText}</p>}
                               </div>
                               <div className="flex flex-col gap-1.5 mr-2 ml-1">
-                                <button onClick={() => openEditModal(item)} className="text-[10px] bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-300 border border-gray-200 dark:border-gray-600 px-2.5 py-1.5 rounded-lg font-bold transition active:scale-95 shadow-sm">ערוך</button>
-                                <button onClick={() => deleteTimelineItem(item)} className="text-[10px] bg-red-50 dark:bg-red-900/30 text-red-400 dark:text-red-400 border border-red-100 dark:border-red-900/50 px-2.5 py-1.5 rounded-lg font-bold transition active:scale-95 shadow-sm">מחק</button>
+                                <button onClick={() => openEditModal(item)} className="text-[10px] bg-white/70 dark:bg-gray-800/70 text-gray-500 dark:text-gray-300 border border-white/80 dark:border-gray-700 px-2.5 py-1.5 rounded-lg font-bold transition active:scale-95 shadow-sm">ערוך</button>
+                                <button onClick={() => deleteTimelineItem(item)} className="text-[10px] bg-red-50/80 dark:bg-red-900/30 text-red-400 dark:text-red-400 border border-red-100/60 dark:border-red-900/50 px-2.5 py-1.5 rounded-lg font-bold transition active:scale-95 shadow-sm">מחק</button>
                               </div>
                             </div>
                           </div>
@@ -1748,25 +1773,24 @@
               </div>
             )}
 
-            {/* --- שלב 1: החלפת הממשק של סינון יומן לכפתורים מהירים --- */}
             {activeTab === 'timeline' && (
               <div className="animate-tab space-y-5">
                 <div className="flex justify-between items-center px-2">
                   <h2 className="text-lg font-black text-gray-800 dark:text-white drop-shadow-sm">📋 היומן המלא של {babyName}</h2>
                 </div>
 
-                <div className="bg-white/90 dark:bg-gray-800 p-4 rounded-[2rem] border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col gap-3">
+                <div className="glass-card p-4 rounded-[2rem] shadow-sm flex flex-col gap-3">
                   <div className="flex gap-2">
-                    <button onClick={() => {triggerVibration(10); setDateFilter(0);}} className={`flex-1 text-xs px-3 py-2.5 rounded-xl font-bold transition active:scale-95 shadow-sm ${selectedTimelineDate === getLocalDateStr(0) ? 'bg-rose-400 text-white' : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600'}`}>היום</button>
-                    <button onClick={() => {triggerVibration(10); setDateFilter(-1);}} className={`flex-1 text-xs px-3 py-2.5 rounded-xl font-bold transition active:scale-95 shadow-sm ${selectedTimelineDate === getLocalDateStr(-1) ? 'bg-rose-400 text-white' : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600'}`}>אתמול</button>
-                    <button onClick={() => {triggerVibration(10); setSelectedTimelineDate('');}} className={`flex-1 text-xs px-3 py-2.5 rounded-xl font-bold transition active:scale-95 shadow-sm ${!selectedTimelineDate ? 'bg-rose-400 text-white' : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600'}`}>הכל</button>
+                    <button onClick={() => {triggerVibration(10); setDateFilter(0);}} className={`flex-1 text-xs px-3 py-2.5 rounded-xl font-black transition active:scale-95 shadow-sm ${selectedTimelineDate === getLocalDateStr(0) ? 'bg-rose-400 text-white' : 'bg-white/60 dark:bg-gray-800/60 text-gray-700 dark:text-gray-300 border border-white/80 dark:border-gray-700'}`}>היום</button>
+                    <button onClick={() => {triggerVibration(10); setDateFilter(-1);}} className={`flex-1 text-xs px-3 py-2.5 rounded-xl font-black transition active:scale-95 shadow-sm ${selectedTimelineDate === getLocalDateStr(-1) ? 'bg-rose-400 text-white' : 'bg-white/60 dark:bg-gray-800/60 text-gray-700 dark:text-gray-300 border border-white/80 dark:border-gray-700'}`}>אתמול</button>
+                    <button onClick={() => {triggerVibration(10); setSelectedTimelineDate('');}} className={`flex-1 text-xs px-3 py-2.5 rounded-xl font-black transition active:scale-95 shadow-sm ${!selectedTimelineDate ? 'bg-rose-400 text-white' : 'bg-white/60 dark:bg-gray-800/60 text-gray-700 dark:text-gray-300 border border-white/80 dark:border-gray-700'}`}>הכל</button>
                   </div>
                   <div className="flex items-center gap-3">
                     <input 
                       type="date" 
                       value={selectedTimelineDate} 
                       onChange={e => { triggerVibration(10); setSelectedTimelineDate(e.target.value); }} 
-                      className="flex-1 p-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-xs font-bold text-center focus:outline-none dark:text-white shadow-sm"
+                      className="flex-1 p-2.5 bg-white/60 dark:bg-gray-800/60 border border-white/80 dark:border-gray-700 rounded-xl text-xs font-bold text-center focus:outline-none dark:text-white shadow-sm"
                     />
                   </div>
                 </div>
@@ -1784,10 +1808,10 @@
                     <button 
                       key={f.id} 
                       onClick={() => { triggerVibration(10); setTimelineFilter(f.id); }}
-                      className={`whitespace-nowrap px-4 py-3 rounded-2xl text-[11px] font-bold transition-all snap-center shadow-sm border ${
+                      className={`whitespace-nowrap px-4 py-3 rounded-2xl text-[11px] font-black transition-all snap-center shadow-sm border ${
                         timelineFilter === f.id 
                           ? 'bg-rose-400 text-white border-rose-400 dark:border-rose-500 scale-105' 
-                          : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-700'
+                          : 'glass-card text-gray-600 dark:text-gray-300'
                       }`}
                     >
                       <span className="text-sm ml-1">{f.icon}</span> {f.label}
@@ -1796,21 +1820,21 @@
                 </div>
 
                 {displayedTimelineLogs.length === 0 ? (
-                  <div className="bg-white dark:bg-gray-800 p-8 rounded-[2rem] border border-dashed border-gray-200 dark:border-gray-700 text-center text-gray-400 text-sm font-medium mt-4 shadow-sm">
+                  <div className="glass-card p-8 rounded-[2rem] text-center text-gray-400 text-sm font-medium mt-4 shadow-sm">
                     לא נמצאו פעולות תואמות לתאריך או לסינון שנבחר.
                   </div>
                 ) : (
-                  <div className="relative border-r-[3px] border-gray-100 dark:border-gray-700/60 pr-5 ml-2 mt-4 pb-2 space-y-5">
+                  <div className="relative border-r-[3px] border-gray-200/60 dark:border-gray-700/60 pr-5 ml-2 mt-4 pb-2 space-y-5">
                     {displayedTimelineLogs.map((item, i) => {
                       const notesText = item.notes ? item.notes.trim() : '';
                       return (
                         <div key={i} className="relative">
-                          <div className={`absolute -right-[27.5px] top-5 w-4 h-4 rounded-full border-[3px] border-white dark:border-[#121212] ${getNodeColor(item)} z-10 shadow-sm`}></div>
+                          <div className={`absolute -right-[27.5px] top-5 w-4 h-4 rounded-full border-[3px] border-white dark:border-[#09090b] ${getNodeColor(item)} z-10 shadow-sm`}></div>
                           
-                          <div className="bg-white dark:bg-gray-800 p-4 rounded-3xl border border-white/60 dark:border-gray-700/50 shadow-lg shadow-gray-200/40 dark:shadow-black/20 flex justify-between items-start">
+                          <div className="glass-card p-4 rounded-3xl flex justify-between items-start">
                             <div className="flex-1">
                               <div className="flex items-center gap-1.5 mb-1.5">
-                                <span className="text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 font-bold px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap">
+                                <span className="text-[10px] bg-white/70 dark:bg-gray-800/70 text-gray-500 dark:text-gray-300 font-bold px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap border border-white/60 dark:border-gray-700">
                                   {getTimeAgo(item.timestamp)}
                                 </span>
                                 {item.isOfflinePending && <span className="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 font-bold px-2 py-0.5 rounded-full shadow-sm">⏳ ממתין לסנכרון</span>}
@@ -1829,11 +1853,11 @@
                                 {item.side && item.logType !== 'vitamin_d' && <span>| צד: <strong className="text-gray-700 dark:text-gray-300">{item.side === 'left' ? 'שמאל' : item.side === 'right' ? 'ימין' : 'שניהם'}</strong></span>}
                                 {item.logType === 'solid' && <span>| <strong className="text-gray-700 dark:text-gray-300">{item.reaction === 'liked' ? 'אהב' : item.reaction === 'neutral' ? 'נייטרלי' : item.reaction === 'disliked' ? 'לא אהב' : 'חשש לאלרגיה'}</strong></span>}
                               </p>
-                              {notesText && notesText !== '💊 ויטמין D - 2 טיפות' && <p className="text-[11px] bg-gray-50 dark:bg-gray-700/60 p-2.5 rounded-xl text-gray-700 dark:text-gray-300 mt-2 font-medium border border-gray-100 dark:border-gray-600 leading-relaxed shadow-sm">{notesText}</p>}
+                              {notesText && notesText !== '💊 ויטמין D - 2 טיפות' && <p className="text-[11px] bg-white/50 dark:bg-gray-800/50 p-2.5 rounded-xl text-gray-700 dark:text-gray-300 mt-2 font-medium border border-white/60 dark:border-gray-700 leading-relaxed shadow-sm">{notesText}</p>}
                             </div>
                             <div className="flex flex-col gap-1.5 mr-2 ml-1">
-                              <button onClick={() => openEditModal(item)} className="text-[10px] bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-300 border border-gray-200 dark:border-gray-600 px-2.5 py-1.5 rounded-lg font-bold transition active:scale-95 shadow-sm">ערוך</button>
-                              <button onClick={() => deleteTimelineItem(item)} className="text-[10px] bg-red-50 dark:bg-red-900/30 text-red-400 dark:text-red-400 border border-red-100 dark:border-red-900/50 px-2.5 py-1.5 rounded-lg font-bold transition active:scale-95 shadow-sm">מחק</button>
+                              <button onClick={() => openEditModal(item)} className="text-[10px] bg-white/70 dark:bg-gray-800/70 text-gray-500 dark:text-gray-300 border border-white/80 dark:border-gray-700 px-2.5 py-1.5 rounded-lg font-bold transition active:scale-95 shadow-sm">ערוך</button>
+                              <button onClick={() => deleteTimelineItem(item)} className="text-[10px] bg-red-50/80 dark:bg-red-900/30 text-red-400 dark:text-red-400 border border-red-100/60 dark:border-red-900/50 px-2.5 py-1.5 rounded-lg font-bold transition active:scale-95 shadow-sm">מחק</button>
                             </div>
                           </div>
                         </div>
@@ -1843,7 +1867,6 @@
                 )}
               </div>
             )}
-            {/* --- סוף שלב 1 --- */}
 
             {activeTab === 'solids_board' && (() => {
               const uniqueFoods = {};
@@ -1853,7 +1876,7 @@
 
               return (
                 <div className="animate-tab space-y-5">
-                  <div className="bg-gradient-to-br from-emerald-400 to-teal-500 p-5 rounded-3xl text-white shadow-xl shadow-teal-200/50 dark:shadow-none flex justify-between items-center border border-teal-300/30">
+                  <div className="bg-gradient-to-br from-emerald-400 to-teal-500 p-5 rounded-[2rem] text-white shadow-xl shadow-teal-200/50 dark:shadow-none flex justify-between items-center border border-teal-300/30">
                     <div>
                       <h2 className="text-lg font-black drop-shadow-sm">🥑 לוח טעימות</h2>
                       <p className="text-xs font-bold opacity-90 mt-1 bg-black/10 px-2 py-0.5 rounded-lg inline-block">סה"כ נטעמו {foodsList.length} סוגי מזונות</p>
@@ -1862,26 +1885,26 @@
                   </div>
 
                   {allergicFoods.length > 0 && (
-                    <div className="bg-red-50 dark:bg-red-900/30 p-5 rounded-3xl border border-red-200 dark:border-red-800/50 space-y-3 shadow-sm">
+                    <div className="glass-card !bg-red-50/70 dark:!bg-red-900/20 p-5 rounded-[2rem] border-red-200/60 dark:border-red-800/40 space-y-3 shadow-sm">
                       <h3 className="text-sm font-black text-red-600 dark:text-red-300 flex items-center gap-2">
                         <span className="text-lg animate-pulse">⚠️</span> חשש לאלרגיה או רגישות ({allergicFoods.length})
                       </h3>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-2.5">
                         {allergicFoods.map((f, idx) => (
-                          <span key={idx} className="bg-red-100 dark:bg-red-900/60 text-red-700 dark:text-red-200 px-3 py-1.5 rounded-xl text-xs font-bold border border-red-200 dark:border-red-700 shadow-sm">{f.food_name}</span>
+                          <span key={idx} className="bg-red-100/80 dark:bg-red-900/60 text-red-700 dark:text-red-200 px-3.5 py-1.5 rounded-xl text-xs font-black border border-red-200 dark:border-red-700 shadow-sm">{f.food_name}</span>
                         ))}
                       </div>
                     </div>
                   )}
 
-                  <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-white/60 dark:border-gray-700/50 shadow-xl shadow-gray-200/40 dark:shadow-black/20 space-y-4">
+                  <div className="glass-card p-6 rounded-[2rem] space-y-4">
                     <h3 className="text-sm font-black text-gray-700 dark:text-gray-300">מאכלים שנטעמו:</h3>
                     {foodsList.length === 0 ? (
-                      <p className="text-xs text-gray-400 text-center py-8 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border border-dashed border-gray-200 dark:border-gray-600">עדיין לא תועדו טעימות.</p>
+                      <p className="text-xs text-gray-400 text-center py-8 bg-white/40 dark:bg-gray-800/40 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700 font-medium">עדיין לא תועדו טעימות.</p>
                     ) : (
                       <div className="grid grid-cols-2 gap-3">
                         {foodsList.map((f, idx) => (
-                          <div key={idx} className="p-3 bg-gray-50 dark:bg-gray-700/60 rounded-2xl border border-gray-100 dark:border-gray-600 flex justify-between items-center shadow-sm">
+                          <div key={idx} className="p-3 bg-white/60 dark:bg-gray-800/60 rounded-2xl border border-white/80 dark:border-gray-700 flex justify-between items-center shadow-sm">
                             <span className="font-bold text-xs dark:text-white truncate max-w-[80%]">{f.food_name}</span>
                             <span className="text-base drop-shadow-sm">
                               {f.reaction === 'liked' ? '😋' : f.reaction === 'neutral' ? '😐' : f.reaction === 'disliked' ? '😖' : '⚠️'}
@@ -1897,10 +1920,10 @@
 
             {activeTab === 'pumping' && (
               <div className="animate-tab space-y-5">
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] border border-white/60 dark:border-gray-700/50 shadow-xl shadow-purple-200/30 dark:shadow-black/20 space-y-4">
+                <div className="glass-card p-6 rounded-[2rem] space-y-4">
                   <h2 className="text-lg font-black dark:text-white mb-2 flex items-center gap-2"><span className="text-2xl drop-shadow-sm">📊</span> סיכום שאיבות יומי</h2>
                   {getDailyPumpingStats().length === 0 ? (
-                    <div className="text-center text-gray-400 text-sm py-8 border border-dashed border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/30 rounded-3xl">
+                    <div className="text-center text-gray-400 text-sm py-8 border border-dashed border-gray-200 dark:border-gray-700 bg-white/40 dark:bg-gray-800/40 rounded-3xl font-medium">
                       לא תועדו שאיבות עדיין.
                     </div>
                   ) : (
@@ -1908,7 +1931,7 @@
                       {getDailyPumpingStats().map((stat, idx) => {
                         const isExpanded = expandedPumpingDate === stat.dateKey;
                         return (
-                          <div key={idx} className="bg-purple-50/80 dark:bg-purple-900/20 rounded-[1.5rem] border border-purple-100 dark:border-purple-800/50 shadow-sm overflow-hidden transition-all duration-300">
+                          <div key={idx} className="bg-purple-50/70 dark:bg-purple-900/20 rounded-[1.8rem] border border-purple-100/80 dark:border-purple-800/50 shadow-sm overflow-hidden transition-all duration-300">
                             <div 
                               onClick={() => { triggerVibration(10); setExpandedPumpingDate(isExpanded ? null : stat.dateKey); }}
                               className="flex justify-between items-center p-5 cursor-pointer hover:bg-purple-100/50 dark:hover:bg-purple-900/40 transition-colors"
@@ -1930,7 +1953,7 @@
                                 {stat.logs.map((log, lIdx) => (
                                   <div key={lIdx} className="flex justify-between items-center text-sm py-2.5 border-b border-purple-100/50 dark:border-purple-800/30 last:border-0">
                                     <div className="flex items-center gap-3">
-                                      <span className="text-gray-500 dark:text-gray-400 font-bold font-mono bg-white dark:bg-gray-700 px-2 py-0.5 rounded-lg shadow-sm">
+                                      <span className="text-gray-500 dark:text-gray-400 font-bold font-mono bg-white/80 dark:bg-gray-700 px-2 py-0.5 rounded-lg shadow-sm">
                                         {new Date(log.timestamp).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'})}
                                       </span>
                                       {log.side && log.side !== 'both' && (
@@ -1955,7 +1978,6 @@
               </div>
             )}
 
-            {/* --- שלב 3: כרטיסיית סטטיסטיקות השוואתיות מעל הגרפים בטאב מגמות --- */}
             {activeTab === 'trends' && (() => {
               const stats7Days = getLast7DaysStats();
               const maxBottle = Math.max(...stats7Days.map(s => s.bottleMl), 50);
@@ -1969,7 +1991,7 @@
 
               return (
                 <div className="animate-tab space-y-5">
-                  <div className="bg-gradient-to-br from-blue-400 to-cyan-500 p-5 rounded-3xl shadow-xl shadow-cyan-200/50 dark:shadow-none text-white flex justify-between items-center border border-cyan-300/30">
+                  <div className="bg-gradient-to-br from-blue-400 to-cyan-500 p-5 rounded-[2rem] shadow-xl shadow-cyan-200/50 dark:shadow-none text-white flex justify-between items-center border border-cyan-300/30">
                     <div>
                       <h2 className="text-lg font-black drop-shadow-sm">📊 תובנות ומגמות</h2>
                       <p className="text-xs font-bold opacity-90 mt-1 bg-black/10 px-2 py-0.5 rounded-lg inline-block">סיכום 7 הימים האחרונים</p>
@@ -1977,8 +1999,7 @@
                     <div className="text-4xl drop-shadow-md">📈</div>
                   </div>
 
-                  {/* כרטיסיית השוואה חכמה */}
-                  <div className="bg-white dark:bg-gray-800 p-4 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-3">
+                  <div className="glass-card p-4 rounded-[2rem] space-y-3">
                     <h3 className="text-xs font-black text-gray-500 dark:text-gray-400 px-1">💡 השוואה יומית מול ממוצע שבועי:</h3>
                     <div className="grid grid-cols-2 gap-3 text-xs">
                       <div className="bg-cyan-50/70 dark:bg-cyan-900/30 p-3.5 rounded-2xl border border-cyan-100 dark:border-cyan-800">
@@ -1998,8 +2019,8 @@
                     </div>
                   </div>
                   
-                  <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-white/60 dark:border-gray-700/50 shadow-xl shadow-cyan-100/30 dark:shadow-black/20">
-                    <h3 className="text-xs font-black mb-6 text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/30 px-3 py-1.5 rounded-xl inline-block shadow-sm">🍼 סה"כ בקבוקים (מ"ל)</h3>
+                  <div className="glass-card p-6 rounded-[2rem]">
+                    <h3 className="text-xs font-black mb-6 text-cyan-600 dark:text-cyan-400 bg-cyan-50/80 dark:bg-cyan-900/30 px-3 py-1.5 rounded-xl inline-block shadow-sm">🍼 סה"כ בקבוקים (מ"ל)</h3>
                     <div className="flex items-end justify-between h-32 gap-2.5 relative pt-4">
                       <div className="absolute w-full border-t-[2px] border-dashed border-gray-100 dark:border-gray-700 bottom-0"></div>
                       {stats7Days.map((item, idx) => (
@@ -2012,8 +2033,8 @@
                     </div>
                   </div>
 
-                  <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-white/60 dark:border-gray-700/50 shadow-xl shadow-purple-100/30 dark:shadow-black/20">
-                    <h3 className="text-xs font-black mb-6 text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 px-3 py-1.5 rounded-xl inline-block shadow-sm">🥛 סה"כ שאיבות (מ"ל)</h3>
+                  <div className="glass-card p-6 rounded-[2rem]">
+                    <h3 className="text-xs font-black mb-6 text-purple-600 dark:text-purple-400 bg-purple-50/80 dark:bg-purple-900/30 px-3 py-1.5 rounded-xl inline-block shadow-sm">🥛 סה"כ שאיבות (מ"ל)</h3>
                     <div className="flex items-end justify-between h-32 gap-2.5 relative pt-4">
                       <div className="absolute w-full border-t-[2px] border-dashed border-gray-100 dark:border-gray-700 bottom-0"></div>
                       {stats7Days.map((item, idx) => (
@@ -2026,8 +2047,8 @@
                     </div>
                   </div>
 
-                  <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-white/60 dark:border-gray-700/50 shadow-xl shadow-rose-100/30 dark:shadow-black/20">
-                    <h3 className="text-xs font-black mb-6 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30 px-3 py-1.5 rounded-xl inline-block shadow-sm">🤱 סה"כ הנקה (דקות)</h3>
+                  <div className="glass-card p-6 rounded-[2rem]">
+                    <h3 className="text-xs font-black mb-6 text-rose-600 dark:text-rose-400 bg-rose-50/80 dark:bg-rose-900/30 px-3 py-1.5 rounded-xl inline-block shadow-sm">🤱 סה"כ הנקה (דקות)</h3>
                     <div className="flex items-end justify-between h-32 gap-2.5 relative pt-4">
                       <div className="absolute w-full border-t-[2px] border-dashed border-gray-100 dark:border-gray-700 bottom-0"></div>
                       {stats7Days.map((item, idx) => (
@@ -2051,7 +2072,7 @@
                 <div className="animate-tab space-y-5">
                   <div 
                     onClick={() => { triggerVibration(15); setShowReportModal(true); }}
-                    className="flex justify-between items-center bg-gradient-to-br from-teal-400 to-emerald-500 p-5 rounded-3xl text-white shadow-xl shadow-teal-200/50 dark:shadow-none cursor-pointer transition-all active:scale-95 border border-teal-300/30"
+                    className="flex justify-between items-center bg-gradient-to-br from-teal-400 to-emerald-500 p-5 rounded-[2rem] text-white shadow-xl shadow-teal-200/50 dark:shadow-none cursor-pointer transition-all active:scale-95 border border-teal-300/30"
                   >
                     <div>
                       <h2 className="font-black text-lg drop-shadow-sm">📄 דוח לרופא / טיפת חלב</h2>
@@ -2061,8 +2082,8 @@
                   </div>
 
                   {weights.length > 0 && (
-                    <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-white/60 dark:border-gray-700/50 shadow-xl shadow-teal-100/30 dark:shadow-black/20">
-                      <h3 className="text-xs font-black mb-6 text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30 px-3 py-1.5 rounded-xl inline-block shadow-sm">📈 מגמת עליית משקל (ק"ג)</h3>
+                    <div className="glass-card p-6 rounded-[2rem]">
+                      <h3 className="text-xs font-black mb-6 text-teal-600 dark:text-teal-400 bg-teal-50/80 dark:bg-teal-900/30 px-3 py-1.5 rounded-xl inline-block shadow-sm">📈 מגמת עליית משקל (ק"ג)</h3>
                       <div className="flex items-end justify-between h-32 gap-2.5 relative pt-4">
                         <div className="absolute w-full border-t-[2px] border-dashed border-gray-100 dark:border-gray-700 bottom-0"></div>
                         {weights.map((item, idx) => (
@@ -2076,18 +2097,18 @@
                     </div>
                   )}
 
-                  <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-white/60 dark:border-gray-700/50 shadow-xl shadow-gray-200/40 dark:shadow-black/20 space-y-5">
+                  <div className="glass-card p-6 rounded-[2rem] space-y-5">
                     <h2 className="text-base font-black dark:text-white flex items-center gap-2"><span className="text-xl">➕</span> הוספת מדידה חדשה</h2>
                     <div className="grid grid-cols-3 gap-2">
-                      {['weight', 'height', 'head_circumference'].map(t => <button key={t} onClick={() => {triggerVibration(10); setGrowthType(t)}} className={`py-3.5 rounded-2xl text-xs font-bold shadow-sm transition border ${growthType === t ? 'bg-teal-400 text-white border-teal-400' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-600'}`}>{t === 'weight' ? '⚖️ משקל' : t === 'height' ? '📏 גובה' : '⭕ היקף'}</button>)}
+                      {['weight', 'height', 'head_circumference'].map(t => <button key={t} onClick={() => {triggerVibration(10); setGrowthType(t)}} className={`py-3.5 rounded-2xl text-xs font-black shadow-sm transition border ${growthType === t ? 'bg-teal-400 text-white border-teal-400' : 'bg-white/60 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300 border-white/80 dark:border-gray-700'}`}>{t === 'weight' ? '⚖️ משקל' : t === 'height' ? '📏 גובה' : '⭕ היקף'}</button>)}
                     </div>
                     <div className="pt-3 space-y-4 border-t border-gray-100 dark:border-gray-700/60">
                       <div className="flex gap-2">
-                        <input type="number" step="0.01" value={growthValue} onChange={e => setGrowthValue(e.target.value)} placeholder="הכנס ערך מספרי" className="flex-1 px-4 py-3 bg-gray-50 dark:bg-gray-700 font-black text-lg text-center border border-gray-200 dark:border-gray-600 rounded-2xl focus:outline-none dark:text-white shadow-sm" />
-                        <span className="bg-gray-100 dark:bg-gray-700/60 px-5 py-3 rounded-2xl font-black text-gray-500 dark:text-gray-300 flex items-center border border-gray-200 dark:border-gray-600 shadow-sm">{growthType === 'weight' ? 'ק"ג' : 'ס"מ'}</span>
+                        <input type="number" step="0.01" value={growthValue} onChange={e => setGrowthValue(e.target.value)} placeholder="הכנס ערך מספרי" className="flex-1 px-4 py-3 bg-white/60 dark:bg-gray-800/60 font-black text-lg text-center border border-white/80 dark:border-gray-700 rounded-2xl focus:outline-none dark:text-white shadow-sm" />
+                        <span className="bg-white/80 dark:bg-gray-700 px-5 py-3 rounded-2xl font-black text-gray-500 dark:text-gray-300 flex items-center border border-white/80 dark:border-gray-700 shadow-sm">{growthType === 'weight' ? 'ק"ג' : 'ס"מ'}</span>
                       </div>
                       <div>
-                        <input type="text" value={growthNotes} onChange={e => setGrowthNotes(e.target.value)} placeholder="הערות למדידה..." className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-200 dark:border-gray-600 text-xs focus:outline-none dark:text-white font-medium shadow-sm" />
+                        <input type="text" value={growthNotes} onChange={e => setGrowthNotes(e.target.value)} placeholder="הערות למדידה..." className="w-full px-4 py-3 bg-white/60 dark:bg-gray-800/60 rounded-2xl border border-white/80 dark:border-gray-700 text-xs focus:outline-none dark:text-white font-medium shadow-sm" />
                       </div>
                       <button onClick={saveGrowth} disabled={!growthValue || growthSaveStatus !== 'idle'} 
                         className={`w-full font-black text-base py-4 rounded-2xl shadow-xl transition-all duration-300 flex items-center justify-center gap-2 ${
@@ -2098,16 +2119,16 @@
                     </div>
                   </div>
 
-                  <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-white/60 dark:border-gray-700/50 shadow-xl shadow-gray-200/40 dark:shadow-black/20">
+                  <div className="glass-card p-6 rounded-[2rem]">
                     <h2 className="text-base font-black dark:text-white mb-4">📋 היסטוריית גדילה ({growthLogs.length})</h2>
                     {growthLogs.length === 0 ? (
-                      <div className="text-center text-gray-400 text-sm py-8 border border-dashed border-gray-200 dark:border-gray-700 rounded-2xl bg-gray-50 dark:bg-gray-700/30">
+                      <div className="text-center text-gray-400 text-sm py-8 border border-dashed border-gray-200 dark:border-gray-700 rounded-2xl bg-white/40 dark:bg-gray-800/40">
                         לא תועדו מדידות גדילה עדיין.
                       </div>
                     ) : (
                       <div className="space-y-3">
                         {growthLogs.map((item, i) => (
-                          <div key={i} className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-600 flex justify-between items-center shadow-sm">
+                          <div key={i} className="bg-white/60 dark:bg-gray-800/60 p-4 rounded-2xl border border-white/80 dark:border-gray-700 flex justify-between items-center shadow-sm">
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-1">
                                 <span className="text-sm font-black text-gray-900 dark:text-white">
@@ -2117,14 +2138,14 @@
                                   {item.value} {item.unit === 'kg' ? 'ק"ג' : 'ס"מ'}
                                 </span>
                               </div>
-                              <p className="text-[11px] text-gray-500 dark:text-gray-400 font-bold mt-1.5 bg-white dark:bg-gray-800 px-2 py-0.5 rounded-md inline-block shadow-sm">
+                              <p className="text-[11px] text-gray-500 dark:text-gray-400 font-bold mt-1.5 bg-white/80 dark:bg-gray-800 px-2 py-0.5 rounded-md inline-block shadow-sm border border-white/60 dark:border-gray-700">
                                 {new Date(item.timestamp).toLocaleDateString('he-IL')} - <span className="font-mono">{new Date(item.timestamp).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'})}</span>
                               </p>
                               {item.notes && <p className="text-[11px] text-gray-600 dark:text-gray-300 mt-2 font-medium">{item.notes}</p>}
                             </div>
                             <div className="flex flex-col gap-1.5 mr-2">
-                              <button onClick={() => openEditModal(item)} className="text-[10px] bg-white dark:bg-gray-600 text-gray-600 dark:text-gray-200 border border-gray-200 dark:border-gray-500 px-3 py-1.5 rounded-lg font-bold transition active:scale-95 shadow-sm">ערוך</button>
-                              <button onClick={() => deleteTimelineItem(item)} className="text-[10px] bg-red-50 dark:bg-red-900/40 text-red-500 dark:text-red-400 border border-red-100 dark:border-red-900/50 px-3 py-1.5 rounded-lg font-bold transition active:scale-95 shadow-sm">מחק</button>
+                              <button onClick={() => openEditModal(item)} className="text-[10px] bg-white/80 dark:bg-gray-700 text-gray-600 dark:text-gray-200 border border-white/80 dark:border-gray-600 px-3 py-1.5 rounded-lg font-bold transition active:scale-95 shadow-sm">ערוך</button>
+                              <button onClick={() => deleteTimelineItem(item)} className="text-[10px] bg-red-50/80 dark:bg-red-900/40 text-red-500 dark:text-red-400 border border-red-100/60 dark:border-red-900/50 px-3 py-1.5 rounded-lg font-bold transition active:scale-95 shadow-sm">מחק</button>
                             </div>
                           </div>
                         ))}
@@ -2137,21 +2158,21 @@
 
             {activeTab === 'settings' && (
               <div className="animate-tab space-y-5">
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] border border-white/60 dark:border-gray-700/50 shadow-xl shadow-gray-200/40 dark:shadow-black/20 space-y-6">
+                <div className="glass-card p-6 rounded-[2.5rem] space-y-6">
                   <h2 className="text-lg font-black pb-3 border-b border-gray-100 dark:border-gray-700/60 dark:text-white flex items-center gap-2"><span className="text-2xl drop-shadow-sm">⚙️</span> הגדרות האפליקציה</h2>
                   
-                  <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-600 shadow-sm">
+                  <div className="flex justify-between items-center bg-white/50 dark:bg-gray-800/50 p-4 rounded-2xl border border-white/80 dark:border-gray-700 shadow-sm">
                     <span className="text-sm font-black dark:text-white flex items-center gap-2"><span className="text-lg">🌙</span> מצב לילה (Dark Mode)</span>
                     <input type="checkbox" checked={isDarkMode} onChange={e => {triggerVibration(10); setIsDarkMode(e.target.checked);}} className="w-5 h-5 accent-rose-500 cursor-pointer" />
                   </div>
 
-                  <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-600 shadow-sm">
+                  <div className="flex justify-between items-center bg-white/50 dark:bg-gray-800/50 p-4 rounded-2xl border border-white/80 dark:border-gray-700 shadow-sm">
                     <div>
                       <span className="text-sm font-black dark:text-white flex items-center gap-2 mb-1"><span className="text-lg">🔔</span> התראות פוש</span>
                       <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium leading-tight block max-w-[200px]">רישום המכשיר לקבלת התראות האכלה בזמן אמת</span>
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={testPushNotification} className="text-[11px] font-black px-3 py-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 active:scale-95 transition">
+                      <button onClick={testPushNotification} className="text-[11px] font-black px-3 py-2 rounded-xl bg-white/80 dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-white/80 dark:border-gray-600 active:scale-95 transition">
                         בדיקת פוש 🚀
                       </button>
                       <button onClick={()=>{triggerVibration(10); requestNotificationPermission();}} className={`text-xs font-black px-4 py-2.5 rounded-xl shadow-sm transition active:scale-95 ${notificationsEnabled ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300' : 'bg-rose-500 text-white shadow-rose-200/50'}`}>
@@ -2163,9 +2184,9 @@
                   <div className="space-y-2 border-t border-gray-100 dark:border-gray-700/60 pt-5">
                     <label className="text-xs font-black text-gray-500 dark:text-gray-400 block mb-2 px-1">מ"ל ברירת מחדל לבקבוק:</label>
                     <div className="flex gap-2.5">
-                      <input type="number" value={defaultMl} onChange={e => updateDefaultMl(parseInt(e.target.value || 0))} className="w-16 text-center font-black text-base p-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none dark:text-white shadow-sm" />
+                      <input type="number" value={defaultMl} onChange={e => updateDefaultMl(parseInt(e.target.value || 0))} className="w-16 text-center font-black text-base p-2 bg-white/60 dark:bg-gray-800/60 border border-white/80 dark:border-gray-700 rounded-xl focus:outline-none dark:text-white shadow-sm" />
                       <div className="flex gap-1.5 flex-1">
-                        {[90, 120, 150, 180].map(v => <button key={v} onClick={()=>{triggerVibration(10); updateDefaultMl(v)}} className={`flex-1 py-1 rounded-xl text-xs font-bold transition border shadow-sm ${defaultMl === v ? 'bg-rose-400 text-white border-rose-400' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-600'}`}>{v}</button>)}
+                        {[90, 120, 150, 180].map(v => <button key={v} onClick={()=>{triggerVibration(10); updateDefaultMl(v)}} className={`flex-1 py-1 rounded-xl text-xs font-bold transition border shadow-sm ${defaultMl === v ? 'bg-rose-400 text-white border-rose-400' : 'bg-white/60 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300 border-white/80 dark:border-gray-700'}`}>{v}</button>)}
                       </div>
                     </div>
                   </div>
@@ -2173,16 +2194,16 @@
                   <div className="space-y-4 border-t border-gray-100 dark:border-gray-700/60 pt-5 text-xs">
                     <h3 className="text-xs font-black text-gray-500 dark:text-gray-400 px-1">ברירות מחדל חכמות (חוסך קליקים):</h3>
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-2xl border border-gray-100 dark:border-gray-600 shadow-sm">
+                      <div className="bg-white/50 dark:bg-gray-800/50 p-3 rounded-2xl border border-white/80 dark:border-gray-700 shadow-sm">
                         <label className="block font-bold mb-2 dark:text-gray-300">נוזל מועדף:</label>
-                        <select value={defaultBottleType} onChange={e => updateDefBottleType(e.target.value)} className="w-full p-2.5 bg-white dark:bg-gray-800 font-bold border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none dark:text-white shadow-sm">
+                        <select value={defaultBottleType} onChange={e => updateDefBottleType(e.target.value)} className="w-full p-2.5 bg-white/80 dark:bg-gray-800 font-bold border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none dark:text-white shadow-sm">
                           <option value="formula">תמ"ל</option>
                           <option value="expressed">שאוב</option>
                         </select>
                       </div>
-                      <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-2xl border border-gray-100 dark:border-gray-600 shadow-sm">
+                      <div className="bg-white/50 dark:bg-gray-800/50 p-3 rounded-2xl border border-white/80 dark:border-gray-700 shadow-sm">
                         <label className="block font-bold mb-2 dark:text-gray-300">הנקה קבועה (דק'):</label>
-                        <input type="number" value={defaultBreastDuration} onChange={e => updateDefBreastDuration(parseInt(e.target.value || 1))} className="w-full p-2.5 bg-white dark:bg-gray-800 font-black border border-gray-200 dark:border-gray-600 rounded-xl text-center focus:outline-none dark:text-white shadow-sm" />
+                        <input type="number" value={defaultBreastDuration} onChange={e => updateDefBreastDuration(parseInt(e.target.value || 1))} className="w-full p-2.5 bg-white/80 dark:bg-gray-800 font-black border border-gray-200 dark:border-gray-700 rounded-xl text-center focus:outline-none dark:text-white shadow-sm" />
                       </div>
                     </div>
                   </div>
@@ -2190,56 +2211,56 @@
                   <div className="space-y-4 border-t border-gray-100 dark:border-gray-700/60 pt-5 text-xs">
                     <h3 className="text-xs font-black text-gray-500 dark:text-gray-400 px-1">יעדי מעקב והתראות:</h3>
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-rose-50/50 dark:bg-gray-700/50 p-3 rounded-2xl border border-rose-100 dark:border-gray-600 shadow-sm">
+                      <div className="bg-rose-50/50 dark:bg-gray-800/50 p-3 rounded-2xl border border-rose-100/80 dark:border-gray-700 shadow-sm">
                         <label className="block font-bold mb-2 dark:text-gray-300 text-rose-600 dark:text-rose-400">יעד ארוחות יומי:</label>
-                        <input type="number" value={targetFeeds} onChange={e => updateTarget('feeds', e.target.value)} className="w-full p-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl text-center font-black text-base focus:outline-none dark:text-white shadow-sm" />
+                        <input type="number" value={targetFeeds} onChange={e => updateTarget('feeds', e.target.value)} className="w-full p-2.5 bg-white/80 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-center font-black text-base focus:outline-none dark:text-white shadow-sm" />
                       </div>
-                      <div className="bg-amber-50/50 dark:bg-gray-700/50 p-3 rounded-2xl border border-amber-100 dark:border-gray-600 shadow-sm">
+                      <div className="bg-amber-50/50 dark:bg-gray-800/50 p-3 rounded-2xl border border-amber-100/80 dark:border-gray-700 shadow-sm">
                         <label className="block font-bold mb-2 dark:text-gray-300 text-amber-600 dark:text-amber-400">יעד חיתולים יומי:</label>
-                        <input type="number" value={targetDiapers} onChange={e => updateTarget('diapers', e.target.value)} className="w-full p-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl text-center font-black text-base focus:outline-none dark:text-white shadow-sm" />
+                        <input type="number" value={targetDiapers} onChange={e => updateTarget('diapers', e.target.value)} className="w-full p-2.5 bg-white/80 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-center font-black text-base focus:outline-none dark:text-white shadow-sm" />
                       </div>
                     </div>
                     
                     <div className="grid grid-cols-2 gap-4 pt-2">
-                      <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-2xl border border-gray-100 dark:border-gray-600 shadow-sm">
+                      <div className="bg-white/50 dark:bg-gray-800/50 p-3 rounded-2xl border border-white/80 dark:border-gray-700 shadow-sm">
                         <label className="block font-bold mb-2 dark:text-gray-300">מרווח האכלה (שעות):</label>
-                        <input type="number" step="0.5" value={feedIntervalHours} onChange={e => updateFeedInterval(parseFloat(e.target.value || 3))} className="w-full p-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl text-center font-black text-base focus:outline-none dark:text-white shadow-sm" />
+                        <input type="number" step="0.5" value={feedIntervalHours} onChange={e => updateFeedInterval(parseFloat(e.target.value || 3))} className="w-full p-2.5 bg-white/80 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-center font-black text-base focus:outline-none dark:text-white shadow-sm" />
                       </div>
-                      <div className="bg-teal-50/50 dark:bg-gray-700/50 p-3 rounded-2xl border border-teal-100 dark:border-gray-600 shadow-sm">
+                      <div className="bg-teal-50/50 dark:bg-gray-800/50 p-3 rounded-2xl border border-teal-100/80 dark:border-gray-700 shadow-sm">
                         <label className="block font-bold mb-2 dark:text-gray-300 text-teal-700 dark:text-teal-400">התראה מראש (בדק'):</label>
-                        <input type="number" step="1" min="1" max="60" value={notifyLeadMinutes} onChange={e => updateNotifyLead(parseInt(e.target.value || 10))} className="w-full p-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl text-center font-black text-base focus:outline-none dark:text-white shadow-sm" />
+                        <input type="number" step="1" min="1" max="60" value={notifyLeadMinutes} onChange={e => updateNotifyLead(parseInt(e.target.value || 10))} className="w-full p-2.5 bg-white/80 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-center font-black text-base focus:outline-none dark:text-white shadow-sm" />
                       </div>
                     </div>
                   </div>
 
                   <div className="space-y-4 border-t border-gray-100 dark:border-gray-700/60 pt-5">
                     <h3 className="text-xs font-black text-gray-500 dark:text-gray-400 px-1">פרופיל הבייבי:</h3>
-                    <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-600 shadow-sm space-y-3">
+                    <div className="bg-white/50 dark:bg-gray-800/50 p-4 rounded-2xl border border-white/80 dark:border-gray-700 shadow-sm space-y-3">
                       <div>
                         <label className="text-[11px] font-bold text-gray-500 dark:text-gray-400 block mb-1.5">שם התינוק/ת:</label>
-                        <input type="text" value={babyName} onChange={e => handleSaveName(e.target.value)} className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 font-black border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none dark:text-white shadow-sm" />
+                        <input type="text" value={babyName} onChange={e => handleSaveName(e.target.value)} className="w-full px-4 py-2.5 bg-white/80 dark:bg-gray-800 font-black border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none dark:text-white shadow-sm" />
                       </div>
                       <div>
                         <label className="text-[11px] font-bold text-gray-500 dark:text-gray-400 block mb-1.5">מין התינוק/ת:</label>
                         <div className="grid grid-cols-2 gap-2">
-                          <button type="button" onClick={() => {triggerVibration(10); handleSaveGender('בן')}} className={`py-2.5 rounded-xl font-bold border shadow-sm transition dark:border-gray-600 ${babyGender === 'בן' ? 'bg-cyan-400 text-white border-cyan-400' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200'}`}>🚹 בן</button>
-                          <button type="button" onClick={() => {triggerVibration(10); handleSaveGender('בת')}} className={`py-2.5 rounded-xl font-bold border shadow-sm transition dark:border-gray-600 ${babyGender === 'בת' ? 'bg-rose-400 text-white border-rose-400' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200'}`}>🚺 בת</button>
+                          <button type="button" onClick={() => {triggerVibration(10); handleSaveGender('בן')}} className={`py-2.5 rounded-xl font-bold border shadow-sm transition ${babyGender === 'בן' ? 'bg-cyan-400 text-white border-cyan-400' : 'bg-white/80 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700'}`}>🚹 בן</button>
+                          <button type="button" onClick={() => {triggerVibration(10); handleSaveGender('בת')}} className={`py-2.5 rounded-xl font-bold border shadow-sm transition ${babyGender === 'בת' ? 'bg-rose-400 text-white border-rose-400' : 'bg-white/80 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700'}`}>🚺 בת</button>
                         </div>
                       </div>
                       <div>
                         <label className="text-[11px] font-bold text-gray-500 dark:text-gray-400 block mb-1.5">תאריך לידה:</label>
-                        <input type="date" value={babyDob} onChange={e => handleSaveDob(e.target.value)} className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl font-black text-center focus:outline-none dark:text-white shadow-sm" />
+                        <input type="date" value={babyDob} onChange={e => handleSaveDob(e.target.value)} className="w-full px-4 py-2.5 bg-white/80 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl font-black text-center focus:outline-none dark:text-white shadow-sm" />
                       </div>
                     </div>
                   </div>
 
                   <div className="space-y-2 border-t border-gray-100 dark:border-gray-700/60 pt-5 text-xs">
                     <h3 className="text-xs font-black text-gray-500 dark:text-gray-400 mb-3 px-1">התאמת תצוגה במסך הבית:</h3>
-                    <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-600 shadow-sm">
+                    <div className="flex justify-between items-center bg-white/50 dark:bg-gray-800/50 p-4 rounded-2xl border border-white/80 dark:border-gray-700 shadow-sm">
                       <span className="font-bold dark:text-white">הצג כפתור מהיר: ויטמין D</span>
                       <input type="checkbox" checked={showVitaminDButton} onChange={e => {triggerVibration(10); toggleVitDButton(e.target.checked)}} className="w-5 h-5 accent-rose-500 cursor-pointer" />
                     </div>
-                    <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-600 shadow-sm">
+                    <div className="flex justify-between items-center bg-white/50 dark:bg-gray-800/50 p-4 rounded-2xl border border-white/80 dark:border-gray-700 shadow-sm">
                       <span className="font-bold dark:text-white">הצג קוביית סטטוס "צד אחרון"</span>
                       <input type="checkbox" checked={showLastSideStat} onChange={e => {triggerVibration(10); toggleLastSideStat(e.target.checked)}} className="w-5 h-5 accent-rose-500 cursor-pointer" />
                     </div>
@@ -2257,7 +2278,7 @@
           </main>
 
           <div className="fixed bottom-6 left-0 right-0 z-50 flex justify-center pointer-events-none px-4 no-print">
-            <nav className="w-full max-w-lg bg-white/85 dark:bg-gray-900/85 backdrop-blur-xl border border-white/60 dark:border-gray-700/50 flex justify-around items-center px-2 py-2.5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.5)] rounded-full pointer-events-auto transition-colors duration-300">
+            <nav className="w-full max-w-lg glass-nav flex justify-around items-center px-2 py-2.5 rounded-full pointer-events-auto transition-colors duration-300">
               {[
                 { id: 'home', label: 'בית', icon: '🏠' },
                 { id: 'timeline', label: 'יומן', icon: '📋' },
@@ -2290,21 +2311,21 @@
 
           {editingItem && (
             <div className="fixed inset-0 bg-gray-900/40 dark:bg-black/60 backdrop-blur-md z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200 no-print">
-              <div className="bg-white dark:bg-gray-800 w-full max-w-sm rounded-[2rem] p-6 shadow-2xl shadow-black/20 space-y-5 border border-white/60 dark:border-gray-700 text-gray-800 dark:text-white">
+              <div className="glass-card w-full max-w-sm rounded-[2rem] p-6 shadow-2xl space-y-5 text-gray-800 dark:text-white">
                 <div className="flex justify-between items-center border-b border-gray-100 dark:border-gray-700/60 pb-3">
                   <h3 className="font-black text-base flex items-center gap-2"><span className="text-xl">✏️</span> עריכת פעולה</h3>
-                  <button onClick={() => {triggerVibration(10); setEditingItem(null)}} className="text-gray-400 font-bold hover:text-gray-600 dark:hover:text-white bg-gray-50 dark:bg-gray-700 w-8 h-8 rounded-full flex items-center justify-center transition-colors">✕</button>
+                  <button onClick={() => {triggerVibration(10); setEditingItem(null)}} className="text-gray-400 font-bold hover:text-gray-600 dark:hover:text-white bg-gray-100/60 dark:bg-gray-700/60 w-8 h-8 rounded-full flex items-center justify-center transition-colors">✕</button>
                 </div>
 
                 {editingItem.logType === 'feeding' && (
                   <div className="space-y-4 text-xs">
                     <div>
                       <label className="font-bold block mb-2 px-1 text-gray-500 dark:text-gray-400">{editingItem.type === 'breastfeeding' ? 'משך זמן (דקות):' : 'כמות ארוחה (במ"ל):'}</label>
-                      <input type="number" value={editValue1} onChange={e => setEditValue1(e.target.value)} className="w-full p-3 bg-gray-50 dark:bg-gray-700/50 font-black text-base border border-gray-200 dark:border-gray-600 rounded-2xl text-center focus:outline-none dark:text-white shadow-sm" />
+                      <input type="number" value={editValue1} onChange={e => setEditValue1(e.target.value)} className="w-full p-3 bg-white/60 dark:bg-gray-800/60 font-black text-base border border-white/80 dark:border-gray-700 rounded-2xl text-center focus:outline-none dark:text-white shadow-sm" />
                     </div>
                     <div>
                       <label className="font-bold block mb-2 px-1 text-gray-500 dark:text-gray-400">צד/החזקה מוגדר:</label>
-                      <select value={editSelect1} onChange={e => setEditSelect1(e.target.value)} className="w-full p-3 bg-gray-50 dark:bg-gray-700/50 font-bold border border-gray-200 dark:border-gray-600 rounded-2xl focus:outline-none dark:text-white shadow-sm">
+                      <select value={editSelect1} onChange={e => setEditSelect1(e.target.value)} className="w-full p-3 bg-white/60 dark:bg-gray-800/60 font-bold border border-white/80 dark:border-gray-700 rounded-2xl focus:outline-none dark:text-white shadow-sm">
                         <option value="left">שמאל</option>
                         <option value="both">שניהם</option>
                         <option value="right">ימין</option>
@@ -2313,7 +2334,7 @@
                     {editingItem.type === 'bottle' && !editingItem.notes?.includes('ויטמין D') && (
                       <div>
                         <label className="font-bold block mb-2 px-1 text-gray-500 dark:text-gray-400">סוג הנוזל בבקבוק:</label>
-                        <select value={editSelect2} onChange={e => setEditSelect2(e.target.value)} className="w-full p-3 bg-gray-50 dark:bg-gray-700/50 font-bold border border-gray-200 dark:border-gray-600 rounded-2xl focus:outline-none dark:text-white shadow-sm">
+                        <select value={editSelect2} onChange={e => setEditSelect2(e.target.value)} className="w-full p-3 bg-white/60 dark:bg-gray-800/60 font-bold border border-white/80 dark:border-gray-700 rounded-2xl focus:outline-none dark:text-white shadow-sm">
                           <option value="formula">תמ"ל</option>
                           <option value="expressed">שאוב</option>
                         </select>
@@ -2326,11 +2347,11 @@
                   <div className="space-y-4 text-xs">
                     <div>
                       <label className="font-bold block mb-2 px-1 text-gray-500 dark:text-gray-400">{editingItem.type === 'breastfeeding' ? 'משך זמן (דקות):' : 'כמות שנשאבה (במ"ל):'}</label>
-                      <input type="number" value={editValue1} onChange={e => setEditValue1(e.target.value)} className="w-full p-3 bg-gray-50 dark:bg-gray-700/50 font-black text-base border border-gray-200 dark:border-gray-600 rounded-2xl text-center focus:outline-none dark:text-white shadow-sm" />
+                      <input type="number" value={editValue1} onChange={e => setEditValue1(e.target.value)} className="w-full p-3 bg-white/60 dark:bg-gray-800/60 font-black text-base border border-white/80 dark:border-gray-700 rounded-2xl text-center focus:outline-none dark:text-white shadow-sm" />
                     </div>
                     <div>
                       <label className="font-bold block mb-2 px-1 text-gray-500 dark:text-gray-400">צד השאיבה:</label>
-                      <select value={editSelect1} onChange={e => setEditSelect1(e.target.value)} className="w-full p-3 bg-gray-50 dark:bg-gray-700/50 font-bold border border-gray-200 dark:border-gray-600 rounded-2xl focus:outline-none dark:text-white shadow-sm">
+                      <select value={editSelect1} onChange={e => setEditSelect1(e.target.value)} className="w-full p-3 bg-white/60 dark:bg-gray-800/60 font-bold border border-white/80 dark:border-gray-700 rounded-2xl focus:outline-none dark:text-white shadow-sm">
                         <option value="left">שמאל</option>
                         <option value="both">שניהם</option>
                         <option value="right">ימין</option>
@@ -2343,7 +2364,7 @@
                   <div className="space-y-4 text-xs">
                     <div>
                       <label className="font-bold block mb-2 px-1 text-gray-500 dark:text-gray-400">מצב החיתול המעודכן:</label>
-                      <select value={editSelect1} onChange={e => setEditSelect1(e.target.value)} className="w-full p-3 bg-gray-50 dark:bg-gray-700/50 font-bold text-base border border-gray-200 dark:border-gray-600 rounded-2xl focus:outline-none dark:text-white shadow-sm">
+                      <select value={editSelect1} onChange={e => setEditSelect1(e.target.value)} className="w-full p-3 bg-white/60 dark:bg-gray-800/60 font-bold text-base border border-white/80 dark:border-gray-700 rounded-2xl focus:outline-none dark:text-white shadow-sm">
                         <option value="wet">💧 פיפי</option>
                         <option value="dirty">💩 קקי</option>
                         <option value="both">✨ שניהם</option>
@@ -2356,11 +2377,11 @@
                   <div className="space-y-4 text-xs">
                     <div>
                       <label className="font-bold block mb-2 px-1 text-gray-500 dark:text-gray-400">שם המאכל:</label>
-                      <input type="text" value={editValue1} onChange={e => setEditValue1(e.target.value)} className="w-full p-3 bg-gray-50 dark:bg-gray-700/50 font-black text-base border border-gray-200 dark:border-gray-600 rounded-2xl focus:outline-none dark:text-white shadow-sm" />
+                      <input type="text" value={editValue1} onChange={e => setEditValue1(e.target.value)} className="w-full p-3 bg-white/60 dark:bg-gray-800/60 font-black text-base border border-white/80 dark:border-gray-700 rounded-2xl focus:outline-none dark:text-white shadow-sm" />
                     </div>
                     <div>
                       <label className="font-bold block mb-2 px-1 text-gray-500 dark:text-gray-400">תגובת התינוק/ת:</label>
-                      <select value={editSelect1} onChange={e => setEditSelect1(e.target.value)} className="w-full p-3 bg-gray-50 dark:bg-gray-700/50 font-bold text-base border border-gray-200 dark:border-gray-600 rounded-2xl focus:outline-none dark:text-white shadow-sm">
+                      <select value={editSelect1} onChange={e => setEditSelect1(e.target.value)} className="w-full p-3 bg-white/60 dark:bg-gray-800/60 font-bold text-base border border-white/80 dark:border-gray-700 rounded-2xl focus:outline-none dark:text-white shadow-sm">
                         <option value="liked">😋 אהב</option>
                         <option value="neutral">😐 נייטרלי</option>
                         <option value="disliked">😖 לא אהב</option>
@@ -2374,23 +2395,23 @@
                   <div className="space-y-4 text-xs">
                     <div>
                       <label className="font-bold block mb-2 px-1 text-gray-500 dark:text-gray-400">ערך מדידה מעודכן ({editingItem.metric_type === 'weight' ? 'ק"ג' : 'ס"מ'}):</label>
-                      <input type="number" step="0.01" value={editValue1} onChange={e => setEditValue1(e.target.value)} className="w-full p-3 bg-gray-50 dark:bg-gray-700/50 font-black text-base border border-gray-200 dark:border-gray-600 rounded-2xl text-center focus:outline-none dark:text-white shadow-sm" />
+                      <input type="number" step="0.01" value={editValue1} onChange={e => setEditValue1(e.target.value)} className="w-full p-3 bg-white/60 dark:bg-gray-800/60 font-black text-base border border-white/80 dark:border-gray-700 rounded-2xl text-center focus:outline-none dark:text-white shadow-sm" />
                     </div>
                   </div>
                 )}
 
                 <div className="text-xs">
                   <label className="font-black block mb-2 px-1 text-rose-500 dark:text-rose-400">שעה ותאריך הפעולה:</label>
-                  <input type="datetime-local" value={editTimestamp} onChange={e => setEditTimestamp(e.target.value)} className="w-full p-3 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-2xl font-mono font-bold text-center focus:outline-none dark:text-white shadow-sm" />
+                  <input type="datetime-local" value={editTimestamp} onChange={e => setEditTimestamp(e.target.value)} className="w-full p-3 bg-white/60 dark:bg-gray-800/60 border border-white/80 dark:border-gray-700 rounded-2xl font-mono font-bold text-center focus:outline-none dark:text-white shadow-sm" />
                 </div>
 
                 <div className="text-xs">
                   <label className="font-bold block mb-2 px-1 text-gray-500 dark:text-gray-400">הערה מלווה:</label>
-                  <input type="text" value={editNotes} onChange={e => setEditNotes(e.target.value)} className="w-full p-3 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-2xl font-medium focus:outline-none dark:text-white shadow-sm" placeholder="עדכן הערה..." />
+                  <input type="text" value={editNotes} onChange={e => setEditNotes(e.target.value)} className="w-full p-3 bg-white/60 dark:bg-gray-800/60 border border-white/80 dark:border-gray-700 rounded-2xl font-medium focus:outline-none dark:text-white shadow-sm" placeholder="עדכן הערה..." />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-100 dark:border-gray-700/60 text-xs">
-                  <button onClick={() => {triggerVibration(10); setEditingItem(null)}} className="w-full bg-gray-100 dark:bg-gray-700 font-bold py-3.5 rounded-2xl cursor-pointer text-gray-700 dark:text-white shadow-sm active:scale-95 transition-transform">ביטול</button>
+                  <button onClick={() => {triggerVibration(10); setEditingItem(null)}} className="w-full bg-gray-100/80 dark:bg-gray-700 font-bold py-3.5 rounded-2xl cursor-pointer text-gray-700 dark:text-white shadow-sm active:scale-95 transition-transform">ביטול</button>
                   <button onClick={saveItemEdits} disabled={editSaveStatus !== 'idle'} 
                     className={`w-full font-black py-3.5 rounded-2xl cursor-pointer shadow-lg transition-all duration-300 flex items-center justify-center gap-2 ${
                       editSaveStatus === 'success' ? 'bg-green-500 text-white shadow-green-200/50 animate-success' : 'bg-rose-500 text-white shadow-rose-200/50 active:scale-95'
