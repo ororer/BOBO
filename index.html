@@ -183,6 +183,12 @@
       const noiseGainNodeRef = useRef(null);
       const noiseIntervalRef = useRef(null);
 
+      // משתני זיהוי קולי חכם
+      const [isListening, setIsListening] = useState(false);
+      const [voiceTranscript, setVoiceTranscript] = useState('');
+      const [voiceFeedback, setVoiceFeedback] = useState(null);
+      const latestTranscriptRef = useRef('');
+
       const [defaultMl, setDefaultMl] = useState(() => parseInt(localStorage.getItem('bobo_def_ml') || '150'));
       const [targetFeeds, setTargetFeeds] = useState(() => parseInt(localStorage.getItem('bobo_target_feeds') || '8'));
       const [targetDiapers, setTargetDiapers] = useState(() => parseInt(localStorage.getItem('bobo_target_diapers') || '6'));
@@ -246,7 +252,6 @@
 
       const quickSolids = ['בטטה', 'גזר', 'קישוא', 'דלעת', 'בננה', 'אבוקדו', 'טחינה', 'תפוח'];
 
-      // הגדרות סדר נכונות למניעת שגיאות ה-Reference 
       const isToday = (timestamp) => {
         if (!timestamp) return false;
         const date = new Date(timestamp); const today = new Date();
@@ -257,11 +262,9 @@
       const actualFeedingsToday = actualBabyFeedings.filter(f => isToday(f.timestamp));
       const todaysDiapers = timeline.filter(d => d.logType === 'diaper' && isToday(d.timestamp));
       
-      // משתני בדיקת הגעה ליעד עבור פידבק חזותי
       const isFeedGoalReached = actualFeedingsToday.length >= targetFeeds && targetFeeds > 0;
       const isDiaperGoalReached = todaysDiapers.length >= targetDiapers && targetDiapers > 0;
 
-      // לוגיקת כפתורי תאריך מהירים ביומן
       const getLocalDateStr = (offsetDays = 0) => {
         const d = new Date();
         d.setDate(d.getDate() + offsetDays);
@@ -886,6 +889,168 @@
         loadAllDataRef.current();
       };
 
+      // --- מנוע פענוח הפקודה הקולית בעברית ---
+      const parseAndExecuteVoiceCommand = async (text) => {
+        const clean = text.toLowerCase().trim();
+        
+        // חילוץ מספר (כמות מ"ל או משך דקות)
+        const numMatch = clean.match(/\d+/);
+        const detectedNum = numMatch ? parseInt(numMatch[0]) : null;
+
+        // זיהוי צד
+        let detectedSide = 'both';
+        if (clean.includes('שמאל')) detectedSide = 'left';
+        else if (clean.includes('ימין')) detectedSide = 'right';
+
+        // 1. ויטמין D
+        if (clean.includes('ויטמין') || clean.includes('ויטמינים') || clean.includes('טיפות')) {
+          await logVitaminD();
+          return `💊 נרשם ויטמין D בהצלחה`;
+        }
+
+        // 2. חיתול
+        if (clean.includes('חיתול') || clean.includes('פיפי') || clean.includes('קקי') || clean.includes('יציאה')) {
+          let type = 'wet';
+          if ((clean.includes('פיפי') && clean.includes('קקי')) || clean.includes('שניהם') || clean.includes('גם וגם')) type = 'both';
+          else if (clean.includes('קקי') || clean.includes('צואה')) type = 'dirty';
+
+          await performInsert('diapers', { type, notes: 'נרשם קולית', created_at: new Date().toISOString() });
+          return `🚼 נרשם חיתול: ${type === 'wet' ? 'פיפי' : type === 'dirty' ? 'קקי' : 'פיפי וקקי'}`;
+        }
+
+        // 3. שאיבה
+        if (clean.includes('שאיבה') || clean.includes('שאבתי')) {
+          const ml = detectedNum || 60;
+          await performInsert('feedings', {
+            type: 'bottle',
+            side: detectedSide,
+            amount_ml: ml,
+            notes: '[שאיבת_חלב] נרשם קולית',
+            created_at: new Date().toISOString()
+          });
+          return `🥛 נרשמה שאיבה: ${ml} מ"ל (צד ${detectedSide === 'left' ? 'שמאל' : detectedSide === 'right' ? 'ימין' : 'שניהם'})`;
+        }
+
+        // 4. הנקה
+        if (clean.includes('הנקה') || clean.includes('הנקתי') || clean.includes('יונק')) {
+          const mins = detectedNum || defaultBreastDuration;
+          await performInsert('feedings', {
+            type: 'breastfeeding',
+            side: detectedSide,
+            duration_minutes: mins,
+            notes: 'נרשם קולית',
+            created_at: new Date().toISOString()
+          });
+          return `🤱 נרשמה הנקה: ${mins} דקות (צד ${detectedSide === 'left' ? 'שמאל' : detectedSide === 'right' ? 'ימין' : 'שניהם'})`;
+        }
+
+        // 5. בקבוק / האכלה
+        if (clean.includes('בקבוק') || clean.includes('האכלה') || clean.includes('מטרנה') || clean.includes('סימילאק') || clean.includes('תמל') || clean.includes('תמ"ל') || clean.includes('שאוב') || clean.includes('חלב')) {
+          const ml = detectedNum || defaultMl;
+          const isExpressed = clean.includes('שאוב');
+          await performInsert('feedings', {
+            type: 'bottle',
+            side: detectedSide,
+            amount_ml: ml,
+            notes: `[${isExpressed ? 'שאוב' : 'תמ"ל'}] נרשם קולית`,
+            created_at: new Date().toISOString()
+          });
+          return `🍼 נרשם בקבוק: ${ml} מ"ל ${isExpressed ? 'שאוב' : 'תמ"ל'}`;
+        }
+
+        // 6. טעימות מוצקים
+        if (clean.includes('טעימה') || clean.includes('טעימות') || clean.includes('אכל') || clean.includes('אוכל')) {
+          let reaction = 'liked';
+          if (clean.includes('לא אהב') || clean.includes('נגעל') || clean.includes('ירק')) reaction = 'disliked';
+          else if (clean.includes('נייטרלי') || clean.includes('ככה ככה') || clean.includes('בסדר')) reaction = 'neutral';
+          else if (clean.includes('אלרגיה') || clean.includes('פריחה') || clean.includes('חשש')) reaction = 'allergic';
+
+          let foodName = quickSolids.find(f => clean.includes(f));
+          if (!foodName) {
+            foodName = clean.replace(/טעימה|טעימות|אכל|אוכל|אהב|לא|נייטרלי|אלרגיה/g, '').trim();
+          }
+
+          await performInsert('solids', {
+            food_name: foodName || 'טעימה כללית',
+            reaction,
+            notes: 'נרשם קולית',
+            created_at: new Date().toISOString()
+          });
+          return `🥑 נרשמה טעימה: ${foodName || 'כללית'}`;
+        }
+
+        throw new Error(`לא זוהתה פקודה מדויקת ("${text}")`);
+      };
+
+      // --- הפעלת מנגנון ההקלטה בלחיצה יחידה עם סיום עצמאי ---
+      const startVoiceRecognition = () => {
+        triggerVibration(20);
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        if (!SpeechRecognition) {
+          alert('זיהוי קולי אינו נתמך בדפדפן זה. באייפון יש להשתמש ב-Safari (iOS 14.5+) ובאנדרואיד ב-Chrome.');
+          return;
+        }
+
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'he-IL';
+        recognition.interimResults = true;
+        recognition.maxAlternatives = 1;
+        recognition.continuous = false; // מבטיח סיום עצמאי ברגע שיש שקט
+
+        latestTranscriptRef.current = '';
+        setVoiceTranscript('');
+        setVoiceFeedback(null);
+        setIsListening(true);
+
+        recognition.onresult = (event) => {
+          let interim = '';
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            interim += event.results[i][0].transcript;
+          }
+          if (interim) {
+            latestTranscriptRef.current = interim;
+            setVoiceTranscript(interim);
+          }
+        };
+
+        recognition.onspeechend = () => {
+          recognition.stop();
+        };
+
+        recognition.onend = async () => {
+          setIsListening(false);
+          const finalTxt = latestTranscriptRef.current.trim();
+          if (!finalTxt) return;
+
+          try {
+            const successMsg = await parseAndExecuteVoiceCommand(finalTxt);
+            triggerVibration(30);
+            setVoiceFeedback({ status: 'success', text: successMsg });
+            loadAllDataRef.current();
+            setTimeout(() => { setVoiceFeedback(null); setVoiceTranscript(''); }, 2500);
+          } catch (err) {
+            triggerVibration([50, 50, 50]);
+            setVoiceFeedback({ status: 'error', text: err.message });
+            setTimeout(() => { setVoiceFeedback(null); }, 3500);
+          }
+        };
+
+        recognition.onerror = (event) => {
+          setIsListening(false);
+          if (event.error !== 'no-speech') {
+            setVoiceFeedback({ status: 'error', text: 'שגיאת זיהוי: ' + event.error });
+            setTimeout(() => setVoiceFeedback(null), 3000);
+          }
+        };
+
+        try {
+          recognition.start();
+        } catch(e) {
+          setIsListening(false);
+        }
+      };
+
       const saveGrowth = async () => {
         const num = parseFloat(growthValue); if (isNaN(num) || num <= 0) return;
         triggerVibration(15);
@@ -1304,7 +1469,6 @@
                   </button>
                 </div>
 
-                {/* שלב 2: אנימציות חגיגיות קטנות (Pulse + Trophy) בקוביית היעדים */}
                 <div className={`grid ${statColsCount} gap-3 text-white`}>
                   <div className={`bg-gradient-to-br from-rose-400 to-rose-500 p-4 rounded-3xl shadow-lg relative overflow-hidden border transition-all duration-500 ${isFeedGoalReached ? 'border-rose-300 shadow-rose-300/50 animate-soft-pulse' : 'border-rose-300/30 shadow-rose-200/50 dark:shadow-none'}`}>
                     <div className="flex justify-between items-center z-10 relative">
@@ -1367,14 +1531,13 @@
                   </div>
                 )}
 
-                {/* --- אזור כפתורי הפעולות המשולב באקורדיון מדורג --- */}
+                {/* אזור כפתורי הפעולות באקורדיון */}
                 <div className="grid grid-cols-2 gap-3 pt-1">
                   
-                  {/* שורה 1: הנקה + בקבוק */}
+                  {/* הנקה + בקבוק */}
                   <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'breast' ? null : 'breast'); setFeedType('breastfeeding'); }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'breast' ? 'bg-rose-400 text-white shadow-lg shadow-rose-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-rose-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm mb-1">🤱</span> הנקה</button>
                   <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'bottle' ? null : 'bottle'); setFeedType('bottle'); }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'bottle' ? 'bg-cyan-400 text-white shadow-lg shadow-cyan-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-cyan-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm mb-1">🍼</span> בקבוק</button>
 
-                  {/* טפסי שורה 1 */}
                   {(activeSection === 'breast' || activeSection === 'bottle') && (
                     <div className="col-span-2 -mt-1 mb-2">
                       {activeSection === 'breast' && (
@@ -1419,7 +1582,6 @@
                         </div>
                       )}
 
-                      {/* טופס בקבוק */}
                       {activeSection === 'bottle' && (
                         <div className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] shadow-xl shadow-cyan-100/60 dark:shadow-none border border-gray-100 dark:border-gray-700 space-y-5 animate-in slide-in-from-top-2 duration-300">
                           <div className="flex justify-between items-center"><h3 className="font-black text-cyan-500 text-sm flex items-center gap-2"><span className="text-lg">🍼</span> עדכון בקבוק</h3><button onClick={()=>{triggerVibration(10); setActiveSection(null)}} className="text-sm bg-gray-100 dark:bg-gray-700 w-8 h-8 rounded-full flex items-center justify-center font-bold text-gray-500 dark:text-gray-300">✕</button></div>
@@ -1463,11 +1625,10 @@
                     </div>
                   )}
 
-                  {/* שורה 2: שאיבה + חיתול */}
+                  {/* שאיבה + חיתול */}
                   <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'pumping' ? null : 'pumping'); setFeedType('pumping'); }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'pumping' ? 'bg-purple-400 text-white shadow-lg shadow-purple-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-purple-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm mb-1">🥛</span> שאיבה</button>
                   <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'diaper' ? null : 'diaper') }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'diaper' ? 'bg-amber-400 text-white shadow-lg shadow-amber-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-amber-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm mb-1">🚼</span> חיתול</button>
 
-                  {/* טפסי שורה 2 */}
                   {(activeSection === 'pumping' || activeSection === 'diaper') && (
                     <div className="col-span-2 -mt-1 mb-2">
                       {activeSection === 'pumping' && (
@@ -1526,10 +1687,9 @@
                     </div>
                   )}
 
-                  {/* שורה 3: טעימות מוצקים */}
+                  {/* טעימות מוצקים */}
                   <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'solid' ? null : 'solid') }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 col-span-2 active:scale-95 ${activeSection === 'solid' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-emerald-600 shadow-sm border border-gray-100 dark:border-gray-700'}`}>🥑 טעימות מוצקים</button>
 
-                  {/* טופס שורה 3 */}
                   {activeSection === 'solid' && (
                     <div className="col-span-2 -mt-1 mb-2">
                       <div className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] shadow-xl shadow-emerald-100/60 dark:shadow-none border border-gray-100 dark:border-gray-700 space-y-5 animate-in slide-in-from-top-2 duration-300">
@@ -1574,7 +1734,7 @@
                   )}
                 </div>
 
-                {/* --- כפתור ויטמין D מהיר --- */}
+                {/* ויטמין D מהיר */}
                 {showVitaminDButton && (
                   <button onClick={logVitaminD} className={`w-full p-3.5 mt-2 rounded-3xl text-center flex flex-row items-center justify-center gap-2 font-bold text-sm transition-all duration-200 shadow-sm border active:scale-95 ${vitDSuccess ? 'bg-teal-400 text-white border-teal-400 shadow-teal-200/50 animate-success' : 'bg-white dark:bg-gray-800 text-violet-500 border-gray-100 dark:border-gray-700'}`}>
                     💊 ויטמין D (2 טיפות)
@@ -1634,7 +1794,6 @@
               </div>
             )}
 
-            {/* --- שלב 1: החלפת הממשק של סינון יומן לכפתורים מהירים --- */}
             {activeTab === 'timeline' && (
               <div className="animate-tab space-y-5">
                 <div className="flex justify-between items-center px-2">
@@ -1729,7 +1888,6 @@
                 )}
               </div>
             )}
-            {/* --- סוף שלב 1 --- */}
 
             {activeTab === 'solids_board' && (() => {
               const uniqueFoods = {};
@@ -2114,6 +2272,52 @@
             )}
 
           </main>
+
+          {/* כפתור מיקרופון צף מעל הניווט (Single-Tap Voice Command) */}
+          <button 
+            onClick={startVoiceRecognition}
+            className={`fixed bottom-24 left-5 z-40 w-14 h-14 rounded-full flex items-center justify-center text-2xl shadow-2xl transition-all duration-300 active:scale-90 ${
+              isListening 
+                ? 'bg-red-500 text-white animate-ping' 
+                : 'bg-gradient-to-tr from-rose-500 to-orange-400 text-white shadow-rose-300/60 dark:shadow-none'
+            }`}
+            title="הקלט פקודה קולית מהירה"
+          >
+            🎙️
+          </button>
+
+          {/* חלון חיווי ויזואלי להקלטה הקולית */}
+          {(isListening || voiceFeedback) && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[110] flex items-center justify-center p-6 animate-in fade-in duration-200">
+              <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 w-full max-w-xs text-center shadow-2xl border border-white/20 space-y-4">
+                
+                {isListening && (
+                  <>
+                    <div className="w-20 h-20 mx-auto bg-rose-500/10 dark:bg-rose-500/20 text-rose-500 rounded-full flex items-center justify-center text-3xl animate-bounce">
+                      🎙️
+                    </div>
+                    <div>
+                      <h3 className="text-base font-black dark:text-white">מקשיב לך...</h3>
+                      <p className="text-xs text-gray-400 mt-1">דבר/י חופשי, ההקלטה תסתיים לבד</p>
+                    </div>
+                    <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border border-gray-100 dark:border-gray-600 min-h-[44px] flex items-center justify-center">
+                      <p className="text-xs font-bold text-gray-700 dark:text-gray-200">{voiceTranscript || "..."}</p>
+                    </div>
+                  </>
+                )}
+
+                {voiceFeedback && (
+                  <div className={`p-4 rounded-2xl text-xs font-black ${
+                    voiceFeedback.status === 'success' 
+                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800' 
+                      : 'bg-red-50 text-red-600 dark:bg-red-950/50 dark:text-red-300 border border-red-200 dark:border-red-800'
+                  }`}>
+                    {voiceFeedback.text}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="fixed bottom-6 left-0 right-0 z-50 flex justify-center pointer-events-none px-4 no-print">
             <nav className="w-full max-w-lg bg-white/85 dark:bg-gray-900/85 backdrop-blur-xl border border-white/60 dark:border-gray-700/50 flex justify-around items-center px-2 py-2.5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.5)] rounded-full pointer-events-auto transition-colors duration-300">
