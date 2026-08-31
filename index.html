@@ -183,7 +183,7 @@
       const noiseGainNodeRef = useRef(null);
       const noiseIntervalRef = useRef(null);
 
-      // משתני זיהוי קולי חכם
+      // משתני זיהוי קולי חכם בלחיצה בודדת
       const [isListening, setIsListening] = useState(false);
       const [voiceTranscript, setVoiceTranscript] = useState('');
       const [voiceFeedback, setVoiceFeedback] = useState(null);
@@ -244,7 +244,6 @@
 
       const [lastFeedTime, setLastFeedTime] = useState(null);
       const [timeToNextFeed, setTimeToNextFeed] = useState(null);
-      const hasNotifiedLeadRef = useRef(false);
       
       const [timelineFilter, setTimelineFilter] = useState('all');
       const [selectedTimelineDate, setSelectedTimelineDate] = useState('');
@@ -785,34 +784,27 @@
         if (significantFeedings.length > 0) { 
           const feedTime = new Date(significantFeedings[0].timestamp).getTime();
           setLastFeedTime(feedTime);
-          hasNotifiedLeadRef.current = false;
         } else { 
           setLastFeedTime(null); 
         }
       }, [timeline]);
 
+      // שעון ספירה לאחור למסך בלבד (ללא שליחת התראות מהדפדפן)
       useEffect(() => {
-        if (!lastFeedTime) { setTimeToNextFeed(null); return; }
+        if (!lastFeedTime) { 
+          setTimeToNextFeed(null); 
+          return; 
+        }
         const updateCountdown = () => {
           const now = new Date().getTime();
           const nextFeed = lastFeedTime + (feedIntervalHours * 60 * 60 * 1000);
           const diff = nextFeed - now;
           setTimeToNextFeed(diff);
-
-          const leadMs = notifyLeadMinutes * 60 * 1000;
-          if (diff > 0 && diff <= leadMs && !hasNotifiedLeadRef.current) {
-            hasNotifiedLeadRef.current = true;
-            triggerPushNotification({
-              type: 'feed_reminder',
-              title: '⏰ מתקרב מועד האכלה!',
-              body: `תזכורת: האכלה הבאה של ${babyName} בעוד כ-${notifyLeadMinutes} דקות.`
-            });
-          }
         };
         updateCountdown();
         const interval = setInterval(updateCountdown, 1000);
         return () => clearInterval(interval);
-      }, [lastFeedTime, feedIntervalHours, notifyLeadMinutes, babyName]);
+      }, [lastFeedTime, feedIntervalHours]);
 
       useEffect(() => {
         if (isTimerActive) {
@@ -996,7 +988,7 @@
         recognition.lang = 'he-IL';
         recognition.interimResults = true;
         recognition.maxAlternatives = 1;
-        recognition.continuous = false; // מבטיח סיום עצמאי ברגע שיש שקט
+        recognition.continuous = false; // סיום עצמאי ברגע שיש שקט
 
         latestTranscriptRef.current = '';
         setVoiceTranscript('');
