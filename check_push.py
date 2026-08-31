@@ -1,6 +1,5 @@
 import os
 import sys
-import traceback
 import requests
 from datetime import datetime, timezone
 from pywebpush import webpush, WebPushException
@@ -17,32 +16,25 @@ headers = {
 }
 
 def check_and_send_push():
-    try:
-        if not SUPABASE_KEY or not SUPABASE_URL:
-            print("⚠️ Missing Supabase credentials in Environment/Secrets.")
-            return
+    if not SUPABASE_KEY or not SUPABASE_URL or not VAPID_PRIVATE_KEY:
+        print("⚠️ Missing Supabase or VAPID credentials.")
+        return
 
-        # משיכת 10 ההאכלות האחרונות
+    try:
+        # 1. משיכת ההאכלות האחרונות
         res = requests.get(
             f"{SUPABASE_URL}/rest/v1/feedings?select=*&order=created_at.desc&limit=10",
             headers=headers,
-            timeout=15
+            timeout=10
         )
-
-        if res.status_code != 200:
-            print(f"⚠️ Supabase error (HTTP {res.status_code}): {res.text}")
+        if res.status_code != 200 or not res.json():
+            print(f"⚠️ Failed to fetch feedings: {res.status_code}")
             return
 
         feedings = res.json()
-        if not isinstance(feedings, list) or len(feedings) == 0:
-            print("ℹ️ No feedings found in table.")
-            return
-
         significant_feed = None
-        for f in feedings:
-            if not isinstance(f, dict):
-                continue
 
+        for f in feedings:
             notes = f.get("notes") or ""
             f_type = f.get("type")
             amount = f.get("amount_ml") or 0
@@ -59,57 +51,57 @@ def check_and_send_push():
             print("ℹ️ No significant feeding found.")
             return
 
-        feed_id = significant_feed.get("id")
-        last_time_str = significant_feed.get("created_at")
-        if not last_time_str:
-            print("⚠️ Missing created_at on last feed.")
-            return
-
-        # פענוח תאריך תקני
-        clean_time_str = last_time_str.replace("Z", "+00:00")
-        last_time = datetime.fromisoformat(clean_time_str)
+        feed_id = str(significant_feed.get("id"))
+        last_time_str = significant_feed.get("created_at").replace("Z", "+00:00")
+        last_time = datetime.fromisoformat(last_time_str)
         now = datetime.now(timezone.utc)
 
         interval_hours = 3.0
-        lead_minutes = 10
+        lead_minutes = 10.0
 
-        elapsed_hours = (now - last_time).total_seconds() / 3600.0
-        remaining_minutes = (interval_hours - elapsed_hours) * 60
+        elapsed_minutes = (now - last_time).total_seconds() / 60.0
+        target_minutes = interval_hours * 60.0
+        remaining_minutes = target_minutes - elapsed_minutes
 
         print(f"ℹ️ Feed ID: {feed_id} | Remaining: {remaining_minutes:.2f} mins")
 
-        # בדיקה האם כבר נשלחה התראה להאכלה זו
-        note_res = requests.get(
+        # 2. בדיקת נעילה - האם כבר נשלחה התראה להאכלה הספציפית הזו
+        lock_res = requests.get(
             f"{SUPABASE_URL}/rest/v1/sticky_notes?id=eq.last_push_id&select=content",
             headers=headers,
             timeout=10
         )
-        if note_res.status_code == 200:
-            notes_data = note_res.json()
-            if isinstance(notes_data, list) and len(notes_data) > 0:
-                if str(notes_data[0].get("content")) == str(feed_id):
-                    print("ℹ️ Already sent notification for this specific feed.")
-                    return
-
-        # בדיקת חלון הזמן לשליחת התראה
-        if 0 <= remaining_minutes <= lead_minutes:
-            print("🚀 Time to send notification!")
-
-            if not VAPID_PRIVATE_KEY:
-                print("⚠️ VAPID_PRIVATE_KEY is missing. Cannot send WebPush.")
+        if lock_res.status_code == 200:
+            data = lock_res.json()
+            if data and len(data) > 0 and str(data[0].get("content")) == feed_id:
+                print(f"🔒 Notification already sent for Feed ID {feed_id}. Skipping.")
                 return
 
+        # 3. חלון שליחה: בין 10 דקות לפני הזמן ל-0 דקות
+        if 0.0 <= remaining_minutes <= lead_minutes:
+            print(f"🚀 Time window matched! Sending notification for Feed ID {feed_id}...")
+
+            # רישום נעילה מיידי ב-DB
+            requests.post(
+                f"{SUPABASE_URL}/rest/v1/sticky_notes",
+                headers={**headers, "Prefer": "resolution=merge-duplicates"},
+                json={"id": "last_push_id", "content": feed_id},
+                timeout=10
+            )
+
+            # שליפה ושליחה לכל המכשירים הרשומים
             subs_res = requests.get(
                 f"{SUPABASE_URL}/rest/v1/push_subscriptions?select=*",
                 headers=headers,
                 timeout=10
             )
 
-            if subs_res.status_code == 200 and isinstance(subs_res.json(), list):
+            if subs_res.status_code == 200:
+                subscriptions = subs_res.json()
                 unique_endpoints = set()
-                payload = '{"title": "⏰ מתקרב מועד האכלה!", "body": "תזכורת: הגיע הזמן להתכונן להאכלה הבאה של בובו"}'
+                payload = '{"title": "⏰ תזכורת האכלה", "body": "האכלה הבאה של בובו בעוד כ-10 דקות"}'
 
-                for sub in subs_res.json():
+                for sub in subscriptions:
                     endpoint = sub.get("endpoint")
                     p256dh = sub.get("p256dh")
                     auth = sub.get("auth")
@@ -130,25 +122,16 @@ def check_and_send_push():
                                 vapid_private_key=VAPID_PRIVATE_KEY,
                                 vapid_claims={"sub": VAPID_CLAIM_EMAIL}
                             )
-                            print(f"✅ Push sent successfully to {endpoint[:30]}...")
+                            print(f"✅ Push delivered to: {endpoint[:35]}...")
                         except WebPushException as ex:
-                            print(f"⚠️ WebPush error: {ex}")
+                            print(f"⚠️ Push service error: {ex}")
                         except Exception as ex:
-                            print(f"⚠️ General push error: {ex}")
-
-                # שמירת מזהה ההאכלה למניעת כפילות
-                requests.post(
-                    f"{SUPABASE_URL}/rest/v1/sticky_notes",
-                    headers={**headers, "Prefer": "resolution=merge-duplicates"},
-                    json={"id": "last_push_id", "content": str(feed_id)},
-                    timeout=10
-                )
+                            print(f"⚠️ Error sending to endpoint: {ex}")
         else:
-            print("⏳ Not time yet.")
+            print(f"⏳ Outside trigger window ({remaining_minutes:.2f} mins remaining).")
 
     except Exception as e:
-        print(f"❌ Unhandled Exception in check_and_send_push: {e}")
-        traceback.print_exc()
+        print(f"❌ Error in check_and_send_push: {e}")
 
 if __name__ == "__main__":
     check_and_send_push()
