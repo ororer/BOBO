@@ -14,6 +14,7 @@
   
   <link rel="apple-touch-icon" href="./192.png">
   <link rel="icon" type="image/png" href="./192.png">
+
   <link rel="manifest" href="./manifest.json">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -59,6 +60,12 @@
       100% { opacity: 1; transform: translateY(0) scale(1); }
     }
     .animate-tab { animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+    @keyframes softPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.7; transform: scale(1.02); }
+    }
+    .animate-soft-pulse { animation: softPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
 
     @media print {
       body * { visibility: hidden; }
@@ -134,31 +141,6 @@
       return outputArray;
     };
 
-    const getOfflineQueue = () => { try { return JSON.parse(localStorage.getItem('bobo_offline_queue') || '[]'); } catch(e) { return []; } };
-
-    const assembleTimeline = (fData, dData, sData, gData) => {
-      const offlineQueue = getOfflineQueue();
-      const offlineItems = offlineQueue.map(item => ({
-        ...item.payload, id: item.client_id, isOfflinePending: true,
-        logType: item.table === 'feedings' ? (item.payload.notes?.includes('ויטמין D') ? 'vitamin_d' : item.payload.notes?.includes('[שאיבת_חלב]') ? 'pumping' : 'feeding') : item.table === 'diapers' ? 'diaper' : item.table === 'solids' ? 'solid' : 'growth',
-        timestamp: item.payload.created_at || item.payload.measured_at || new Date().toISOString()
-      }));
-
-      const combined = [
-        ...fData.map(f => {
-          let logType = 'feeding';
-          if (f.notes?.includes('ויטמין D')) logType = 'vitamin_d';
-          else if (f.type === 'pumping' || f.notes?.includes('[שאיבת_חלב]')) logType = 'pumping';
-          return { ...f, logType, timestamp: f.created_at };
-        }),
-        ...dData.map(d => ({ ...d, logType: 'diaper', timestamp: d.created_at })),
-        ...sData.map(s => ({ ...s, logType: 'solid', timestamp: s.created_at })),
-        ...gData.map(g => ({ ...g, logType: 'growth', timestamp: g.measured_at })),
-        ...offlineItems
-      ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-      return combined;
-    };
-
     function App() {
       const [user, setUser] = useState(null);
       const [authLoading, setAuthLoading] = useState(true);
@@ -183,31 +165,23 @@
       const [diapers, setDiapers] = useState(() => { try { return JSON.parse(localStorage.getItem('bobo_cache_diapers') || '[]'); } catch(e) { return []; } });
       const [solids, setSolids] = useState(() => { try { return JSON.parse(localStorage.getItem('bobo_cache_solids') || '[]'); } catch(e) { return []; } });
       const [growthMetrics, setGrowthMetrics] = useState(() => { try { return JSON.parse(localStorage.getItem('bobo_cache_growth') || '[]'); } catch(e) { return []; } });
-      
-      const [timeline, setTimeline] = useState(() => {
-        try {
-          const f = JSON.parse(localStorage.getItem('bobo_cache_feedings') || '[]');
-          const d = JSON.parse(localStorage.getItem('bobo_cache_diapers') || '[]');
-          const s = JSON.parse(localStorage.getItem('bobo_cache_solids') || '[]');
-          const g = JSON.parse(localStorage.getItem('bobo_cache_growth') || '[]');
-          return assembleTimeline(f, d, s, g);
-        } catch(e) {
-          return [];
-        }
-      });
+      const [timeline, setTimeline] = useState([]);
 
       const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('bobo_dark') === 'true');
-      const [customAvatar, setCustomAvatar] = useState(() => localStorage.getItem('bobo_custom_avatar') || '');
-      const avatarInputRef = useRef(null);
       
       const [stickyNote, setStickyNote] = useState(() => localStorage.getItem('bobo_sticky_note') || '');
       const [isEditingSticky, setIsEditingSticky] = useState(false);
       const [tempSticky, setTempSticky] = useState('');
 
-      // Voice Assistant States
-      const [isListening, setIsListening] = useState(false);
-      const [voiceFeedback, setVoiceFeedback] = useState('');
-      const recognitionRef = useRef(null);
+      const [showNoisePlayer, setShowNoisePlayer] = useState(false);
+      const [noiseType, setNoiseType] = useState('white');
+      const [isNoisePlaying, setIsNoisePlaying] = useState(false);
+      const [noiseTimerMin, setNoiseTimerMin] = useState(30);
+      const [noiseTimerRemain, setNoiseTimerRemain] = useState(null);
+      const audioCtxRef = useRef(null);
+      const noiseSourceNodeRef = useRef(null);
+      const noiseGainNodeRef = useRef(null);
+      const noiseIntervalRef = useRef(null);
 
       const [defaultMl, setDefaultMl] = useState(() => parseInt(localStorage.getItem('bobo_def_ml') || '150'));
       const [targetFeeds, setTargetFeeds] = useState(() => parseInt(localStorage.getItem('bobo_target_feeds') || '8'));
@@ -264,6 +238,7 @@
 
       const [lastFeedTime, setLastFeedTime] = useState(null);
       const [timeToNextFeed, setTimeToNextFeed] = useState(null);
+      const hasNotifiedLeadRef = useRef(false);
       
       const [timelineFilter, setTimelineFilter] = useState('all');
       const [selectedTimelineDate, setSelectedTimelineDate] = useState('');
@@ -271,6 +246,7 @@
 
       const quickSolids = ['בטטה', 'גזר', 'קישוא', 'דלעת', 'בננה', 'אבוקדו', 'טחינה', 'תפוח'];
 
+      // --- הוגדרו כאן למעלה בצורה תקינה כדי ששאר הפונקציות יוכלו לגשת אליהם ולמנוע את בעיית בובו מתעורר ---
       const isToday = (timestamp) => {
         if (!timestamp) return false;
         const date = new Date(timestamp); const today = new Date();
@@ -280,9 +256,20 @@
       const actualBabyFeedings = timeline.filter(f => f.logType === 'feeding' && !f.notes?.includes('ויטמין D') && !f.notes?.includes('[שאיבת_חלב]') && f.type !== 'pumping');
       const actualFeedingsToday = actualBabyFeedings.filter(f => isToday(f.timestamp));
       const todaysDiapers = timeline.filter(d => d.logType === 'diaper' && isToday(d.timestamp));
+      // ------------------------------------------------------------------------
 
-      const lastActionWithSide = timeline.filter(item => item.logType !== 'growth').find(item => item.logType === 'feeding');
-      const lastSide = lastActionWithSide?.side || 'both';
+      // --- שלב 1: לוגיקת כפתורי תאריך מהירים ביומן ---
+      const getLocalDateStr = (offsetDays = 0) => {
+        const d = new Date();
+        d.setDate(d.getDate() + offsetDays);
+        const tzoffset = d.getTimezoneOffset() * 60000;
+        return (new Date(d.getTime() - tzoffset)).toISOString().split('T')[0];
+      };
+
+      const setDateFilter = (offsetDays) => {
+        setSelectedTimelineDate(getLocalDateStr(offsetDays));
+      };
+      // ----------------------------------------------
 
       useEffect(() => {
         const metaTheme = document.querySelector('meta[name="theme-color"]');
@@ -335,54 +322,116 @@
         setAmount(defaultMl); setBottleType(defaultBottleType); setDuration(defaultBreastDuration); 
       }, [defaultMl, defaultBottleType, defaultBreastDuration]);
 
-      const handleAvatarChange = (e) => {
-        const file = e.target.files && e.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const img = new Image();
-          img.onload = () => {
-            try {
-              const canvas = document.createElement('canvas');
-              const maxDimension = 240;
-              let width = img.width;
-              let height = img.height;
-
-              if (width > height) {
-                if (width > maxDimension) {
-                  height = Math.round((height * maxDimension) / width);
-                  width = maxDimension;
-                }
-              } else {
-                if (height > maxDimension) {
-                  width = Math.round((width * maxDimension) / height);
-                  height = maxDimension;
-                }
-              }
-
-              canvas.width = width;
-              canvas.height = height;
-              const ctx = canvas.getContext('2d');
-              ctx.drawImage(img, 0, 0, width, height);
-
-              const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
-              setCustomAvatar(compressedBase64);
-              localStorage.setItem('bobo_custom_avatar', compressedBase64);
-              triggerVibration(15);
-            } catch(err) {
-              console.error('Avatar error:', err);
-            }
-          };
-          img.src = event.target.result;
-        };
-        reader.readAsDataURL(file);
+      const stopNoiseSound = () => {
+        if (noiseSourceNodeRef.current) {
+          try { noiseSourceNodeRef.current.stop(); } catch(e) {}
+          noiseSourceNodeRef.current.disconnect();
+          noiseSourceNodeRef.current = null;
+        }
+        if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+          try { audioCtxRef.current.close(); } catch(e) {}
+          audioCtxRef.current = null;
+        }
+        if (noiseIntervalRef.current) {
+          clearInterval(noiseIntervalRef.current);
+          noiseIntervalRef.current = null;
+        }
+        setIsNoisePlaying(false);
+        setNoiseTimerRemain(null);
       };
 
-      const handleRemoveAvatar = () => {
+      const startNoiseSound = async (type = noiseType) => {
+        stopNoiseSound();
+        try {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          const ctx = new AudioContext();
+          audioCtxRef.current = ctx;
+
+          if (ctx.state === 'suspended') {
+            await ctx.resume();
+          }
+
+          const bufferSize = 2 * ctx.sampleRate;
+          const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+          const output = noiseBuffer.getChannelData(0);
+
+          if (type === 'white') {
+            for (let i = 0; i < bufferSize; i++) {
+              output[i] = Math.random() * 2 - 1;
+            }
+          } else if (type === 'pink') {
+            let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+            for (let i = 0; i < bufferSize; i++) {
+              const white = Math.random() * 2 - 1;
+              b0 = 0.99886 * b0 + white * 0.0555179;
+              b1 = 0.99332 * b1 + white * 0.0750759;
+              b2 = 0.96900 * b2 + white * 0.1538520;
+              b3 = 0.86650 * b3 + white * 0.3104856;
+              b4 = 0.55000 * b4 + white * 0.5329522;
+              b5 = -0.7616 * b5 - white * 0.0168980;
+              output[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.11;
+              b6 = white * 0.115926;
+            }
+          } else if (type === 'shh') {
+            for (let i = 0; i < bufferSize; i++) {
+              const env = Math.sin((i / bufferSize) * Math.PI * 4);
+              output[i] = (Math.random() * 2 - 1) * Math.max(0, env) * 0.8;
+            }
+          } else if (type === 'heart') {
+            for (let i = 0; i < bufferSize; i++) {
+              const t = (i / ctx.sampleRate) % 1.0;
+              const beat = (t < 0.1 || (t > 0.25 && t < 0.35)) ? Math.sin(t * Math.PI * 20) * 0.9 : 0;
+              output[i] = beat + (Math.random() * 0.04 - 0.02);
+            }
+          }
+
+          const whiteNoise = ctx.createBufferSource();
+          whiteNoise.buffer = noiseBuffer;
+          whiteNoise.loop = true;
+
+          const gainNode = ctx.createGain();
+          gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+
+          if (type === 'pink' || type === 'heart') {
+            const filter = ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(type === 'heart' ? 180 : 800, ctx.currentTime);
+            whiteNoise.connect(filter);
+            filter.connect(gainNode);
+          } else {
+            whiteNoise.connect(gainNode);
+          }
+
+          gainNode.connect(ctx.destination);
+          whiteNoise.start(0);
+
+          noiseSourceNodeRef.current = whiteNoise;
+          noiseGainNodeRef.current = gainNode;
+          setIsNoisePlaying(true);
+
+          if (noiseTimerMin > 0) {
+            let remain = noiseTimerMin * 60;
+            setNoiseTimerRemain(remain);
+            noiseIntervalRef.current = setInterval(() => {
+              remain -= 1;
+              setNoiseTimerRemain(remain);
+              if (remain <= 0) {
+                stopNoiseSound();
+              }
+            }, 1000);
+          }
+        } catch(e) {
+          console.error("Audio error", e);
+        }
+      };
+
+      const handleToggleNoise = () => {
         triggerVibration(10);
-        setCustomAvatar('');
-        localStorage.removeItem('bobo_custom_avatar');
+        if (isNoisePlaying) {
+          stopNoiseSound();
+        } else {
+          startNoiseSound(noiseType);
+        }
       };
 
       const loadStickyNote = async () => {
@@ -436,6 +485,7 @@
         window.open(url, '_blank');
       };
 
+      const getOfflineQueue = () => { try { return JSON.parse(localStorage.getItem('bobo_offline_queue') || '[]'); } catch(e) { return []; } };
       const setOfflineQueue = (q) => { localStorage.setItem('bobo_offline_queue', JSON.stringify(q)); setPendingSyncCount(q.length); };
 
       const syncOfflineData = async () => {
@@ -462,7 +512,7 @@
         }
         
         setOfflineQueue(remaining);
-        if (anySuccess && loadAllDataRef.current) {
+        if (anySuccess) {
           loadAllDataRef.current();
         }
       };
@@ -655,28 +705,45 @@
           if (dData) { setDiapers(dData); localStorage.setItem('bobo_cache_diapers', JSON.stringify(dData)); }
           if (sData) { setSolids(sData); localStorage.setItem('bobo_cache_solids', JSON.stringify(sData)); }
           if (gData) { setGrowthMetrics(gData); localStorage.setItem('bobo_cache_growth', JSON.stringify(gData)); }
-          setTimeline(assembleTimeline(fData || feedings, dData || diapers, sData || solids, gData || growthMetrics));
+          buildCombinedTimeline(fData || [], dData || [], sData || [], gData || []);
           loadStickyNote();
         } catch (e) {}
+      };
+
+      const buildCombinedTimeline = (fData, dData, sData, gData) => {
+        const offlineQueue = getOfflineQueue();
+        const offlineItems = offlineQueue.map(item => ({
+          ...item.payload, id: item.client_id, isOfflinePending: true,
+          logType: item.table === 'feedings' ? (item.payload.notes?.includes('ויטמין D') ? 'vitamin_d' : item.payload.notes?.includes('[שאיבת_חלב]') ? 'pumping' : 'feeding') : item.table === 'diapers' ? 'diaper' : item.table === 'solids' ? 'solid' : 'growth',
+          timestamp: item.payload.created_at || item.payload.measured_at || new Date().toISOString()
+        }));
+
+        const combined = [
+          ...fData.map(f => {
+            let logType = 'feeding';
+            if (f.notes?.includes('ויטמין D')) logType = 'vitamin_d';
+            else if (f.type === 'pumping' || f.notes?.includes('[שאיבת_חלב]')) logType = 'pumping';
+            return { ...f, logType, timestamp: f.created_at };
+          }),
+          ...dData.map(d => ({ ...d, logType: 'diaper', timestamp: d.created_at })),
+          ...sData.map(s => ({ ...s, logType: 'solid', timestamp: s.created_at })),
+          ...gData.map(g => ({ ...g, logType: 'growth', timestamp: g.measured_at })),
+          ...offlineItems
+        ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        setTimeline(combined);
       };
 
       const loadAllDataRef = useRef(loadAllData);
       useEffect(() => { loadAllDataRef.current = loadAllData; });
 
       useEffect(() => {
+        buildCombinedTimeline(feedings, diapers, solids, growthMetrics);
+        syncOfflineData();
+      }, []);
+
+      useEffect(() => {
         if (!user) return;
         loadAllData();
-        syncOfflineData();
-
-        const handleVisibilityChange = () => {
-          if (document.visibilityState === 'visible') {
-            loadAllDataRef.current();
-            syncOfflineData();
-          }
-        };
-        window.addEventListener('visibilitychange', handleVisibilityChange);
-        window.addEventListener('focus', handleVisibilityChange);
-
         let timeoutId = null;
         const debouncedReload = () => {
           if (timeoutId) clearTimeout(timeoutId);
@@ -699,8 +766,6 @@
         return () => { 
           if (timeoutId) clearTimeout(timeoutId);
           supabaseClient.removeChannel(channel); 
-          window.removeEventListener('visibilitychange', handleVisibilityChange);
-          window.removeEventListener('focus', handleVisibilityChange);
         };
       }, [user]);
 
@@ -715,6 +780,7 @@
         if (significantFeedings.length > 0) { 
           const feedTime = new Date(significantFeedings[0].timestamp).getTime();
           setLastFeedTime(feedTime);
+          hasNotifiedLeadRef.current = false;
         } else { 
           setLastFeedTime(null); 
         }
@@ -727,11 +793,21 @@
           const nextFeed = lastFeedTime + (feedIntervalHours * 60 * 60 * 1000);
           const diff = nextFeed - now;
           setTimeToNextFeed(diff);
+
+          const leadMs = notifyLeadMinutes * 60 * 1000;
+          if (diff > 0 && diff <= leadMs && !hasNotifiedLeadRef.current) {
+            hasNotifiedLeadRef.current = true;
+            triggerPushNotification({
+              type: 'feed_reminder',
+              title: '⏰ מתקרב מועד האכלה!',
+              body: `תזכורת: האכלה הבאה של ${babyName} בעוד כ-${notifyLeadMinutes} דקות.`
+            });
+          }
         };
         updateCountdown();
         const interval = setInterval(updateCountdown, 1000);
         return () => clearInterval(interval);
-      }, [lastFeedTime, feedIntervalHours]);
+      }, [lastFeedTime, feedIntervalHours, notifyLeadMinutes, babyName]);
 
       useEffect(() => {
         if (isTimerActive) {
@@ -774,7 +850,7 @@
         await performInsert('feedings', { type: finalType, side: feedSide, duration_minutes: currentType === 'breastfeeding' ? duration : null, amount_ml: (currentType === 'bottle' || currentType === 'pumping') ? amount : null, notes: finalNotes || null, created_at: new Date().toISOString() });
         setFeedSaveStatus('success');
         setTimeout(() => {
-          setFeedNotes(''); setTimerTime(0); setIsTimerActive(false); setActiveSection(null); setFeedSaveStatus('idle');
+          setFeedNotes(''); setTimerTime(0); setIsTimerActive(false); setActiveSection(null); setFeedSide('both'); setFeedSaveStatus('idle');
           loadAllDataRef.current();
         }, 800);
       };
@@ -806,127 +882,6 @@
         await performInsert('feedings', { type: 'bottle', side: 'both', amount_ml: null, duration_minutes: null, notes: finalNotes, created_at: new Date().toISOString() });
         setVitDSuccess(true); setTimeout(() => setVitDSuccess(false), 1500);
         loadAllDataRef.current();
-      };
-
-      // Voice Input Handler (Web Speech API)
-      const handleProcessVoiceText = async (transcript) => {
-        const text = transcript.toLowerCase();
-        let feedbackMsg = '';
-
-        const numMatch = text.match(/\d+/);
-        const extractedNum = numMatch ? parseInt(numMatch[0]) : null;
-
-        let recognizedSide = 'both';
-        if (text.includes('שמאל')) recognizedSide = 'left';
-        else if (text.includes('ימין')) recognizedSide = 'right';
-
-        if (text.includes('ויטמין') || text.includes('די') || text.includes('טיפות')) {
-          await logVitaminD();
-          feedbackMsg = '💊 תועד ויטמין D (2 טיפות)';
-        } else if (text.includes('חיתול') || text.includes('קקי') || text.includes('פיפי')) {
-          let dType = 'wet';
-          if ((text.includes('קקי') || text.includes('צואה')) && (text.includes('פיפי') || text.includes('שתן') || text.includes('שניהם'))) {
-            dType = 'both';
-          } else if (text.includes('קקי') || text.includes('צואה')) {
-            dType = 'dirty';
-          }
-          await performInsert('diapers', { type: dType, notes: 'הוזן בהקלטה קולית', created_at: new Date().toISOString() });
-          feedbackMsg = `🚼 תועד חיתול ${dType === 'wet' ? 'פיפי' : dType === 'dirty' ? 'קקי' : 'משולב'}`;
-          loadAllDataRef.current();
-        } else if (text.includes('שאיבה') || text.includes('שאבתי')) {
-          const pumpMl = extractedNum || 100;
-          await performInsert('feedings', { 
-            type: 'bottle', 
-            side: recognizedSide, 
-            amount_ml: pumpMl, 
-            notes: '[שאיבת_חלב] הוזן קולית', 
-            created_at: new Date().toISOString() 
-          });
-          feedbackMsg = `🥛 תועדה שאיבה: ${pumpMl} מ"ל`;
-          loadAllDataRef.current();
-        } else if (text.includes('הנקה') || text.includes('הנקתי') || text.includes('ציצי')) {
-          const breastMins = extractedNum || defaultBreastDuration || 10;
-          const targetSide = (recognizedSide !== 'both') ? recognizedSide : (lastSide === 'left' ? 'right' : lastSide === 'right' ? 'left' : 'both');
-          await performInsert('feedings', { 
-            type: 'breastfeeding', 
-            side: targetSide, 
-            duration_minutes: breastMins, 
-            notes: 'הוזן קולית', 
-            created_at: new Date().toISOString() 
-          });
-          feedbackMsg = `🤱 תועדה הנקה: ${breastMins} דק' (${targetSide === 'left' ? 'שמאל' : targetSide === 'right' ? 'ימין' : 'שניהם'})`;
-          loadAllDataRef.current();
-        } else if (text.includes('בקבוק') || text.includes('תמל') || text.includes('תמ"ל') || text.includes('מטרנה') || text.includes('סימילאק') || text.includes('שאוב') || text.includes('אכל') || text.includes('אוכל') || text.includes('מ״ל') || text.includes('מל')) {
-          const bottleMl = extractedNum || defaultMl || 150;
-          const isExpressed = text.includes('שאוב') || (defaultBottleType === 'expressed' && !text.includes('תמל') && !text.includes('תמ"ל'));
-          const prefix = isExpressed ? '[שאוב]' : '[תמ"ל]';
-          await performInsert('feedings', { 
-            type: 'bottle', 
-            side: recognizedSide, 
-            amount_ml: bottleMl, 
-            notes: `${prefix} הוזן קולית`, 
-            created_at: new Date().toISOString() 
-          });
-          feedbackMsg = `🍼 תועד בקבוק: ${bottleMl} מ"ל (${isExpressed ? 'שאוב' : 'תמ"ל'})`;
-          loadAllDataRef.current();
-        } else {
-          feedbackMsg = `⚠️ לא זוהתה פקודה מדויקת ("${transcript}")`;
-        }
-
-        setVoiceFeedback(feedbackMsg);
-        setTimeout(() => setVoiceFeedback(''), 4000);
-      };
-
-      const handleToggleVoiceAssistant = () => {
-        triggerVibration(15);
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-          alert('זיהוי קולי אינו נתמך בדפדפן זה (מומלץ Chrome באנדרואיד/PC או Safari עדכני).');
-          return;
-        }
-
-        if (isListening) {
-          if (recognitionRef.current) {
-            try { recognitionRef.current.stop(); } catch(e) {}
-          }
-          setIsListening(false);
-          return;
-        }
-
-        try {
-          const recognition = new SpeechRecognition();
-          recognition.lang = 'he-IL';
-          recognition.continuous = false;
-          recognition.interimResults = false;
-
-          recognition.onstart = () => {
-            setIsListening(true);
-            setVoiceFeedback('מקשיב... אמור למשל: "בקבוק 120" או "חיתול קקי"');
-          };
-
-          recognition.onresult = (event) => {
-            const transcript = event.results && event.results[0] && event.results[0][0] && event.results[0][0].transcript;
-            setIsListening(false);
-            if (transcript) handleProcessVoiceText(transcript);
-          };
-
-          recognition.onerror = (err) => {
-            console.error('Speech error:', err);
-            setIsListening(false);
-            setVoiceFeedback('שגיאה בזיהוי הקולי. נסו שוב.');
-            setTimeout(() => setVoiceFeedback(''), 3000);
-          };
-
-          recognition.onend = () => {
-            setIsListening(false);
-          };
-
-          recognitionRef.current = recognition;
-          recognition.start();
-        } catch (e) {
-          console.error(e);
-          setIsListening(false);
-        }
       };
 
       const saveGrowth = async () => {
@@ -1002,12 +957,12 @@
       };
 
       const deleteTimelineItem = async (item) => {
-        if (!confirm('למחוק פעולה זו מהיומן לחלוטין?')) return;
+        if (!confirm('האם למחוק פעולה זו מהיומן לחלוטין?')) return;
         triggerVibration(15);
         if (item.isOfflinePending) {
           const queue = getOfflineQueue().filter(q => q.client_id !== item.id);
           setOfflineQueue(queue);
-          setTimeline(assembleTimeline(feedings, diapers, solids, growthMetrics));
+          loadAllDataRef.current();
           return;
         }
         const table = (item.logType === 'feeding' || item.logType === 'vitamin_d' || item.logType === 'pumping') ? 'feedings' : item.logType === 'diaper' ? 'diapers' : item.logType === 'solid' ? 'solids' : 'growth_metrics';
@@ -1132,6 +1087,8 @@
 
       const totalDurationToday = actualFeedingsToday.filter(f => f.type === 'breastfeeding').reduce((a, c) => a + (c.duration_minutes || 0), 0);
       const totalMlToday = actualFeedingsToday.filter(f => f.type === 'bottle').reduce((a, c) => a + (c.amount_ml || 0), 0);
+      const lastActionWithSide = mainTimelineLogs.find(item => item.logType === 'feeding');
+      const lastSide = lastActionWithSide?.side || 'both';
       const statColsCount = showLastSideStat ? "grid-cols-3" : "grid-cols-2";
 
       if (authLoading) {
@@ -1168,14 +1125,6 @@
       return (
         <div className="max-w-lg mx-auto min-h-screen flex flex-col pb-28 text-gray-800 dark:text-gray-100 relative">
           
-          <input 
-            type="file" 
-            ref={avatarInputRef} 
-            onChange={handleAvatarChange} 
-            accept="image/*" 
-            className="hidden" 
-          />
-
           {showInstallPrompt && (
             <div className="fixed top-4 left-4 right-4 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md p-4 rounded-3xl shadow-2xl z-[100] border border-rose-100 dark:border-gray-700 animate-in slide-in-from-top-4 flex flex-col gap-3 max-w-md mx-auto">
               <div className="flex justify-between items-start">
@@ -1211,25 +1160,7 @@
 
           <header className="bg-white/90 dark:bg-gray-900/80 backdrop-blur-xl p-4 sticky top-0 z-50 flex justify-between items-center shadow-sm border-b border-gray-100 dark:border-gray-800 transition-colors duration-300">
             <div className="flex items-center gap-3">
-              <button 
-                onClick={() => { triggerVibration(10); avatarInputRef.current && avatarInputRef.current.click(); }}
-                title="לחץ להחלפת תמונה מהגלריה"
-                className="relative group focus:outline-none"
-              >
-                {customAvatar ? (
-                  <img 
-                    src={customAvatar} 
-                    alt={babyName} 
-                    className="w-11 h-11 rounded-full object-cover shadow-inner border-2 border-rose-300 ring-2 ring-rose-200/50"
-                  />
-                ) : (
-                  <div className="w-11 h-11 bg-gradient-to-tr from-rose-400 via-orange-300 to-amber-300 text-white rounded-full flex items-center justify-center text-2xl shadow-inner shadow-white/30 border-2 border-rose-200/50">
-                    👶
-                  </div>
-                )}
-                <span className="absolute -bottom-1 -right-1 bg-white dark:bg-gray-800 rounded-full w-4 h-4 text-[9px] flex items-center justify-center shadow-sm border border-gray-200 dark:border-gray-600">📷</span>
-              </button>
-
+              <div className="w-11 h-11 bg-gradient-to-tr from-rose-400 via-orange-300 to-amber-300 text-white rounded-full flex items-center justify-center text-2xl shadow-inner shadow-white/30">👶</div>
               <div>
                 <div className="flex items-center gap-1.5">
                   <h1 className="font-bold text-gray-800 dark:text-white text-base">{babyName}</h1>
@@ -1252,26 +1183,74 @@
 
             <div className="flex items-center gap-2">
               <button 
-                onClick={handleToggleVoiceAssistant}
-                title="הזנה קולית חכמה"
+                onClick={() => { triggerVibration(10); setShowNoisePlayer(!showNoisePlayer); }}
+                title="רעש לבן מרגיע"
                 className={`p-2 rounded-xl text-xs font-bold border transition active:scale-95 flex items-center gap-1 ${
-                  isListening ? 'bg-rose-500 border-rose-500 text-white shadow-md shadow-rose-200/50 animate-bounce' : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700'
+                  isNoisePlaying ? 'bg-teal-500 border-teal-500 text-white shadow-md shadow-teal-200/50 animate-pulse' : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700'
                 }`}
               >
-                <span>🎙️</span>
+                <span>🎧</span>
               </button>
 
               <button onClick={() => { triggerVibration(10); supabaseClient.auth.signOut(); }} className="text-xs font-bold text-red-500 bg-red-50 dark:bg-red-950/40 px-3 py-1.5 rounded-xl transition hover:bg-red-100 dark:hover:bg-red-900/60 active:scale-95 shadow-sm border border-red-100 dark:border-red-900/50">התנתק</button>
             </div>
           </header>
 
-          {voiceFeedback && (
-            <div className="mx-4 mt-2 bg-gradient-to-r from-rose-500 to-orange-400 text-white p-3 rounded-2xl shadow-lg text-xs font-bold flex items-center justify-between animate-in slide-in-from-top-2">
-              <span className="flex items-center gap-1.5">
-                <span>🎙️</span>
-                <span>{voiceFeedback}</span>
-              </span>
-              <button onClick={() => setVoiceFeedback('')} className="text-white/80 font-bold px-1">✕</button>
+          {showNoisePlayer && (
+            <div className="bg-white/95 dark:bg-gray-800/95 p-4 mx-4 mt-3 rounded-3xl border border-teal-100 dark:border-gray-700 shadow-xl space-y-3 animate-in slide-in-from-top-2">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xs font-black text-teal-600 dark:text-teal-400 flex items-center gap-1.5">
+                  <span>🎧</span> נגן צלילים מרגיעים (שינה והרגעה)
+                </h3>
+                <button onClick={() => setShowNoisePlayer(false)} className="text-xs font-bold text-gray-400">✕</button>
+              </div>
+              <div className="grid grid-cols-4 gap-1.5 text-xs">
+                {[
+                  { id: 'white', label: 'רעש לבן', icon: '💨' },
+                  { id: 'pink', label: 'רעש ורוד', icon: '🌊' },
+                  { id: 'shh', label: 'ששש...', icon: '🤫' },
+                  { id: 'heart', label: 'פעימות רחם', icon: '💓' }
+                ].map(n => (
+                  <button 
+                    key={n.id} 
+                    onClick={() => {
+                      triggerVibration(10);
+                      setNoiseType(n.id);
+                      if (isNoisePlaying) startNoiseSound(n.id);
+                    }}
+                    className={`py-2 rounded-xl font-bold border flex flex-col items-center gap-1 transition ${
+                      noiseType === n.id ? 'bg-teal-500 text-white border-teal-500 shadow-sm' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-600'
+                    }`}
+                  >
+                    <span>{n.icon}</span>
+                    <span className="text-[10px]">{n.label}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center justify-between pt-1 text-xs">
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] font-bold text-gray-500">טיימר כיבוי:</span>
+                  {[15, 30, 60, 0].map(m => (
+                    <button 
+                      key={m} 
+                      onClick={() => { triggerVibration(10); setNoiseTimerMin(m); }}
+                      className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border ${
+                        noiseTimerMin === m ? 'bg-teal-500 text-white border-teal-500' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600'
+                      }`}
+                    >
+                      {m === 0 ? 'ללא' : `${m} דק'`}
+                    </button>
+                  ))}
+                </div>
+                <button 
+                  onClick={handleToggleNoise}
+                  className={`px-4 py-1.5 rounded-xl font-black text-xs transition active:scale-95 shadow-md ${
+                    isNoisePlaying ? 'bg-red-500 text-white shadow-red-200/50' : 'bg-teal-500 text-white shadow-teal-200/50'
+                  }`}
+                >
+                  {isNoisePlaying ? `עצור ${noiseTimerRemain ? `(${Math.floor(noiseTimerRemain / 60)}:${String(noiseTimerRemain % 60).padStart(2, '0')})` : ''}` : 'הפעל צליל'}
+                </button>
+              </div>
             </div>
           )}
 
@@ -1292,7 +1271,7 @@
                           type="text" 
                           value={tempSticky} 
                           onChange={e => setTempSticky(e.target.value)} 
-                          placeholder="רשמו הודעה קצרה..." 
+                          placeholder="רשמו הודעה קצרה..."
                           className="flex-1 px-3 py-1.5 bg-white dark:bg-gray-800 text-xs font-bold rounded-xl border border-amber-300 dark:border-amber-700 focus:outline-none dark:text-white"
                         />
                         <button onClick={handleSaveStickyNote} className="bg-amber-500 text-white px-3 py-1.5 rounded-xl text-xs font-bold">שמור</button>
@@ -1385,26 +1364,14 @@
                   </div>
                 )}
 
-                {/* כפתורי פעולות + אקורדיון */}
+                {/* --- אזור כפתורי הפעולות המשולב באקורדיון מדורג --- */}
                 <div className="grid grid-cols-2 gap-3 pt-1">
                   
-                  <button 
-                    onClick={() => { 
-                      triggerVibration(10); 
-                      const nextSection = activeSection === 'breast' ? null : 'breast';
-                      setActiveSection(nextSection); 
-                      setFeedType('breastfeeding');
-                      if (nextSection === 'breast') {
-                        const nextSide = lastSide === 'left' ? 'right' : lastSide === 'right' ? 'left' : 'both';
-                        setFeedSide(nextSide);
-                      }
-                    }} 
-                    className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'breast' ? 'bg-rose-400 text-white shadow-lg shadow-rose-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-rose-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}
-                  >
-                    <span className="text-2xl drop-shadow-sm mb-1">🤱</span> הנקה
-                  </button>
+                  {/* שורה 1: הנקה + בקבוק */}
+                  <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'breast' ? null : 'breast'); setFeedType('breastfeeding'); }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'breast' ? 'bg-rose-400 text-white shadow-lg shadow-rose-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-rose-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm mb-1">🤱</span> הנקה</button>
                   <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'bottle' ? null : 'bottle'); setFeedType('bottle'); }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'bottle' ? 'bg-cyan-400 text-white shadow-lg shadow-cyan-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-cyan-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm mb-1">🍼</span> בקבוק</button>
 
+                  {/* טפסי שורה 1 */}
                   {(activeSection === 'breast' || activeSection === 'bottle') && (
                     <div className="col-span-2 -mt-1 mb-2">
                       {activeSection === 'breast' && (
@@ -1449,6 +1416,7 @@
                         </div>
                       )}
 
+                      {/* טופס בקבוק */}
                       {activeSection === 'bottle' && (
                         <div className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] shadow-xl shadow-cyan-100/60 dark:shadow-none border border-gray-100 dark:border-gray-700 space-y-5 animate-in slide-in-from-top-2 duration-300">
                           <div className="flex justify-between items-center"><h3 className="font-black text-cyan-500 text-sm flex items-center gap-2"><span className="text-lg">🍼</span> עדכון בקבוק</h3><button onClick={()=>{triggerVibration(10); setActiveSection(null)}} className="text-sm bg-gray-100 dark:bg-gray-700 w-8 h-8 rounded-full flex items-center justify-center font-bold text-gray-500 dark:text-gray-300">✕</button></div>
@@ -1492,9 +1460,11 @@
                     </div>
                   )}
 
+                  {/* שורה 2: שאיבה + חיתול */}
                   <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'pumping' ? null : 'pumping'); setFeedType('pumping'); }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'pumping' ? 'bg-purple-400 text-white shadow-lg shadow-purple-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-purple-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm mb-1">🥛</span> שאיבה</button>
                   <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'diaper' ? null : 'diaper') }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 active:scale-95 ${activeSection === 'diaper' ? 'bg-amber-400 text-white shadow-lg shadow-amber-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-amber-500 shadow-sm border border-gray-100 dark:border-gray-700'}`}><span className="text-2xl drop-shadow-sm mb-1">🚼</span> חיתול</button>
 
+                  {/* טפסי שורה 2 */}
                   {(activeSection === 'pumping' || activeSection === 'diaper') && (
                     <div className="col-span-2 -mt-1 mb-2">
                       {activeSection === 'pumping' && (
@@ -1537,7 +1507,7 @@
                         <div className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] shadow-xl shadow-amber-100/60 dark:shadow-none border border-gray-100 dark:border-gray-700 space-y-5 animate-in slide-in-from-top-2 duration-300">
                           <div className="flex justify-between items-center"><h3 className="font-black text-amber-500 text-sm flex items-center gap-2"><span className="text-lg">🚼</span> עדכון חיתול</h3><button onClick={()=>{triggerVibration(10); setActiveSection(null)}} className="text-sm bg-gray-100 dark:bg-gray-700 w-8 h-8 rounded-full flex items-center justify-center font-bold text-gray-500 dark:text-gray-300">✕</button></div>
                           <div className="grid grid-cols-3 gap-3">
-                            {['wet', 'dirty', 'both'].map(t => <button key={t} onClick={() => {triggerVibration(10); setDiaperType(t)}} className={`py-5 rounded-2xl text-sm font-bold shadow-sm active:scale-95 transition border flex flex-col items-center gap-2 ${diaperType === t ? 'bg-amber-400 text-white border-amber-400' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-600'}`}>{t === 'wet' ? '💧 פיפי' : t === 'dirty' ? '💩 קקי' : '✨ שניהם'}</button>)}
+                            {['wet', 'dirty', 'both'].map(t => <button key={t} onClick={() => {triggerVibration(10); setDiaperType(t)}} className={`py-5 rounded-2xl text-sm font-bold shadow-sm active:scale-95 transition border flex flex-col items-center gap-2 ${diaperType === t ? 'bg-amber-400 text-white border-amber-400' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-600'}`}><span className="text-2xl drop-shadow-sm">{t === 'wet' ? '💧' : t === 'dirty' ? '💩' : '✨'}</span>{t === 'wet' ? 'פיפי' : t === 'dirty' ? 'קקי' : 'שניהם'}</button>)}
                           </div>
                           <div>
                             <input type="text" value={diaperNotes} onChange={e => setDiaperNotes(e.target.value)} placeholder="הערות לחיתול (צבע, מרקם וכו')..." className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-200 dark:border-gray-600 text-xs focus:outline-none dark:text-white font-medium shadow-sm" />
@@ -1553,8 +1523,10 @@
                     </div>
                   )}
 
+                  {/* שורה 3: טעימות מוצקים */}
                   <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'solid' ? null : 'solid') }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 col-span-2 active:scale-95 ${activeSection === 'solid' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-emerald-600 shadow-sm border border-gray-100 dark:border-gray-700'}`}>🥑 טעימות מוצקים</button>
 
+                  {/* טופס שורה 3 */}
                   {activeSection === 'solid' && (
                     <div className="col-span-2 -mt-1 mb-2">
                       <div className="bg-white dark:bg-gray-800 p-6 rounded-[2rem] shadow-xl shadow-emerald-100/60 dark:shadow-none border border-gray-100 dark:border-gray-700 space-y-5 animate-in slide-in-from-top-2 duration-300">
@@ -1599,6 +1571,7 @@
                   )}
                 </div>
 
+                {/* --- כפתור ויטמין D מהיר --- */}
                 {showVitaminDButton && (
                   <button onClick={logVitaminD} className={`w-full p-3.5 mt-2 rounded-3xl text-center flex flex-row items-center justify-center gap-2 font-bold text-sm transition-all duration-200 shadow-sm border active:scale-95 ${vitDSuccess ? 'bg-teal-400 text-white border-teal-400 shadow-teal-200/50 animate-success' : 'bg-white dark:bg-gray-800 text-violet-500 border-gray-100 dark:border-gray-700'}`}>
                     💊 ויטמין D (2 טיפות)
@@ -1637,9 +1610,8 @@
                                     {item.logType === 'vitamin_d' ? '2 טיפות' : item.logType === 'pumping' ? `${item.amount_ml} מ"ל` : item.logType === 'feeding' ? (item.duration_minutes ? `${item.duration_minutes} דק'` : `${item.amount_ml} מ"ל`) : item.logType === 'solid' ? `${item.food_name}` : (item.type === 'wet' ? 'פיפי' : item.type === 'dirty' ? 'קקי' : 'שניהם')}
                                   </span>
                                 </div>
-                                <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium mt-1.5 flex flex-wrap items-center gap-1.5">
-                                  <span className="text-gray-800 dark:text-gray-200 font-bold">{new Date(item.timestamp).toLocaleDateString('he-IL')}</span>
-                                  <span className="text-gray-800 dark:text-gray-200 font-bold font-mono px-1"> {new Date(item.timestamp).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'})}</span>
+                                <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium mt-1.5 flex items-center gap-1.5">
+                                  <span className="text-gray-800 dark:text-gray-200 font-bold font-mono">{new Date(item.timestamp).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'})}</span>
                                   {item.side && item.logType !== 'vitamin_d' && <span>| צד: <strong className="text-gray-700 dark:text-gray-300">{item.side === 'left' ? 'שמאל' : item.side === 'right' ? 'ימין' : 'שניהם'}</strong></span>}
                                   {item.logType === 'solid' && <span>| <strong className="text-gray-700 dark:text-gray-300">{item.reaction === 'liked' ? 'אהב' : item.reaction === 'neutral' ? 'נייטרלי' : item.reaction === 'disliked' ? 'לא אהב' : 'חשש לאלרגיה'}</strong></span>}
                                 </p>
@@ -1659,30 +1631,27 @@
               </div>
             )}
 
+            {/* --- שלב 1: החלפת הממשק של סינון יומן לכפתורים מהירים --- */}
             {activeTab === 'timeline' && (
               <div className="animate-tab space-y-5">
                 <div className="flex justify-between items-center px-2">
                   <h2 className="text-lg font-black text-gray-800 dark:text-white drop-shadow-sm">📋 היומן המלא של {babyName}</h2>
                 </div>
 
-                <div className="bg-white/90 dark:bg-gray-800 p-4 rounded-[2rem] border border-gray-100 dark:border-gray-700 shadow-lg shadow-gray-200/50 dark:shadow-none flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 flex-1">
-                    <span className="text-xs font-bold text-gray-600 dark:text-gray-300 whitespace-nowrap">📅 סינון יומי:</span>
+                <div className="bg-white/90 dark:bg-gray-800 p-4 rounded-[2rem] border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col gap-3">
+                  <div className="flex gap-2">
+                    <button onClick={() => {triggerVibration(10); setDateFilter(0);}} className={`flex-1 text-xs px-3 py-2.5 rounded-xl font-bold transition active:scale-95 shadow-sm ${selectedTimelineDate === getLocalDateStr(0) ? 'bg-rose-400 text-white' : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600'}`}>היום</button>
+                    <button onClick={() => {triggerVibration(10); setDateFilter(-1);}} className={`flex-1 text-xs px-3 py-2.5 rounded-xl font-bold transition active:scale-95 shadow-sm ${selectedTimelineDate === getLocalDateStr(-1) ? 'bg-rose-400 text-white' : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600'}`}>אתמול</button>
+                    <button onClick={() => {triggerVibration(10); setSelectedTimelineDate('');}} className={`flex-1 text-xs px-3 py-2.5 rounded-xl font-bold transition active:scale-95 shadow-sm ${!selectedTimelineDate ? 'bg-rose-400 text-white' : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600'}`}>הכל</button>
+                  </div>
+                  <div className="flex items-center gap-3">
                     <input 
                       type="date" 
                       value={selectedTimelineDate} 
                       onChange={e => { triggerVibration(10); setSelectedTimelineDate(e.target.value); }} 
-                      className="flex-1 p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-xs font-bold text-center focus:outline-none dark:text-white shadow-sm"
+                      className="flex-1 p-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-xs font-bold text-center focus:outline-none dark:text-white shadow-sm"
                     />
                   </div>
-                  {selectedTimelineDate && (
-                    <button 
-                      onClick={() => { triggerVibration(10); setSelectedTimelineDate(''); }} 
-                      className="text-xs bg-rose-500 text-white font-bold px-3 py-2.5 rounded-xl transition active:scale-95 shadow-md shadow-rose-200/50 whitespace-nowrap"
-                    >
-                      נקה סינון ✕
-                    </button>
-                  )}
                 </div>
 
                 <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-2 pt-1 snap-x px-1">
@@ -1757,6 +1726,7 @@
                 )}
               </div>
             )}
+            {/* --- סוף שלב 1 --- */}
 
             {activeTab === 'solids_board' && (() => {
               const uniqueFoods = {};
@@ -1969,7 +1939,7 @@
                     </div>
                     <div className="pt-3 space-y-4 border-t border-gray-100 dark:border-gray-700/60">
                       <div className="flex gap-2">
-                        <input type="number" step="0.01" value={growthValue} onChange={e => setGrowthValue(e.target.value)} placeholder="הכנס ערך מספרי" className="flex-1 px-4 py-3 bg-gray-50 dark:bg-gray-700 font-black text-lg text-center border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none dark:text-white shadow-sm" />
+                        <input type="number" step="0.01" value={growthValue} onChange={e => setGrowthValue(e.target.value)} placeholder="הכנס ערך מספרי" className="flex-1 px-4 py-3 bg-gray-50 dark:bg-gray-700 font-black text-lg text-center border border-gray-200 dark:border-gray-600 rounded-2xl focus:outline-none dark:text-white shadow-sm" />
                         <span className="bg-gray-100 dark:bg-gray-700/60 px-5 py-3 rounded-2xl font-black text-gray-500 dark:text-gray-300 flex items-center border border-gray-200 dark:border-gray-600 shadow-sm">{growthType === 'weight' ? 'ק"ג' : 'ס"מ'}</span>
                       </div>
                       <div>
@@ -2029,29 +1999,6 @@
                   <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-600 shadow-sm">
                     <span className="text-sm font-black dark:text-white flex items-center gap-2"><span className="text-lg">🌙</span> מצב לילה (Dark Mode)</span>
                     <input type="checkbox" checked={isDarkMode} onChange={e => {triggerVibration(10); setIsDarkMode(e.target.checked);}} className="w-5 h-5 accent-rose-500 cursor-pointer" />
-                  </div>
-
-                  <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-600 shadow-sm">
-                    <div>
-                      <span className="text-sm font-black dark:text-white flex items-center gap-2 mb-1"><span className="text-lg">🖼️</span> תמונת פרופיל</span>
-                      <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">החלפה ישירה מתמונות המכשיר</span>
-                    </div>
-                    <div className="flex gap-2">
-                      <button 
-                        onClick={() => avatarInputRef.current && avatarInputRef.current.click()} 
-                        className="text-xs font-black px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-900/50 active:scale-95 transition"
-                      >
-                        {customAvatar ? 'שנה תמונה' : 'בחר תמונה'}
-                      </button>
-                      {customAvatar && (
-                        <button 
-                          onClick={handleRemoveAvatar} 
-                          className="text-xs font-black px-3 py-2 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 active:scale-95 transition"
-                        >
-                          איפוס
-                        </button>
-                      )}
-                    </div>
                   </div>
 
                   <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-600 shadow-sm">
