@@ -63,9 +63,9 @@
 
     @keyframes softPulse {
       0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.7; transform: scale(1.02); }
+      50% { opacity: 0.85; transform: scale(1.02); }
     }
-    .animate-soft-pulse { animation: softPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    .animate-soft-pulse { animation: softPulse 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
 
     @media print {
       body * { visibility: hidden; }
@@ -246,7 +246,7 @@
 
       const quickSolids = ['בטטה', 'גזר', 'קישוא', 'דלעת', 'בננה', 'אבוקדו', 'טחינה', 'תפוח'];
 
-      // --- הוגדרו כאן למעלה בצורה תקינה כדי ששאר הפונקציות יוכלו לגשת אליהם ולמנוע את בעיית בובו מתעורר ---
+      // הגדרות סדר נכונות למניעת שגיאות ה-Reference 
       const isToday = (timestamp) => {
         if (!timestamp) return false;
         const date = new Date(timestamp); const today = new Date();
@@ -256,9 +256,12 @@
       const actualBabyFeedings = timeline.filter(f => f.logType === 'feeding' && !f.notes?.includes('ויטמין D') && !f.notes?.includes('[שאיבת_חלב]') && f.type !== 'pumping');
       const actualFeedingsToday = actualBabyFeedings.filter(f => isToday(f.timestamp));
       const todaysDiapers = timeline.filter(d => d.logType === 'diaper' && isToday(d.timestamp));
-      // ------------------------------------------------------------------------
+      
+      // משתני בדיקת הגעה ליעד עבור פידבק חזותי
+      const isFeedGoalReached = actualFeedingsToday.length >= targetFeeds && targetFeeds > 0;
+      const isDiaperGoalReached = todaysDiapers.length >= targetDiapers && targetDiapers > 0;
 
-      // --- שלב 1: לוגיקת כפתורי תאריך מהירים ביומן ---
+      // לוגיקת כפתורי תאריך מהירים ביומן
       const getLocalDateStr = (offsetDays = 0) => {
         const d = new Date();
         d.setDate(d.getDate() + offsetDays);
@@ -269,7 +272,6 @@
       const setDateFilter = (offsetDays) => {
         setSelectedTimelineDate(getLocalDateStr(offsetDays));
       };
-      // ----------------------------------------------
 
       useEffect(() => {
         const metaTheme = document.querySelector('meta[name="theme-color"]');
@@ -1302,11 +1304,12 @@
                   </button>
                 </div>
 
+                {/* שלב 2: אנימציות חגיגיות קטנות (Pulse + Trophy) בקוביית היעדים */}
                 <div className={`grid ${statColsCount} gap-3 text-white`}>
-                  <div className="bg-gradient-to-br from-rose-400 to-rose-500 p-4 rounded-3xl shadow-lg shadow-rose-200/50 dark:shadow-none relative overflow-hidden border border-rose-300/30">
+                  <div className={`bg-gradient-to-br from-rose-400 to-rose-500 p-4 rounded-3xl shadow-lg relative overflow-hidden border transition-all duration-500 ${isFeedGoalReached ? 'border-rose-300 shadow-rose-300/50 animate-soft-pulse' : 'border-rose-300/30 shadow-rose-200/50 dark:shadow-none'}`}>
                     <div className="flex justify-between items-center z-10 relative">
                       <span className="text-[11px] font-bold opacity-90 text-rose-50">אכילות (היום)</span>
-                      <span className="font-black text-lg">{actualFeedingsToday.length}/{targetFeeds}</span>
+                      <span className="font-black text-lg">{actualFeedingsToday.length}/{targetFeeds} {isFeedGoalReached && '🏆'}</span>
                     </div>
                     <div className="w-full bg-black/10 rounded-full h-1.5 mt-2.5 mb-1.5 overflow-hidden z-10 relative shadow-inner">
                       <div className="bg-white h-full rounded-full transition-all duration-1000 ease-out shadow-sm" style={{width: `${feedPercentage}%`}}></div>
@@ -1314,10 +1317,10 @@
                     <p className="text-[10px] font-medium truncate text-rose-50/80 z-10 relative">{totalDurationToday > 0 && `${totalDurationToday} דק'`} {totalMlToday > 0 && `| ${totalMlToday} מ"ל`}</p>
                   </div>
 
-                  <div className="bg-gradient-to-br from-amber-400 to-orange-400 p-4 rounded-3xl shadow-lg shadow-amber-200/50 dark:shadow-none relative overflow-hidden border border-amber-300/30">
+                  <div className={`bg-gradient-to-br from-amber-400 to-orange-400 p-4 rounded-3xl shadow-lg relative overflow-hidden border transition-all duration-500 ${isDiaperGoalReached ? 'border-amber-300 shadow-amber-300/50 animate-soft-pulse' : 'border-amber-300/30 shadow-amber-200/50 dark:shadow-none'}`}>
                     <div className="flex justify-between items-center z-10 relative">
                       <span className="text-[11px] font-bold opacity-90 text-amber-50">חיתולים (היום)</span>
-                      <span className="font-black text-lg">{todaysDiapers.length}/{targetDiapers}</span>
+                      <span className="font-black text-lg">{todaysDiapers.length}/{targetDiapers} {isDiaperGoalReached && '🏆'}</span>
                     </div>
                     <div className="w-full bg-black/10 rounded-full h-1.5 mt-2.5 mb-1.5 overflow-hidden z-10 relative shadow-inner">
                       <div className="bg-white h-full rounded-full transition-all duration-1000 ease-out shadow-sm" style={{width: `${diaperPercentage}%`}}></div>
