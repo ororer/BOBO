@@ -198,6 +198,7 @@
       const [defaultBottleType, setDefaultBottleType] = useState(() => localStorage.getItem('bobo_def_bottle_type') || 'formula');
       const [defaultBreastDuration, setDefaultBreastDuration] = useState(() => parseInt(localStorage.getItem('bobo_def_breast_dur') || '10'));
       const [showVitaminDButton, setShowVitaminDButton] = useState(() => localStorage.getItem('bobo_show_vit_d') !== 'false');
+      const [showIronButton, setShowIronButton] = useState(() => localStorage.getItem('bobo_show_iron') !== 'false');
       const [showLastSideStat, setShowLastSideStat] = useState(() => localStorage.getItem('bobo_show_last_side') !== 'false');
 
       const [babyName, setBabyName] = useState(() => localStorage.getItem('bobo_name') || 'בובו');
@@ -240,6 +241,7 @@
       const [editSaveStatus, setEditSaveStatus] = useState('idle');
 
       const [vitDSuccess, setVitDSuccess] = useState(false);
+      const [ironSuccess, setIronSuccess] = useState(false);
       const [expandedPumpingDate, setExpandedPumpingDate] = useState(null);
 
       const [lastFeedTime, setLastFeedTime] = useState(null);
@@ -257,7 +259,7 @@
         return date.getDate() === today.getDate() && date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear();
       };
 
-      const actualBabyFeedings = timeline.filter(f => f.logType === 'feeding' && !f.notes?.includes('ויטמין D') && !f.notes?.includes('[שאיבת_חלב]') && f.type !== 'pumping');
+      const actualBabyFeedings = timeline.filter(f => f.logType === 'feeding' && !f.notes?.includes('ויטמין D') && !f.notes?.includes('ברזל') && !f.notes?.includes('[שאיבת_חלב]') && f.type !== 'pumping');
       const actualFeedingsToday = actualBabyFeedings.filter(f => isToday(f.timestamp));
       const todaysDiapers = timeline.filter(d => d.logType === 'diaper' && isToday(d.timestamp));
       
@@ -473,6 +475,8 @@
         const wetDiapers = todaysDiapers.filter(d => d.type === 'wet' || d.type === 'both').length;
         const dirtyDiapers = todaysDiapers.filter(d => d.type === 'dirty' || d.type === 'both').length;
         const todaySolids = solids.filter(s => isToday(s.created_at)).map(s => s.food_name).join(', ');
+        const gotVitD = timeline.some(f => f.notes?.includes('ויטמין D') && isToday(f.timestamp));
+        const gotIron = timeline.some(f => f.notes?.includes('ברזל') && isToday(f.timestamp));
 
         let msg = `👶 *סיכום יום עבור ${babyName} (${todayStr})*\n\n`;
         msg += `🍼 *אכילות:* ${actualFeedingsToday.length} ארוחות`;
@@ -482,6 +486,9 @@
         msg += `\n🚼 *חיתולים:* ${todaysDiapers.length} (${wetDiapers} פיפי, ${dirtyDiapers} קקי)\n`;
         if (pumpingMl > 0) msg += `🥛 *שאיבות היום:* ${pumpingMl} מ"ל\n`;
         if (todaySolids) msg += `🥑 *טעימות היום:* ${todaySolids}\n`;
+        if (gotVitD || gotIron) {
+          msg += `💊 *תוספים:* ${gotVitD ? 'ויטמין D ✓ ' : ''}${gotIron ? 'ברזל ✓' : ''}\n`;
+        }
         if (stickyNote) msg += `📝 *פתקית:* ${stickyNote}\n`;
         msg += `\n_נשלח מאפליקציית בובו_ 👶❤️`;
 
@@ -678,6 +685,7 @@
 
       const getNodeColor = (item) => {
         if (item.logType === 'vitamin_d') return 'bg-violet-400 dark:bg-violet-500';
+        if (item.logType === 'iron') return 'bg-rose-600 dark:bg-rose-500';
         if (item.logType === 'pumping') return 'bg-purple-400 dark:bg-purple-500';
         if (item.logType === 'feeding') return item.type === 'breastfeeding' ? 'bg-rose-400 dark:bg-rose-500' : 'bg-cyan-400 dark:bg-cyan-500';
         if (item.logType === 'diaper') return 'bg-amber-400 dark:bg-amber-500';
@@ -688,6 +696,7 @@
 
       const getTagColor = (item) => {
         if (item.logType === 'vitamin_d') return 'text-violet-700 bg-violet-100 dark:text-violet-200 dark:bg-violet-900/50';
+        if (item.logType === 'iron') return 'text-rose-800 bg-rose-100 dark:text-rose-200 dark:bg-rose-950/70';
         if (item.logType === 'pumping') return 'text-purple-700 bg-purple-100 dark:text-purple-200 dark:bg-purple-900/50';
         if (item.logType === 'feeding') { return item.type === 'breastfeeding' ? 'text-rose-700 bg-rose-100 dark:text-rose-200 dark:bg-rose-900/50' : 'text-cyan-700 bg-cyan-100 dark:text-cyan-200 dark:bg-cyan-900/50'; }
         if (item.logType === 'diaper') return 'text-amber-700 bg-amber-100 dark:text-amber-200 dark:bg-amber-900/50';
@@ -718,7 +727,7 @@
         const offlineQueue = getOfflineQueue();
         const offlineItems = offlineQueue.map(item => ({
           ...item.payload, id: item.client_id, isOfflinePending: true,
-          logType: item.table === 'feedings' ? (item.payload.notes?.includes('ויטמין D') ? 'vitamin_d' : item.payload.notes?.includes('[שאיבת_חלב]') ? 'pumping' : 'feeding') : item.table === 'diapers' ? 'diaper' : item.table === 'solids' ? 'solid' : 'growth',
+          logType: item.table === 'feedings' ? (item.payload.notes?.includes('ויטמין D') ? 'vitamin_d' : item.payload.notes?.includes('ברזל') ? 'iron' : item.payload.notes?.includes('[שאיבת_חלב]') ? 'pumping' : 'feeding') : item.table === 'diapers' ? 'diaper' : item.table === 'solids' ? 'solid' : 'growth',
           timestamp: item.payload.created_at || item.payload.measured_at || new Date().toISOString()
         }));
 
@@ -726,6 +735,7 @@
           ...fData.map(f => {
             let logType = 'feeding';
             if (f.notes?.includes('ויטמין D')) logType = 'vitamin_d';
+            else if (f.notes?.includes('ברזל')) logType = 'iron';
             else if (f.type === 'pumping' || f.notes?.includes('[שאיבת_חלב]')) logType = 'pumping';
             return { ...f, logType, timestamp: f.created_at };
           }),
@@ -777,9 +787,10 @@
         const significantFeedings = timeline.filter(f => {
           if (f.logType !== 'feeding') return false;
           const isNotVitD = !f.notes?.includes('ויטמין D');
+          const isNotIron = !f.notes?.includes('ברזל');
           const isNotPumping = !f.notes?.includes('[שאיבת_חלב]') && f.type !== 'pumping';
           const isSignificant = f.type === 'breastfeeding' || (f.type === 'bottle' && (f.amount_ml || 0) >= 60);
-          return isNotVitD && isNotPumping && isSignificant;
+          return isNotVitD && isNotIron && isNotPumping && isSignificant;
         });
         if (significantFeedings.length > 0) { 
           const feedTime = new Date(significantFeedings[0].timestamp).getTime();
@@ -881,6 +892,16 @@
         loadAllDataRef.current();
       };
 
+      const logIron = async () => {
+        triggerVibration(15);
+        const alreadyGivenToday = timeline.some(f => f.notes?.includes('ברזל') && isToday(f.timestamp));
+        if (alreadyGivenToday) { alert('🩸 שימו לב: כבר ניתן תוסף ברזל היום! אין צורך במנה נוספת.'); return; }
+        const finalNotes = `🩸 תוסף ברזל`;
+        await performInsert('feedings', { type: 'bottle', side: 'both', amount_ml: null, duration_minutes: null, notes: finalNotes, created_at: new Date().toISOString() });
+        setIronSuccess(true); setTimeout(() => setIronSuccess(false), 1500);
+        loadAllDataRef.current();
+      };
+
       // --- מנוע פענוח הפקודה הקולית בעברית ---
       const parseAndExecuteVoiceCommand = async (text) => {
         const clean = text.toLowerCase().trim();
@@ -900,7 +921,13 @@
           return `💊 נרשם ויטמין D בהצלחה`;
         }
 
-        // 2. חיתול
+        // 2. ברזל
+        if (clean.includes('ברזל')) {
+          await logIron();
+          return `🩸 נרשם תוסף ברזל בהצלחה`;
+        }
+
+        // 3. חיתול
         if (clean.includes('חיתול') || clean.includes('פיפי') || clean.includes('קקי') || clean.includes('יציאה')) {
           let type = 'wet';
           if ((clean.includes('פיפי') && clean.includes('קקי')) || clean.includes('שניהם') || clean.includes('גם וגם')) type = 'both';
@@ -910,7 +937,7 @@
           return `🚼 נרשם חיתול: ${type === 'wet' ? 'פיפי' : type === 'dirty' ? 'קקי' : 'פיפי וקקי'}`;
         }
 
-        // 3. שאיבה
+        // 4. שאיבה
         if (clean.includes('שאיבה') || clean.includes('שאבתי')) {
           const ml = detectedNum || 60;
           await performInsert('feedings', {
@@ -923,7 +950,7 @@
           return `🥛 נרשמה שאיבה: ${ml} מ"ל (צד ${detectedSide === 'left' ? 'שמאל' : detectedSide === 'right' ? 'ימין' : 'שניהם'})`;
         }
 
-        // 4. הנקה
+        // 5. הנקה
         if (clean.includes('הנקה') || clean.includes('הנקתי') || clean.includes('יונק')) {
           const mins = detectedNum || defaultBreastDuration;
           await performInsert('feedings', {
@@ -936,7 +963,7 @@
           return `🤱 נרשמה הנקה: ${mins} דקות (צד ${detectedSide === 'left' ? 'שמאל' : detectedSide === 'right' ? 'ימין' : 'שניהם'})`;
         }
 
-        // 5. בקבוק / האכלה
+        // 6. בקבוק / האכלה
         if (clean.includes('בקבוק') || clean.includes('האכלה') || clean.includes('מטרנה') || clean.includes('סימילאק') || clean.includes('תמל') || clean.includes('תמ"ל') || clean.includes('שאוב') || clean.includes('חלב')) {
           const ml = detectedNum || defaultMl;
           const isExpressed = clean.includes('שאוב');
@@ -950,7 +977,7 @@
           return `🍼 נרשם בקבוק: ${ml} מ"ל ${isExpressed ? 'שאוב' : 'תמ"ל'}`;
         }
 
-        // 6. טעימות מוצקים
+        // 7. טעימות מוצקים
         if (clean.includes('טעימה') || clean.includes('טעימות') || clean.includes('אכל') || clean.includes('אוכל')) {
           let reaction = 'liked';
           if (clean.includes('לא אהב') || clean.includes('נגעל') || clean.includes('ירק')) reaction = 'disliked';
@@ -1095,13 +1122,16 @@
           let finalNotes = editNotes.trim();
 
           if (editingItem.logType === 'feeding') {
-            if (editingItem.type === 'bottle' && !editingItem.notes?.includes('ויטמין D')) { finalNotes = `[${editSelect2 === 'expressed' ? 'שאוב' : 'תמ"ל'}] ${finalNotes}`.trim(); }
+            if (editingItem.type === 'bottle' && !editingItem.notes?.includes('ויטמין D') && !editingItem.notes?.includes('ברזל')) { finalNotes = `[${editSelect2 === 'expressed' ? 'שאוב' : 'תמ"ל'}] ${finalNotes}`.trim(); }
             await supabaseClient.from('feedings').update({ side: editSelect1, duration_minutes: editingItem.type === 'breastfeeding' ? parseInt(editValue1 || 0) : null, amount_ml: editingItem.type === 'bottle' ? parseInt(editValue1 || 0) : null, notes: finalNotes || null, created_at: isoTimestamp }).eq('id', editingItem.id);
           } else if (editingItem.logType === 'pumping') {
             finalNotes = `[שאיבת_חלב] ${finalNotes}`.trim();
             await supabaseClient.from('feedings').update({ side: editSelect1, amount_ml: parseInt(editValue1 || 0), notes: finalNotes, created_at: isoTimestamp }).eq('id', editingItem.id);
           } else if (editingItem.logType === 'vitamin_d') {
             finalNotes = `💊 ויטמין D - 2 טיפות`;
+            await supabaseClient.from('feedings').update({ notes: finalNotes, created_at: isoTimestamp }).eq('id', editingItem.id);
+          } else if (editingItem.logType === 'iron') {
+            finalNotes = `🩸 תוסף ברזל`;
             await supabaseClient.from('feedings').update({ notes: finalNotes, created_at: isoTimestamp }).eq('id', editingItem.id);
           } else if (editingItem.logType === 'diaper') {
             await supabaseClient.from('diapers').update({ type: editSelect1, notes: finalNotes || null, created_at: isoTimestamp }).eq('id', editingItem.id);
@@ -1124,7 +1154,7 @@
           loadAllDataRef.current();
           return;
         }
-        const table = (item.logType === 'feeding' || item.logType === 'vitamin_d' || item.logType === 'pumping') ? 'feedings' : item.logType === 'diaper' ? 'diapers' : item.logType === 'solid' ? 'solids' : 'growth_metrics';
+        const table = (item.logType === 'feeding' || item.logType === 'vitamin_d' || item.logType === 'iron' || item.logType === 'pumping') ? 'feedings' : item.logType === 'diaper' ? 'diapers' : item.logType === 'solid' ? 'solids' : 'growth_metrics';
         await supabaseClient.from(table).delete().eq('id', item.id);
         loadAllDataRef.current();
       };
@@ -1136,6 +1166,7 @@
       const updateDefBottleType = (type) => { setDefaultBottleType(type); localStorage.setItem('bobo_def_bottle_type', type); };
       const updateDefBreastDuration = (dur) => { setDefaultBreastDuration(dur); localStorage.setItem('bobo_def_breast_dur', dur); };
       const toggleVitDButton = (val) => { setShowVitaminDButton(val); localStorage.setItem('bobo_show_vit_d', val); };
+      const toggleIronButton = (val) => { setShowIronButton(val); localStorage.setItem('bobo_show_iron', val); };
       const toggleLastSideStat = (val) => { setShowLastSideStat(val); localStorage.setItem('bobo_show_last_side', val); };
       const updateFeedInterval = (val) => { setFeedIntervalHours(val); localStorage.setItem('bobo_feed_interval', val); };
       const updateNotifyLead = (val) => { setNotifyLeadMinutes(val); localStorage.setItem('bobo_notify_lead', val); };
@@ -1150,10 +1181,10 @@
         if (timeline.length === 0) return alert("אין נתונים לייצוא");
         let csvContent = "\uFEFFסוג פעולה,פירוט,כמות/משך,צד/החזקה,תאריך,שעה,הערות\n";
         timeline.forEach(item => {
-          const type = item.logType === 'vitamin_d' ? 'ויטמין D' : item.logType === 'pumping' ? 'שאיבה' : item.logType === 'feeding' ? (item.type === 'breastfeeding' ? 'הנקה' : 'בקבוק') : item.logType === 'diaper' ? 'חיתול' : item.logType === 'solid' ? 'טעימות מוצקים' : 'גדילה';
-          const subType = item.logType === 'vitamin_d' ? 'תוסף תזונה' : item.logType === 'pumping' ? 'שאיבת חלב' : item.logType === 'feeding' ? (item.type === 'breastfeeding' ? 'הנקה' : 'האכלה') : item.logType === 'diaper' ? (item.type === 'wet' ? 'פיפי' : item.type === 'dirty' ? 'קקי' : 'שניהם') : item.logType === 'solid' ? item.food_name : (item.metric_type === 'weight' ? 'משקל' : 'גובה');
-          const value = item.logType === 'vitamin_d' ? '2 טיפות' : item.logType === 'pumping' ? `${item.amount_ml} מ"ל` : item.logType === 'feeding' ? (item.duration_minutes ? `${item.duration_minutes} דקות` : `${item.amount_ml} מ"ל`) : item.logType === 'diaper' ? '' : item.logType === 'solid' ? (item.reaction === 'liked' ? 'אהב' : item.reaction === 'neutral' ? 'נייטרלי' : item.reaction === 'disliked' ? 'לא אהב' : 'חשש לאלרגיה') : `${item.value} ${item.unit === 'kg' ? 'ק"ג' : 'ס"מ'}`;
-          const side = item.side === 'left' ? 'שמאל' : item.side === 'right' ? 'ימין' : item.side === 'both' && item.logType !== 'vitamin_d' ? 'שניהם' : '';
+          const type = item.logType === 'vitamin_d' ? 'ויטמין D' : item.logType === 'iron' ? 'תוסף ברזל' : item.logType === 'pumping' ? 'שאיבה' : item.logType === 'feeding' ? (item.type === 'breastfeeding' ? 'הנקה' : 'בקבוק') : item.logType === 'diaper' ? 'חיתול' : item.logType === 'solid' ? 'טעימות מוצקים' : 'גדילה';
+          const subType = item.logType === 'vitamin_d' ? 'תוסף תזונה' : item.logType === 'iron' ? 'תוסף תזונה' : item.logType === 'pumping' ? 'שאיבת חלב' : item.logType === 'feeding' ? (item.type === 'breastfeeding' ? 'הנקה' : 'האכלה') : item.logType === 'diaper' ? (item.type === 'wet' ? 'פיפי' : item.type === 'dirty' ? 'קקי' : 'שניהם') : item.logType === 'solid' ? item.food_name : (item.metric_type === 'weight' ? 'משקל' : 'גובה');
+          const value = item.logType === 'vitamin_d' ? '2 טיפות' : item.logType === 'iron' ? 'תוסף' : item.logType === 'pumping' ? `${item.amount_ml} מ"ל` : item.logType === 'feeding' ? (item.duration_minutes ? `${item.duration_minutes} דקות` : `${item.amount_ml} מ"ל`) : item.logType === 'diaper' ? '' : item.logType === 'solid' ? (item.reaction === 'liked' ? 'אהב' : item.reaction === 'neutral' ? 'נייטרלי' : item.reaction === 'disliked' ? 'לא אהב' : 'חשש לאלרגיה') : `${item.value} ${item.unit === 'kg' ? 'ק"ג' : 'ס"מ'}`;
+          const side = item.side === 'left' ? 'שמאל' : item.side === 'right' ? 'ימין' : item.side === 'both' && item.logType !== 'vitamin_d' && item.logType !== 'iron' ? 'שניהם' : '';
           const notesStr = item.notes ? item.notes.trim() : '';
           csvContent += `${type},${subType},${value},${side},${new Date(item.timestamp).toLocaleDateString('he-IL')},${new Date(item.timestamp).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'})},${notesStr ? notesStr.replace(/,/g, " ") : ""}\n`;
         });
@@ -1235,6 +1266,7 @@
         if (timelineFilter === 'diaper' && item.logType !== 'diaper') return false;
         if (timelineFilter === 'solid' && item.logType !== 'solid') return false;
         if (timelineFilter === 'vitamin_d' && item.logType !== 'vitamin_d') return false;
+        if (timelineFilter === 'iron' && item.logType !== 'iron') return false;
         if (selectedTimelineDate) {
           const itemDate = new Date(item.timestamp);
           const [sYear, sMonth, sDay] = selectedTimelineDate.split('-').map(Number);
@@ -1679,7 +1711,7 @@
                     </div>
                   )}
 
-                  {/* שורות 3: טעימות וויטמין D */}
+                  {/* שורה 3: טעימות מוצקים */}
                   <button onClick={() => { triggerVibration(10); setActiveSection(activeSection === 'solid' ? null : 'solid') }} className={`p-4 rounded-3xl text-center flex flex-col items-center justify-center gap-2 font-bold text-sm transition-all duration-200 col-span-2 active:scale-95 ${activeSection === 'solid' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200/50 dark:shadow-none' : 'bg-white dark:bg-gray-800 text-emerald-600 shadow-sm border border-gray-100 dark:border-gray-700'}`}>🥑 טעימות מוצקים</button>
 
                   {activeSection === 'solid' && (
@@ -1724,14 +1756,27 @@
                       </div>
                     </div>
                   )}
-                </div>
 
-                {/* ויטמין D מהיר */}
-                {showVitaminDButton && (
-                  <button onClick={logVitaminD} className={`w-full p-3.5 mt-2 rounded-3xl text-center flex flex-row items-center justify-center gap-2 font-bold text-sm transition-all duration-200 shadow-sm border active:scale-95 ${vitDSuccess ? 'bg-teal-400 text-white border-teal-400 shadow-teal-200/50 animate-success' : 'bg-white dark:bg-gray-800 text-violet-500 border-gray-100 dark:border-gray-700'}`}>
-                    💊 ויטמין D (2 טיפות)
-                  </button>
-                )}
+                  {/* שורה 4: תוספים מהירים (ויטמין D וברזל זה לצד זה באופציה א') */}
+                  {(showVitaminDButton || showIronButton) && (
+                    <div className={`col-span-2 grid ${showVitaminDButton && showIronButton ? 'grid-cols-2' : 'grid-cols-1'} gap-3 mt-1`}>
+                      {showVitaminDButton && (
+                        <button onClick={logVitaminD} className={`p-3.5 rounded-3xl text-center flex flex-row items-center justify-center gap-2 font-bold text-xs sm:text-sm transition-all duration-200 shadow-sm border active:scale-95 ${vitDSuccess ? 'bg-teal-400 text-white border-teal-400 shadow-teal-200/50 animate-success' : 'bg-white dark:bg-gray-800 text-violet-500 border-gray-100 dark:border-gray-700'}`}>
+                          <span>💊</span>
+                          <span>ויטמין D (2 טיפות)</span>
+                        </button>
+                      )}
+
+                      {showIronButton && (
+                        <button onClick={logIron} className={`p-3.5 rounded-3xl text-center flex flex-row items-center justify-center gap-2 font-bold text-xs sm:text-sm transition-all duration-200 shadow-sm border active:scale-95 ${ironSuccess ? 'bg-rose-500 text-white border-rose-500 shadow-rose-200/50 animate-success' : 'bg-white dark:bg-gray-800 text-rose-600 dark:text-rose-400 border-gray-100 dark:border-gray-700'}`}>
+                          <span>🩸</span>
+                          <span>תוסף ברזל</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                </div>
 
                 <div className="space-y-3 pt-4">
                   <div className="flex justify-between items-center px-2">
@@ -1759,18 +1804,18 @@
                                 </div>
                                 <div className="flex items-center gap-2 mb-1">
                                   <span className="text-base font-black text-gray-900 dark:text-white">
-                                    {item.logType === 'vitamin_d' ? '💊 ויטמין D' : item.logType === 'pumping' ? '🥛 שאיבה' : item.logType === 'feeding' ? (item.type === 'breastfeeding' ? '🤱 הנקה' : '🍼 בקבוק') : item.logType === 'solid' ? '🥑 טעימה' : '🚼 חיתול'}
+                                    {item.logType === 'vitamin_d' ? '💊 ויטמין D' : item.logType === 'iron' ? '🩸 תוסף ברזל' : item.logType === 'pumping' ? '🥛 שאיבה' : item.logType === 'feeding' ? (item.type === 'breastfeeding' ? '🤱 הנקה' : '🍼 בקבוק') : item.logType === 'solid' ? '🥑 טעימה' : '🚼 חיתול'}
                                   </span>
                                   <span className={`text-[11px] px-2.5 py-0.5 rounded-lg font-bold shadow-sm ${getTagColor(item)}`}>
-                                    {item.logType === 'vitamin_d' ? '2 טיפות' : item.logType === 'pumping' ? `${item.amount_ml} מ"ל` : item.logType === 'feeding' ? (item.duration_minutes ? `${item.duration_minutes} דק'` : `${item.amount_ml} מ"ל`) : item.logType === 'solid' ? `${item.food_name}` : (item.type === 'wet' ? 'פיפי' : item.type === 'dirty' ? 'קקי' : 'שניהם')}
+                                    {item.logType === 'vitamin_d' ? '2 טיפות' : item.logType === 'iron' ? 'תוסף' : item.logType === 'pumping' ? `${item.amount_ml} מ"ל` : item.logType === 'feeding' ? (item.duration_minutes ? `${item.duration_minutes} דק'` : `${item.amount_ml} מ"ל`) : item.logType === 'solid' ? `${item.food_name}` : (item.type === 'wet' ? 'פיפי' : item.type === 'dirty' ? 'קקי' : 'שניהם')}
                                   </span>
                                 </div>
                                 <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium mt-1.5 flex items-center gap-1.5">
                                   <span className="text-gray-800 dark:text-gray-200 font-bold font-mono">{new Date(item.timestamp).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'})}</span>
-                                  {item.side && item.logType !== 'vitamin_d' && <span>| צד: <strong className="text-gray-700 dark:text-gray-300">{item.side === 'left' ? 'שמאל' : item.side === 'right' ? 'ימין' : 'שניהם'}</strong></span>}
+                                  {item.side && item.logType !== 'vitamin_d' && item.logType !== 'iron' && <span>| צד: <strong className="text-gray-700 dark:text-gray-300">{item.side === 'left' ? 'שמאל' : item.side === 'right' ? 'ימין' : 'שניהם'}</strong></span>}
                                   {item.logType === 'solid' && <span>| <strong className="text-gray-700 dark:text-gray-300">{item.reaction === 'liked' ? 'אהב' : item.reaction === 'neutral' ? 'נייטרלי' : item.reaction === 'disliked' ? 'לא אהב' : 'חשש לאלרגיה'}</strong></span>}
                                 </p>
-                                {notesText && notesText !== '💊 ויטמין D - 2 טיפות' && <p className="text-[11px] bg-gray-50 dark:bg-gray-700/60 p-2.5 rounded-xl text-gray-700 dark:text-gray-300 mt-2 font-medium border border-gray-100 dark:border-gray-600 leading-relaxed shadow-sm">{notesText}</p>}
+                                {notesText && notesText !== '💊 ויטמין D - 2 טיפות' && notesText !== '🩸 תוסף ברזל' && <p className="text-[11px] bg-gray-50 dark:bg-gray-700/60 p-2.5 rounded-xl text-gray-700 dark:text-gray-300 mt-2 font-medium border border-gray-100 dark:border-gray-600 leading-relaxed shadow-sm">{notesText}</p>}
                               </div>
                               <div className="flex flex-col gap-1.5 mr-2 ml-1">
                                 <button onClick={() => openEditModal(item)} className="text-[10px] bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-300 border border-gray-200 dark:border-gray-600 px-2.5 py-1.5 rounded-lg font-bold transition active:scale-95 shadow-sm">ערוך</button>
@@ -1816,7 +1861,8 @@
                     { id: 'pumping', label: 'שאיבה', icon: '🥛' },
                     { id: 'diaper', label: 'חיתול', icon: '🚼' },
                     { id: 'solid', label: 'טעימות', icon: '🥑' },
-                    { id: 'vitamin_d', label: 'ויטמין D', icon: '💊' }
+                    { id: 'vitamin_d', label: 'ויטמין D', icon: '💊' },
+                    { id: 'iron', label: 'ברזל', icon: '🩸' }
                   ].map(f => (
                     <button 
                       key={f.id} 
@@ -1854,19 +1900,19 @@
                               </div>
                               <div className="flex items-center gap-2 mb-1">
                                 <span className="text-base font-black text-gray-900 dark:text-white">
-                                  {item.logType === 'vitamin_d' ? '💊 ויטמין D' : item.logType === 'pumping' ? '🥛 שאיבה' : item.logType === 'feeding' ? (item.type === 'breastfeeding' ? '🤱 הנקה' : '🍼 בקבוק') : item.logType === 'solid' ? '🥑 טעימה' : '🚼 חיתול'}
+                                  {item.logType === 'vitamin_d' ? '💊 ויטמין D' : item.logType === 'iron' ? '🩸 תוסף ברזל' : item.logType === 'pumping' ? '🥛 שאיבה' : item.logType === 'feeding' ? (item.type === 'breastfeeding' ? '🤱 הנקה' : '🍼 בקבוק') : item.logType === 'solid' ? '🥑 טעימה' : '🚼 חיתול'}
                                 </span>
                                 <span className={`text-[11px] px-2.5 py-0.5 rounded-lg font-bold shadow-sm ${getTagColor(item)}`}>
-                                  {item.logType === 'vitamin_d' ? '2 טיפות' : item.logType === 'pumping' ? `${item.amount_ml} מ"ל` : item.logType === 'feeding' ? (item.duration_minutes ? `${item.duration_minutes} דק'` : `${item.amount_ml} מ"ל`) : item.logType === 'solid' ? `${item.food_name}` : (item.type === 'wet' ? 'פיפי' : item.type === 'dirty' ? 'קקי' : 'שניהם')}
+                                  {item.logType === 'vitamin_d' ? '2 טיפות' : item.logType === 'iron' ? 'תוסף' : item.logType === 'pumping' ? `${item.amount_ml} מ"ל` : item.logType === 'feeding' ? (item.duration_minutes ? `${item.duration_minutes} דק'` : `${item.amount_ml} מ"ל`) : item.logType === 'solid' ? `${item.food_name}` : (item.type === 'wet' ? 'פיפי' : item.type === 'dirty' ? 'קקי' : 'שניהם')}
                                 </span>
                               </div>
                               <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium mt-1.5 flex flex-wrap items-center gap-1.5">
                                 <span className="text-gray-800 dark:text-gray-200 font-bold">{new Date(item.timestamp).toLocaleDateString('he-IL')}</span>
                                 <span className="text-gray-800 dark:text-gray-200 font-bold font-mono px-1"> {new Date(item.timestamp).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'})}</span>
-                                {item.side && item.logType !== 'vitamin_d' && <span>| צד: <strong className="text-gray-700 dark:text-gray-300">{item.side === 'left' ? 'שמאל' : item.side === 'right' ? 'ימין' : 'שניהם'}</strong></span>}
+                                {item.side && item.logType !== 'vitamin_d' && item.logType !== 'iron' && <span>| צד: <strong className="text-gray-700 dark:text-gray-300">{item.side === 'left' ? 'שמאל' : item.side === 'right' ? 'ימין' : 'שניהם'}</strong></span>}
                                 {item.logType === 'solid' && <span>| <strong className="text-gray-700 dark:text-gray-300">{item.reaction === 'liked' ? 'אהב' : item.reaction === 'neutral' ? 'נייטרלי' : item.reaction === 'disliked' ? 'לא אהב' : 'חשש לאלרגיה'}</strong></span>}
                               </p>
-                              {notesText && notesText !== '💊 ויטמין D - 2 טיפות' && <p className="text-[11px] bg-gray-50 dark:bg-gray-700/60 p-2.5 rounded-xl text-gray-700 dark:text-gray-300 mt-2 font-medium border border-gray-100 dark:border-gray-600 leading-relaxed shadow-sm">{notesText}</p>}
+                              {notesText && notesText !== '💊 ויטמין D - 2 טיפות' && notesText !== '🩸 תוסף ברזל' && <p className="text-[11px] bg-gray-50 dark:bg-gray-700/60 p-2.5 rounded-xl text-gray-700 dark:text-gray-300 mt-2 font-medium border border-gray-100 dark:border-gray-600 leading-relaxed shadow-sm">{notesText}</p>}
                             </div>
                             <div className="flex flex-col gap-1.5 mr-2 ml-1">
                               <button onClick={() => openEditModal(item)} className="text-[10px] bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-300 border border-gray-200 dark:border-gray-600 px-2.5 py-1.5 rounded-lg font-bold transition active:scale-95 shadow-sm">ערוך</button>
@@ -2088,7 +2134,7 @@
                   <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-white/60 dark:border-gray-700/50 shadow-xl shadow-gray-200/40 dark:shadow-black/20 space-y-5">
                     <h2 className="text-base font-black dark:text-white flex items-center gap-2"><span className="text-xl">➕</span> הוספת מדידה חדשה</h2>
                     <div className="grid grid-cols-3 gap-2">
-                      {['weight', 'height', 'head_circumference'].map(t => <button key={t} onClick={() => {triggerVibration(10); setGrowthType(t)}} className={`py-3.5 rounded-2xl text-xs font-bold shadow-sm transition border ${growthType === t ? 'bg-teal-400 text-white border-teal-400' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-600'}`}>{t === 'weight' ? '⚖️️ משקל' : t === 'height' ? '📏 גובה' : '⭕ היקף'}</button>)}
+                      {['weight', 'height', 'head_circumference'].map(t => <button key={t} onClick={() => {triggerVibration(10); setGrowthType(t)}} className={`py-3.5 rounded-2xl text-xs font-bold shadow-sm transition border ${growthType === t ? 'bg-teal-400 text-white border-teal-400' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-600'}`}>{t === 'weight' ? '⚖ משקל' : t === 'height' ? '📏 גובה' : '⭕ היקף'}</button>)}
                     </div>
                     <div className="pt-3 space-y-4 border-t border-gray-100 dark:border-gray-700/60">
                       <div className="flex gap-2">
@@ -2120,7 +2166,7 @@
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-1">
                                 <span className="text-sm font-black text-gray-900 dark:text-white">
-                                  {item.metric_type === 'weight' ? '⚖️ משקל' : item.metric_type === 'height' ? '📏 גובה' : '⭕ היקף'}
+                                  {item.metric_type === 'weight' ? '⚖️️ משקל' : item.metric_type === 'height' ? '📏 גובה' : '⭕ היקף'}
                                 </span>
                                 <span className={`text-[11px] px-2.5 py-0.5 rounded-lg font-bold shadow-sm ${getTagColor(item)}`}>
                                   {item.value} {item.unit === 'kg' ? 'ק"ג' : 'ס"מ'}
@@ -2249,6 +2295,10 @@
                       <input type="checkbox" checked={showVitaminDButton} onChange={e => {triggerVibration(10); toggleVitDButton(e.target.checked)}} className="w-5 h-5 accent-rose-500 cursor-pointer" />
                     </div>
                     <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-600 shadow-sm">
+                      <span className="font-bold dark:text-white">הצג כפתור מהיר: תוסף ברזל</span>
+                      <input type="checkbox" checked={showIronButton} onChange={e => {triggerVibration(10); toggleIronButton(e.target.checked)}} className="w-5 h-5 accent-rose-500 cursor-pointer" />
+                    </div>
+                    <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-600 shadow-sm">
                       <span className="font-bold dark:text-white">הצג קוביית סטטוס "צד אחרון"</span>
                       <input type="checkbox" checked={showLastSideStat} onChange={e => {triggerVibration(10); toggleLastSideStat(e.target.checked)}} className="w-5 h-5 accent-rose-500 cursor-pointer" />
                     </div>
@@ -2365,7 +2415,7 @@
                         <option value="right">ימין</option>
                       </select>
                     </div>
-                    {editingItem.type === 'bottle' && !editingItem.notes?.includes('ויטמין D') && (
+                    {editingItem.type === 'bottle' && !editingItem.notes?.includes('ויטמין D') && !editingItem.notes?.includes('ברזל') && (
                       <div>
                         <label className="font-bold block mb-2 px-1 text-gray-500 dark:text-gray-400">סוג הנוזל בבקבוק:</label>
                         <select value={editSelect2} onChange={e => setEditSelect2(e.target.value)} className="w-full p-3 bg-gray-50 dark:bg-gray-700/50 font-bold border border-gray-200 dark:border-gray-600 rounded-2xl focus:outline-none dark:text-white shadow-sm">
@@ -2380,7 +2430,7 @@
                 {editingItem.logType === 'pumping' && (
                   <div className="space-y-4 text-xs">
                     <div>
-                      <label className="font-bold block mb-2 px-1 text-gray-500 dark:text-gray-400">כמות שנשאבה (במ"ל):</label>
+                      <label className="font-bold block mb-2 px-1 text-gray-500 dark:text-gray-400">{editingItem.type === 'breastfeeding' ? 'משך זמן (דקות):' : 'כמות שנשאבה (במ"ל):'}</label>
                       <input type="number" value={editValue1} onChange={e => setEditValue1(e.target.value)} className="w-full p-3 bg-gray-50 dark:bg-gray-700/50 font-black text-base border border-gray-200 dark:border-gray-600 rounded-2xl text-center focus:outline-none dark:text-white shadow-sm" />
                     </div>
                     <div>
